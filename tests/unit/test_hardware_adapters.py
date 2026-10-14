@@ -184,7 +184,7 @@ class HardwareAdaptersTest(absltest.TestCase):
     mock_attach.assert_called_once()
     attach_kwargs = mock_attach.call_args.kwargs
     self.assertEqual(
-      attach_kwargs["gripper_entity"].by_name.object_name, "gripper"
+      attach_kwargs["gripper_entity"].by_name.object_name, "ur_module"
     )
     self.assertEqual(
       attach_kwargs["object_entity"].by_name.object_name, "raw_stock_2x3x5"
@@ -196,7 +196,7 @@ class HardwareAdaptersTest(absltest.TestCase):
     mock_detach.assert_called_once()
     detach_kwargs = mock_detach.call_args.kwargs
     self.assertEqual(
-      detach_kwargs["gripper_entity"].by_name.object_name, "gripper"
+      detach_kwargs["gripper_entity"].by_name.object_name, "ur_module"
     )
     self.assertEqual(
       detach_kwargs["object_entity"].by_name.object_name, "raw_stock_2x3x5"
