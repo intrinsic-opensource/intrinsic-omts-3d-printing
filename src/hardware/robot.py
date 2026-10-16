@@ -428,9 +428,12 @@ class Robot:
     """Builds an SBL attach_object_to_robot task to attach an object to the gripper."""
     task_name = name or f"Attach {object_name} to {self._tool_object_name}"
     attach_skill = self._solution.skills.ai.intrinsic.attach_object_to_robot
+    # attach_object_to_robot parents the object to the reference's unique final
+    # entity. A multi-finger gripper has none, so pass the robot instead: the
+    # object is attached to its tool flange.
     gripper_ref = object_world_refs_pb2.ObjectReference(
       by_name=object_world_refs_pb2.ObjectReferenceByName(
-        object_name=self._tool_object_name
+        object_name=self._arm_part_name
       )
     )
     object_ref = object_world_refs_pb2.ObjectReference(
@@ -452,9 +455,10 @@ class Robot:
     """Builds an SBL detach_object task to detach an object from the gripper."""
     task_name = name or f"Detach {object_name} from {self._tool_object_name}"
     detach_skill = self._solution.skills.ai.intrinsic.detach_object
+    # Must match the object passed to attach_object_to_robot (the robot).
     gripper_ref = object_world_refs_pb2.ObjectReference(
       by_name=object_world_refs_pb2.ObjectReferenceByName(
-        object_name=self._tool_object_name
+        object_name=self._arm_part_name
       )
     )
     object_ref = object_world_refs_pb2.ObjectReference(
