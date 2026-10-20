@@ -1,0 +1,16 @@
+# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
+# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+
+metadata {
+  id {
+    name: "rebot_b601_rs"
+    package: "ai.intrinsic"
+  }
+  vendor {
+    display_name: "intrinsic"
+  }
+  display_name: "rebot_b601_rs"
+  documentation {
+    description: "Seeed Studio reBot Arm B601-RS (6 DoF, two-finger gripper). Static, visual-only model for simulation; no ICON hardware module yet."
+  }
+}

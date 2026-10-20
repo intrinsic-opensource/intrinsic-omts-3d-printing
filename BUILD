@@ -145,6 +145,30 @@ alias(
     actual = "//src:omts_app",
 )
 
+# Printer-tending cell under development on the research branch
+# (research/HANDOFF.md): a Seeed reBot Arm B601-RS alone in an empty world.
+# For now the arm is a static scene object for simulation, with no ICON
+# hardware module, gripper, camera or perception services. Kept as its own
+# solution so omts_solution and its cells are unaffected.
+intrinsic_solution(
+    name = "rebot_solution",
+    assets = [
+        "@intrinsic-core//intrinsic/simulation/gazebo/asset:gazebo_simulator_type",
+        "//models/rebot_b601_rs",
+    ],
+    default_operation_mode = "sim",
+    instances = [
+        ":gazebo_simulator",
+        ":rebot",
+    ],
+)
+
+intrinsic_asset_instance(
+    name = "rebot",
+    asset = "ai.intrinsic.rebot_b601_rs",
+    instance_name = "rebot",
+)
+
 intrinsic_asset_instance(
     name = "enclosure",
     asset = select({

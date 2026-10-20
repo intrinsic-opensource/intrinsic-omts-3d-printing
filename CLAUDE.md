@@ -4,7 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-OMTS (Open Machine Tending Solution) is a reference CNC machine-tending app built on Intrinsic Core and its Solution Building Library (SBL) Python SDK. Everything builds with Bazel (Bzlmod; `@intrinsic-core` and `@intrinsic_apis` are fetched via `git_override` in `MODULE.bazel`, pinned by `INTRINSIC_CORE_COMMIT`). Git LFS is required: `*.glb` meshes are LFS-tracked, and without LFS they silently become pointer files.
+OMTS (Open Machine Tending Solution) is a reference CNC machine-tending app built on Intrinsic Core and its Solution Building Library (SBL) Python SDK. Everything builds with Bazel (Bzlmod; `@intrinsic-core` and `@intrinsic_apis` are fetched from the same release tarball via `archive_override` in `MODULE.bazel`, pinned by `INTRINSIC_CORE_RELEASE` + `INTRINSIC_CORE_SHA256`; `@intrinsic-core` also applies `bazel/patches/robotiq_hande_finger_offset.patch`). Git LFS is required: `*.glb` meshes are LFS-tracked, and without LFS they silently become pointer files.
+
+## Current direction
+
+The `research` branch is adapting OMTS into a 3D-printer-tending solution with a low-cost Seeed reBot Arm. Intrinsic is adding ICON support for the arm and ARM64 (NVIDIA Jetson) support. Work is in simulation, with the arm alone in an empty cell; the target printer is undecided. Plan, decisions and open questions: `research/HANDOFF.md` (milestone plan in §5). Feasibility study: `research/PRINTER_UNLOADING.md`.
+
+## Workflow
+
+Development is a spiral: start with the simplest thing that works and add one layer of complexity per step, with something to demo at the end of every step.
+
+- Plan work as a sequence of small steps, each ending in a concrete demo (what is deployed, what is shown). Milestones are split this way in `research/HANDOFF.md`.
+- Keep the existing cells (`omts`, `lab_bb_01`) building and working. Add new behavior alongside, behind config or the `//:setup` flag, rather than replacing it.
+- Prefer the smallest change that makes the next demo possible. Defer generality (other printers, perception, hardware) until a step needs it, and note it as later work instead of building it early.
+- After each step, update `research/HANDOFF.md`: mark the step done, record what was learned, and re-plan the next steps if it changed them.
 
 ## Commands
 
@@ -20,6 +33,9 @@ bazel test --test_output=errors //tests/unit:test_behaviors   # single target
 # Deploy the solution (default cell is omts; lab cell via flag)
 bazel run //:omts_solution -c opt -- --address=localhost:17080
 bazel run //:omts_solution -c opt --//:setup=lab_bb_01 -- --address=localhost:17080
+
+# Deploy the reBot printer-tending cell (research branch; sim by default)
+bazel run //:rebot_solution -c opt -- --address=localhost:17080
 
 # Push configs/<cell>/*.updates.pbtxt to the live world (--reset_sim also syncs Gazebo)
 bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 --reset_sim
@@ -48,7 +64,7 @@ Two separate deliverables:
 
 Layers in `src/`:
 - `core/`: domain models, enums, config, infeed strategies (`PerceptionInfeedStrategy` / `GridInfeedStrategy`). **Must not import `intrinsic.*`.**
-- `hardware/`: stateless adapters (`UrRobot`, `RobotiqGripper`/`DioGripper`, `DioCncMachine`, `OrbbecVision`) behind abstract interfaces. Each takes `solution` plus its config dataclass and returns SBL `bt.Task`/`bt.Sequence` nodes. Nothing runs at construction time.
+- `hardware/`: stateless adapters: `Robot` (a concrete class, no interface), plus `RobotiqGripper`/`DioGripper`, `DioCncMachine` and `OrbbecVision` behind `GripperInterface`/`CncMachineInterface`/`VisionInterface`. Grasp planning sits behind `GraspPlannerInterface` (`grasping.py`); `grasp_planners.py` builds the backend selected by the `grasp.planner` config key (`cuboid_center` → `None`, letting perception publish the frames itself; `moveit` → `MoveItGraspPlanner` from `third_party/intrinsic_moveit/`). Each adapter takes `solution` plus its config dataclass and returns SBL `bt.Task`/`bt.Sequence` nodes. Nothing runs at construction time.
 - `behaviors/`: five subtree builders (pick → load_machine → machining → unload_machine → return_infeed), composed in `machine_tending_bt.py` and wrapped in `bt.Loop` (`num_cycles` 1, N, or 0 for continuous). `motions.py` holds shared motion primitives (move-to-frame, compliant touchdown via `move_to_contact`, relative `-Z` retract).
 - `utils/`: helpers. `dynamic_frame_calculator.py` is special: `load_python_script()` ships its **entire module source** into a `bt.PythonScript` that runs inside the executive. It may therefore only import things available there (stdlib, `intrinsic.*`), never `src.*`.
 

@@ -14,6 +14,14 @@ OMTS. Most of the software carries over; the hard problems are physical.
 > Later revision: force sensing is **no longer a requirement**, so that low-cost
 > position-controlled arms qualify. Sections 4, 5 and 6 reflect that, and
 > section 7 evaluates the SO-101 as a low-cost arm.
+>
+> [!IMPORTANT]
+> **Superseded in part by the kickoff with Intrinsic (2026-10-20).** The arm is
+> now the Seeed reBot Arm, with ICON support coming from Intrinsic, so section 7
+> (SO-101) and the prototype order in section 8.1 no longer reflect the plan.
+> Work starts in simulation with the arm alone, with no printer, and target
+> compute is an NVIDIA Jetson. Sections 1–6 still hold, except where they name
+> the SO-101. Current plan: [`HANDOFF.md`](HANDOFF.md).
 
 ---
 
@@ -347,6 +355,10 @@ flowchart TD
 
 ## 7. Low-Cost Arm: SO-101
 
+> [!NOTE]
+> Superseded: the arm is now the Seeed reBot Arm (see the note at the top and
+> `ARM_SELECTION_REQUEST.md`). Kept as the record of the SO-101 evaluation.
+
 The UR arm and Robotiq Hand-E are a far bigger cost barrier than any camera.
 The [SO-101](https://github.com/TheRobotStudio/SO-ARM100) is an open-source,
 3D-printed arm at about $230 for a leader + follower pair. It is viable for a
@@ -431,6 +443,11 @@ The intended stack is: SO-101 → Feetech `ros2_control` driver →
 ## 8. Prototype Plan and Open Questions
 
 ### 8.1 Suggested order
+
+> [!NOTE]
+> Superseded by milestone 1 in [`HANDOFF.md`](HANDOFF.md) section 5: the reBot
+> in simulation first, then the printer-specific steps below in small,
+> demoable increments.
 
 1. `plate_layout.py` + `footprint_grasp.py` with unit tests against real 3MFs.
    Pure Python, no hardware; shows how many typical plates are pickable.

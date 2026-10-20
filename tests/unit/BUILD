@@ -34,6 +34,16 @@ py_proto_library(
 )
 
 py_test(
+    name = "test_urdf_to_sdf",
+    srcs = ["test_urdf_to_sdf.py"],
+    deps = [
+        "//tools/models:urdf_to_sdf_lib",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
     name = "test_tray",
     srcs = ["test_tray.py"],
     deps = [
