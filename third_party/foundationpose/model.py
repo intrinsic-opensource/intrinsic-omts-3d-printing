@@ -75,6 +75,14 @@ class TritonPythonModel:
     )
     sys.stderr.flush()
 
+    # Passed to each session's last run of a request so ONNX Runtime returns
+    # the GPU memory its arena grew during the request (otherwise it keeps
+    # ~8 GB reserved after the first estimation).
+    self.release_memory_run_options = ort.RunOptions()
+    self.release_memory_run_options.add_run_config_entry(
+      "memory.enable_memory_arena_shrinkage", "gpu:0"
+    )
+
     sys.stderr.write(
       "[FoundationPose Triton] Initialized successfully with ONNX Runtime and"
       " native C++ CUDA Rasterizer.\n"
@@ -438,6 +446,10 @@ class TritonPythonModel:
           for chunk_start in range(0, total_cands, effective_batch_size):
             chunk_end = min(chunk_start + effective_batch_size, total_cands)
             chunk_poses_np = candidate_poses_np[chunk_start:chunk_end].copy()
+            # Release arena memory after the request's last run of each session.
+            last_chunk_of_request = (
+              mask_idx == len(mask_np) - 1 and chunk_end == total_cands
+            )
 
             for _iteration in range(num_iterations):
               in1, in2 = self._prepare_model_inputs(
@@ -451,7 +463,11 @@ class TritonPythonModel:
               )
 
               refine_outs = self.refine_session.run(
-                None, {"input1": in1, "input2": in2}
+                None,
+                {"input1": in1, "input2": in2},
+                self.release_memory_run_options
+                if last_chunk_of_request and _iteration == num_iterations - 1
+                else None,
               )
               trans_delta_np = refine_outs[0].astype(np.float32)
               rot_delta_np = refine_outs[1].astype(np.float32)
@@ -475,7 +491,9 @@ class TritonPythonModel:
             )
 
             score_outs = self.score_session.run(
-              None, {"input1": in1, "input2": in2}
+              None,
+              {"input1": in1, "input2": in2},
+              self.release_memory_run_options if last_chunk_of_request else None,
             )
             scores = score_outs[0].reshape(-1)
 
