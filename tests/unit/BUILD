@@ -129,6 +129,19 @@ py_test(
 )
 
 py_test(
+    name = "test_rebot_pick_place",
+    srcs = ["test_rebot_pick_place.py"],
+    deps = [
+        "//src/behaviors:rebot_pick_place",
+        "//src/core:infeed",
+        "//src/core:tray",
+        "//src/hardware:robot",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+    ],
+)
+
+py_test(
     name = "test_move_to_frame",
     srcs = ["test_move_to_frame.py"],
     deps = [

@@ -19,7 +19,8 @@ This file records what has been decided and what to do next.
 | reBot URDFs | Base for the sim model: [Seeed-Projects/reBot-Isaacsim](https://github.com/Seeed-Projects/reBot-Isaacsim) `urdf/00-arm-rs_asm-v3/urdf/00-arm-rs_asm-v3.urdf` (MIT), which fixes the gripper limits (section 6.2). Originals: [Seeed-Projects/reBot-DevArm](https://github.com/Seeed-Projects/reBot-DevArm) `Rebot_Arm_description/` (Apache-2.0 / CERN-OHL-W-2.0). |
 | Reference source | `intrinsic-core` at `main` (past `20261012.0`). OMTS itself pins the `20261012.0` release in `MODULE.bazel` (`INTRINSIC_CORE_RELEASE`), so check behavior against that tag when it matters. |
 
-No code has been written yet. Everything so far is analysis.
+Steps 1a–1c are implemented in simulation (section 5). In step 1c the part
+moves only in the belief world (RViz), not in Gazebo; see the step 1c notes.
 
 ---
 
@@ -241,15 +242,62 @@ Learned (friction worth knowing):
 
 ### Step 1c: The reBot picks and places a printed part
 
-* Add a light printed-part model as the workpiece, at a fixed known pose
-  (`GridInfeedStrategy`, no perception).
-* Add a position-only approach in place of the `move_to_contact` touchdown,
-  since the reBot has no force-torque sensor (study section 2, `motions.py` row).
-* Add a `GripperInterface` for the reBot's two-finger gripper (two prismatic
-  joints in the URDF; see section 6 for which URDF's finger limits to use).
-* **Demo:** the reBot picks the part, places it at a second pose and repeats.
+**Status: done in the belief world (2026-10-20); Gazebo does not carry the
+part.** Deployed and verified in local simulation. Watch the demo in RViz.
+Decided 2026-10-20: keep this stand-in for now; making Gazebo carry the part
+waits for the gripper decision (question 4.1.5).
 
-Gripper actuation in sim, investigated 2026-10-20 and left for this step:
+* Added `models/rebot_printed_part/`, a 40 × 40 × 30 mm, 20 g model with a box
+  collision and a GLB visual, and fixed source A / destination B frames in
+  `configs/rebot/rebot_pick_place.updates.pbtxt`.
+* Added `models/rebot_ground/`, a static 2 × 2 m slab (box collision, GLB
+  visual) with its top surface at `z=0`, so the printed part starts on solid
+  ground instead of falling through empty space.
+* Ground-to-part collision is excluded only on the position-only contact and
+  immediate retract segments; transit keeps ground collision checking enabled.
+* Added `//src:rebot_demo` / `//:rebot_demo` and a reBot-specific behavior tree.
+  It uses `GridInfeedStrategy`, position-only linear approaches, and
+  `attach_object_to_robot` / `detach_object` as the temporary sim-only grasp
+  stand-in. The same part transfers A→B→A each cycle, so it can repeat without
+  finger actuation or resetting the world.
+* No gripper-finger actuation or `GripperInterface` implementation is included
+  in this step. Defer it until Intrinsic confirms how the real reBot gripper
+  will be exposed.
+* **Demo:** `bazel run -c opt //:rebot_solution -- --address=localhost:17080`,
+  then `bazel run //:rebot_demo -- --address=localhost:17080`. The tree performs
+  A→B→A transfers; use `--num_cycles=N` to repeat the round trip.
+* Verified: scene-object builds, `bazel build --nobuild //...`, focused
+  behavior and config-schema tests, and two simulated A→B→A cycles via
+  `bazel run //:rebot_demo -- --address=localhost:17080 --num_cycles=2`.
+  Sampling the belief world during a cycle showed the part reparented to
+  `rebot`, following the tool A→B→A, and returned to `root` on detach.
+
+Learned:
+
+* **`attach_object_to_robot` changes only the belief world; Gazebo's part
+  stays put.** Simulation syncs Gazebo → world service (`sim_world`), never
+  belief → Gazebo, so reparenting has no physical effect. Sampled
+  `/world/default/pose/info` during a cycle: the part stayed at A throughout.
+  Gazebo welds a part to the tool only through a gripper plugin. The weld-only
+  option is `FixedJointGripper`, which Intrinsic enables for an EOAT
+  `SuctionGripperConfig` and commands through ICON digital I/O. It needs the
+  same simulated-DIO setup as route 2 below. Gazebo's stock `DetachableJoint`
+  plugin survives SDF conversion but is triggered by gz-transport topics,
+  which a behavior tree cannot publish.
+* **RViz skips SDF primitive visuals.** `flowstate_ros_bridge` draws only
+  visuals with a mesh `geo_ref`; `<box>` visuals are stored inline and
+  silently dropped. Both new models therefore use GLB visuals (boxes written
+  with `tools/models/urdf_to_sdf.write_glb`) and keep box collisions.
+* **The bridge fetches meshes once, at pod start,** and a redeploy does not
+  restart it. After adding objects, restart it:
+  `kubectl -n app-resources delete pod rs-flowstate-ros-bridge-0`.
+* **The part creeps up about 1 mm per transfer** in the belief world (z 0.017
+  → 0.018 → 0.019 over one round trip): the attach captures the tool's actual
+  pose, which settles slightly differently at grasp and place. Harmless for a
+  few cycles; snap the part to its nominal pose after detach if long runs
+  need it.
+
+Gripper actuation in sim, investigated 2026-10-20 and deferred:
 
 * **World updates don't move the fingers in Gazebo.** Setting the gripper's
   joints in the belief world (`update_object_joints`) changes nothing in the
@@ -269,9 +317,9 @@ Gripper actuation in sim, investigated 2026-10-20 and left for this step:
      simulated DIO on the arm's module (a `DigitalInputOutput` plugin in the
      SDF, as the UR models have), a `HalADIOPart` in ICON and the signal
      mapping.
-* The simplest first spiral for 1c may be **no actuation at all**: grasp by
-  attaching the part to the tool (`attach_object_to_robot`), as a sim-only
-  stand-in, and add real finger motion later.
+* Step 1c uses **no actuation**: it attaches the part to the robot with
+  `attach_object_to_robot` as a sim-only stand-in. Real finger motion is later
+  work.
 * How Intrinsic's hardware support will expose the real gripper (a motor on
   the arm's CAN bus) is unknown; ask before investing in either route.
 

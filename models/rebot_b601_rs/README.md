@@ -60,8 +60,9 @@ fingertips.
 
 * **Joint limits beyond position are placeholders.** Revisit them against the
   real arm once Intrinsic's hardware support lands.
-* **Gripper fingers are independent and unactuated.** The real gripper moves
-  both fingers 1:1; the coupling and control come with step 1c.
+* **Gripper fingers are independent and unactuated in simulation.** Step 1c
+  uses Object World attach/detach as a temporary grasp stand-in; real finger
+  coupling and control remain future work pending Intrinsic's gripper interface.
 * **Collision meshes are coarse simplifications** (8 mm vertex clustering),
   not conservative hulls. Revisit before relying on motion planning near
   obstacles.

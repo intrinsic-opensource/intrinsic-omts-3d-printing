@@ -1,0 +1,144 @@
+# proto-file: intrinsic/world/public/proto/object_world_updates.proto
+# proto-message: intrinsic_proto.world.ObjectWorldUpdates
+
+# The part rests on the simulated floor at source A. Its grasp frames and the
+# corresponding destination B frames use the straight-down reBot demo pose.
+updates {
+  update_transform {
+    node_a {
+      by_name {
+        object {
+          object_name: "root"
+        }
+      }
+    }
+    node_b {
+      by_name {
+        object {
+          object_name: "rebot_printed_part"
+        }
+      }
+    }
+    node_to_update {
+      by_name {
+        object {
+          object_name: "rebot_printed_part"
+        }
+      }
+    }
+    a_t_b {
+      position {
+        x: 0.3
+        y: -0.12
+        z: 0.015
+      }
+      orientation {
+        w: 1
+      }
+    }
+  }
+}
+
+updates {
+  create_frame {
+    new_frame_name: "part_a_pregrasp"
+    parent_t_new_frame {
+      position {
+        x: 0.3
+        y: -0.12
+        z: 0.12
+      }
+      orientation {
+        x: 1
+        y: 0
+        z: 0
+        w: 0
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+
+updates {
+  create_frame {
+    new_frame_name: "part_a_grasp"
+    parent_t_new_frame {
+      position {
+        x: 0.3
+        y: -0.12
+        z: 0.05
+      }
+      orientation {
+        x: 1
+        y: 0
+        z: 0
+        w: 0
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+
+updates {
+  create_frame {
+    new_frame_name: "part_b_pregrasp"
+    parent_t_new_frame {
+      position {
+        x: 0.3
+        y: 0.12
+        z: 0.12
+      }
+      orientation {
+        x: 1
+        y: 0
+        z: 0
+        w: 0
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+
+updates {
+  create_frame {
+    new_frame_name: "part_b_grasp"
+    parent_t_new_frame {
+      position {
+        x: 0.3
+        y: 0.12
+        z: 0.05
+      }
+      orientation {
+        x: 1
+        y: 0
+        z: 0
+        w: 0
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}

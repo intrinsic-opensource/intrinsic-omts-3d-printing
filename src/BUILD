@@ -19,3 +19,22 @@ py_binary(
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
     ],
 )
+
+py_binary(
+    name = "rebot_demo",
+    srcs = ["rebot_demo.py"],
+    main = "rebot_demo.py",
+    deps = [
+        "//src/behaviors:rebot_pick_place",
+        "//src/core:config",
+        "//src/core:infeed",
+        "//src/core:tray",
+        "//src/core:types",
+        "//src/core:workpiece",
+        "//src/hardware:robot",
+        "@com_google_absl_py//absl:app",
+        "@com_google_absl_py//absl/flags",
+        "@com_google_absl_py//absl/logging",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
+    ],
+)

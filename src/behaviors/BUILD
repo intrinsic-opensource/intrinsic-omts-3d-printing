@@ -102,6 +102,18 @@ py_library(
 )
 
 py_library(
+    name = "rebot_pick_place",
+    srcs = ["rebot_pick_place.py"],
+    deps = [
+        ":motions",
+        "//src/core:infeed",
+        "//src/core:types",
+        "//src/hardware:robot",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+    ],
+)
+
+py_library(
     name = "behaviors",
     srcs = ["__init__.py"],
     deps = [
@@ -110,6 +122,7 @@ py_library(
         ":machining",
         ":motions",
         ":pick",
+        ":rebot_pick_place",
         ":return_infeed",
         ":unload_machine",
     ],

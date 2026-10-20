@@ -145,6 +145,11 @@ alias(
     actual = "//src:omts_app",
 )
 
+alias(
+    name = "rebot_demo",
+    actual = "//src:rebot_demo",
+)
+
 # Printer-tending cell under development on the research branch
 # (research/HANDOFF.md): a Seeed reBot Arm B601-RS alone in an empty world,
 # controlled by ICON in simulation (no gripper actuation, camera or perception
@@ -156,11 +161,15 @@ intrinsic_solution(
     assets = [
         "@intrinsic-core//incode/motion_planning/skills:move_robot_skill",
         "@intrinsic-core//intrinsic/manipulation/skills/force:move_to_contact_skill",
+        "@intrinsic-core//intrinsic/skills/apps:attach_object_to_robot_skill",
+        "@intrinsic-core//intrinsic/skills/apps:detach_object_skill",
         "@intrinsic-core//intrinsic/simulation/gazebo/asset:gazebo_simulator_type",
         "@intrinsic-core//intrinsic_control/intrinsic/icon/machines/common:generic_icon_mainloop_type",
         "@intrinsic-core//intrinsic_motion_planning/intrinsic/motion_planning/service:motion_planner_service_asset",
         "//models/rebot_b601_rs",
         "//models/rebot_b601_rs_gripper",
+        "//models/rebot_ground",
+        "//models/rebot_printed_part",
         ":flowstate_ros_bridge_asset",
     ],
     default_operation_mode = "sim",
@@ -171,9 +180,13 @@ intrinsic_solution(
         ":rebot",
         ":rebot_gripper",
         ":rebot_icon",
+        ":rebot_ground",
+        ":rebot_printed_part",
     ],
     object_world_updates = [
         "//configs:rebot/rebot.attachments.updates.pbtxt",
+        "//configs:rebot/rebot_ground.updates.pbtxt",
+        "//configs:rebot/rebot_pick_place.updates.pbtxt",
         "//configs:rebot/scene.updates.pbtxt",
     ],
 )
@@ -188,6 +201,18 @@ intrinsic_asset_instance(
     name = "rebot_gripper",
     asset = "ai.intrinsic.rebot_b601_rs_gripper",
     instance_name = "gripper",
+)
+
+intrinsic_asset_instance(
+    name = "rebot_printed_part",
+    asset = "ai.intrinsic.rebot_printed_part",
+    instance_name = "rebot_printed_part",
+)
+
+intrinsic_asset_instance(
+    name = "rebot_ground",
+    asset = "ai.intrinsic.rebot_ground",
+    instance_name = "rebot_ground",
 )
 
 intrinsic_asset_instance(

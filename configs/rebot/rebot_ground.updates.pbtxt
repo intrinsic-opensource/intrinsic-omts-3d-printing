@@ -1,0 +1,37 @@
+# proto-file: intrinsic/world/public/proto/object_world_updates.proto
+# proto-message: intrinsic_proto.world.ObjectWorldUpdates
+
+# Center the 5 cm-thick slab 2.5 cm below z=0 so its collision top is at z=0.
+updates {
+  update_transform {
+    node_a {
+      by_name {
+        object {
+          object_name: "root"
+        }
+      }
+    }
+    node_b {
+      by_name {
+        object {
+          object_name: "rebot_ground"
+        }
+      }
+    }
+    node_to_update {
+      by_name {
+        object {
+          object_name: "rebot_ground"
+        }
+      }
+    }
+    a_t_b {
+      position {
+        z: -0.025
+      }
+      orientation {
+        w: 1
+      }
+    }
+  }
+}
