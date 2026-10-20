@@ -11,12 +11,21 @@ Utilities for producing scene models under [`models/`](../../models/).
 ## Usage Example
 
 ```bash
-# Regenerate the reBot model (paths may be relative to where bazel is run):
+# Convert a URDF into a static scene model (paths may be relative to where
+# bazel is run):
 bazel run //tools/models:urdf_to_sdf -- \
   --urdf=/path/to/robot.urdf --mesh_dir=/path/to/meshes \
-  --out_dir=models/rebot_b601_rs --model_name=rebot_b601_rs \
-  --colors=models/rebot_b601_rs/mesh_colors.json --static
+  --out_dir=models/my_model --model_name=my_model --static
 ```
+
+The reBot arm and gripper commands are in
+[`models/rebot_b601_rs/README.md`](../../models/rebot_b601_rs/README.md).
+
+To split one URDF into several models, such as an arm and its gripper, use
+`--root_link` (start from this link) and `--exclude_links` (leave these
+subtrees out). For a robot arm that ICON controls, `--ik_solver` adds
+`intrinsic:ik_solver` and Cartesian limits, and `--flange_link` adds the
+`flange` attachment frame where tools mount.
 
 `--visual_cell_size` and `--collision_cell_size` (meters, defaults 0.5 mm and
 5 mm) trade mesh detail for file size. Color rules are a JSON list of

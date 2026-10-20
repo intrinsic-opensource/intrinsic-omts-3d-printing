@@ -1,5 +1,5 @@
-# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
-# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+# proto-file: intrinsic/assets/hardware_devices/proto/v1/hardware_device_manifest.proto
+# proto-message: intrinsic_proto.hardware_devices.v1.HardwareDeviceManifest
 
 metadata {
   id {
@@ -9,8 +9,22 @@ metadata {
   vendor {
     display_name: "intrinsic"
   }
-  display_name: "rebot_b601_rs"
+  display_name: "reBot Arm B601-RS (simulation)"
   documentation {
-    description: "Seeed Studio reBot Arm B601-RS (6 DoF, two-finger gripper). Static, visual-only model for simulation; no ICON hardware module yet."
+    description: "Seeed Studio reBot Arm B601-RS, 6 DoF, without its gripper. Simulation only: in sim, Gazebo runs the ICON hardware module. Real-hardware support comes from Intrinsic."
+  }
+}
+graph {
+  nodes {
+    key: "scene_object"
+    value {
+      asset: "ai.intrinsic.rebot_b601_rs_scene_object"
+    }
+  }
+  nodes {
+    key: "service"
+    value {
+      asset: "ai.intrinsic.rebot_b601_rs_service"
+    }
   }
 }

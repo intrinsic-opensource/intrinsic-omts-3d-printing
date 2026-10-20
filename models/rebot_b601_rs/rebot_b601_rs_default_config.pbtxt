@@ -1,0 +1,10 @@
+# proto-file: google/protobuf/any.proto
+# proto-message: google.protobuf.Any
+
+# Default config for the simulated reBot arm. In sim, Gazebo infers the hardware
+# interfaces (joint position/velocity state and command, payload, safety) from
+# the arm's six joints, so module_config is not used.
+[type.googleapis.com/intrinsic_proto.icon.HardwareModuleConfig]: {
+  drives_realtime_clock: true
+  control_frequency_hz: 500
+}

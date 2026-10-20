@@ -185,6 +185,33 @@ class ConvertTest(absltest.TestCase):
     self.assertEqual(position["min"], [0.0, 0.0, 1.0])
     self.assertEqual(position["max"], [1.0, 1.0, 2.0])
 
+  def test_exclude_links_drops_subtree_and_its_joint(self):
+    model = self._convert(exclude_links=["arm"])
+    self.assertEqual(
+      [link.get("name") for link in model.iter("link")], ["base"]
+    )
+    self.assertEmpty(model.findall("joint"))
+
+  def test_root_link_starts_a_separate_model(self):
+    model = self._convert(root_link="arm")
+    links = model.findall("link")
+    self.assertEqual([link.get("name") for link in links], ["arm"])
+    self.assertIsNone(links[0].find("pose"))
+    self.assertEmpty(model.findall("joint"))
+
+  def test_robot_tags_and_flange_frame(self):
+    model = self._convert(ik_solver="kinematic_chain", flange_link="arm")
+    ns = "{https://intrinsic.ai/}"
+    self.assertEqual(model.find(f"{ns}ik_solver").text, "kinematic_chain")
+    self.assertIsNotNone(model.find(f"{ns}cartesian_limits"))
+    flange = model.find("frame[@name='flange']")
+    self.assertEqual(flange.get("attached_to"), "arm")
+    self.assertEqual(flange.get(f"{ns}create_attachment_entity"), "true")
+
+  def test_flange_must_be_in_model(self):
+    with self.assertRaises(ValueError):
+      self._convert(exclude_links=["arm"], flange_link="arm")
+
   def test_static_and_color_rules(self):
     model = self._convert(
       static=True,

@@ -45,6 +45,9 @@ Do not edit by hand; re-run the tool instead.
 -->
 """
 
+_INTRINSIC_NS = "https://intrinsic.ai/"
+ET.register_namespace("intrinsic", _INTRINSIC_NS)
+
 _GLB_FLOAT = 5126
 _GLB_UINT32 = 5125
 _GLB_ARRAY_BUFFER = 34962
@@ -395,6 +398,10 @@ def convert(
   collision_cell_size: float = 0.005,
   color_rules: Sequence[ColorRule] = (),
   static: bool = False,
+  root_link: str | None = None,
+  exclude_links: Sequence[str] = (),
+  ik_solver: str | None = None,
+  flange_link: str | None = None,
 ) -> pathlib.Path:
   """Writes `<model_name>.sdf` and one GLB per link visual and collision.
 
@@ -408,6 +415,15 @@ def convert(
       color_rules: Materials for visual meshes, first match wins.
       static: Marks the model static, so it holds its pose in Gazebo
         without a controller.
+      root_link: Link to start the model from. Defaults to the URDF's root.
+        Use it with `exclude_links` to split one URDF into several models,
+        such as an arm and its gripper.
+      exclude_links: Links left out of the model, with everything below them.
+      ik_solver: Adds `<intrinsic:ik_solver>` (for example "kinematic_chain")
+        and default Cartesian limits, which Intrinsic needs to control the
+        model as a robot.
+      flange_link: Adds an Intrinsic attachment frame named "flange" at this
+        link's origin, where tools such as a gripper are attached.
 
   Returns:
       Path of the written SDF file.
@@ -416,17 +432,54 @@ def convert(
   out_dir = pathlib.Path(out_dir)
   out_dir.mkdir(parents=True, exist_ok=True)
   robot = ET.parse(urdf_path).getroot()
-  parent_joint = {
-    j.find("child").get("link"): j.get("name") for j in robot.findall("joint")
-  }
+  joints = robot.findall("joint")
+  children = {j.find("child").get("link") for j in joints}
+  if root_link is None:
+    roots = [
+      link.get("name")
+      for link in robot.findall("link")
+      if link.get("name") not in children
+    ]
+    if len(roots) != 1:
+      raise ValueError(f"Expected one root link, found {roots}.")
+    root_link = roots[0]
+
+  # Links reachable from the root, without the excluded subtrees.
+  included, frontier = {root_link}, [root_link]
+  while frontier:
+    parent = frontier.pop()
+    for joint in joints:
+      child = joint.find("child").get("link")
+      if (
+        joint.find("parent").get("link") == parent
+        and child not in exclude_links
+      ):
+        included.add(child)
+        frontier.append(child)
+  joints = [
+    j
+    for j in joints
+    if j.find("parent").get("link") in included
+    and j.find("child").get("link") in included
+  ]
+  if flange_link is not None and flange_link not in included:
+    raise ValueError(f"Flange link '{flange_link}' is not in the model.")
+  parent_joint = {j.find("child").get("link"): j.get("name") for j in joints}
 
   sdf = ET.Element("sdf", {"version": "1.9"})
   model = _sub(sdf, "model", name=model_name)
   if static:
     _sub(model, "static", "true")
+  if ik_solver is not None:
+    _sub(model, f"{{{_INTRINSIC_NS}}}ik_solver", ik_solver)
+    limits = _sub(model, f"{{{_INTRINSIC_NS}}}cartesian_limits")
+    _sub(limits, f"{{{_INTRINSIC_NS}}}min_translational_position", "-5 -5 -5")
+    _sub(limits, f"{{{_INTRINSIC_NS}}}max_translational_position", "5 5 5")
 
   for link in robot.findall("link"):
     name = link.get("name")
+    if name not in included:
+      continue
     sdf_link = _sub(model, "link", name=name)
     if name in parent_joint:
       _sub(sdf_link, "pose", relative_to=parent_joint[name])
@@ -452,7 +505,7 @@ def convert(
       element = _sub(sdf_link, tag, name=f"{name}_{tag}")
       _sub(_sub(_sub(element, "geometry"), "mesh"), "uri", file_name)
 
-  for joint in robot.findall("joint"):
+  for joint in joints:
     sdf_joint = _sub(
       model, "joint", name=joint.get("name"), type=joint.get("type")
     )
@@ -477,6 +530,15 @@ def convert(
         for key in ("effort", "velocity"):
           if limit.get(key) is not None:
             _sub(sdf_limit, key, limit.get(key))
+
+  if flange_link is not None:
+    _sub(
+      model,
+      "frame",
+      name="flange",
+      attached_to=flange_link,
+      **{f"{{{_INTRINSIC_NS}}}create_attachment_entity": "true"},
+    )
 
   ET.indent(sdf, space="  ")
   sdf_path = out_dir / f"{model_name}.sdf"
@@ -506,6 +568,24 @@ def main(argv: Sequence[str] | None = None) -> None:
     action="store_true",
     help="Mark the model static (holds still in Gazebo without control).",
   )
+  parser.add_argument(
+    "--root_link", default=None, help="Link to start the model from."
+  )
+  parser.add_argument(
+    "--exclude_links",
+    default="",
+    help="Comma-separated links to leave out, with everything below them.",
+  )
+  parser.add_argument(
+    "--ik_solver",
+    default=None,
+    help="Intrinsic IK solver for a robot model, e.g. 'kinematic_chain'.",
+  )
+  parser.add_argument(
+    "--flange_link",
+    default=None,
+    help="Link whose origin becomes the Intrinsic 'flange' attachment frame.",
+  )
   args = parser.parse_args(argv)
 
   # `bazel run` starts in the runfiles tree; resolve relative paths against
@@ -520,6 +600,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     collision_cell_size=args.collision_cell_size,
     color_rules=load_color_rules(base / args.colors if args.colors else None),
     static=args.static,
+    root_link=args.root_link,
+    exclude_links=[x for x in args.exclude_links.split(",") if x],
+    ik_solver=args.ik_solver,
+    flange_link=args.flange_link,
   )
   print(f"Wrote {sdf_path}")
 

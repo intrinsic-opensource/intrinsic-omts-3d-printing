@@ -146,20 +146,35 @@ alias(
 )
 
 # Printer-tending cell under development on the research branch
-# (research/HANDOFF.md): a Seeed reBot Arm B601-RS alone in an empty world.
-# For now the arm is a static scene object for simulation, with no ICON
-# hardware module, gripper, camera or perception services. Kept as its own
-# solution so omts_solution and its cells are unaffected.
+# (research/HANDOFF.md): a Seeed reBot Arm B601-RS alone in an empty world,
+# controlled by ICON in simulation (no gripper actuation, camera or perception
+# services yet). flowstate_ros_bridge streams /tf and /joint_states to ROS 2
+# (RViz) over Zenoh. Kept as its own solution so omts_solution and its cells are
+# unaffected.
 intrinsic_solution(
     name = "rebot_solution",
     assets = [
+        "@intrinsic-core//incode/motion_planning/skills:move_robot_skill",
+        "@intrinsic-core//intrinsic/manipulation/skills/force:move_to_contact_skill",
         "@intrinsic-core//intrinsic/simulation/gazebo/asset:gazebo_simulator_type",
+        "@intrinsic-core//intrinsic_control/intrinsic/icon/machines/common:generic_icon_mainloop_type",
+        "@intrinsic-core//intrinsic_motion_planning/intrinsic/motion_planning/service:motion_planner_service_asset",
         "//models/rebot_b601_rs",
+        "//models/rebot_b601_rs_gripper",
+        ":flowstate_ros_bridge_asset",
     ],
     default_operation_mode = "sim",
     instances = [
+        ":flowstate_ros_bridge",
         ":gazebo_simulator",
+        ":motion_planner_service",
         ":rebot",
+        ":rebot_gripper",
+        ":rebot_icon",
+    ],
+    object_world_updates = [
+        "//configs:rebot/rebot.attachments.updates.pbtxt",
+        "//configs:rebot/scene.updates.pbtxt",
     ],
 )
 
@@ -167,6 +182,19 @@ intrinsic_asset_instance(
     name = "rebot",
     asset = "ai.intrinsic.rebot_b601_rs",
     instance_name = "rebot",
+)
+
+intrinsic_asset_instance(
+    name = "rebot_gripper",
+    asset = "ai.intrinsic.rebot_b601_rs_gripper",
+    instance_name = "gripper",
+)
+
+intrinsic_asset_instance(
+    name = "rebot_icon",
+    asset = "ai.intrinsic.generic_realtime_control_service",
+    instance_name = "icon",
+    service_config = "//configs:rebot/icon_config.textproto",
 )
 
 intrinsic_asset_instance(

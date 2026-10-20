@@ -1,0 +1,56 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Reference Frame: root
+      Cell Size: 0.1
+      Plane Cell Count: 20
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Workcell
+      Enabled: true
+      Topic:
+        Value: /workcell_markers
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        History Policy: Keep Last
+        Depth: 5
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Show Names: false
+      Show Axes: true
+      Show Arrows: false
+      Marker Scale: 0.15
+      Frames:
+        All Enabled: false
+        root/demo_a:
+          Value: true
+        root/demo_b:
+          Value: true
+        gripper/tool_frame:
+          Value: true
+        rebot/flange:
+          Value: true
+  Global Options:
+    Fixed Frame: root
+    Background Color: 48; 48; 48
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 1.4
+      Focal Point:
+        X: 0.2
+        Y: 0
+        Z: 0.15
+      Pitch: 0.45
+      Yaw: 0.8
+      Target Frame: <Fixed Frame>

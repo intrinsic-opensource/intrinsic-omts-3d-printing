@@ -20,7 +20,10 @@ bazel_dep(name = "intrinsic-core")
 archive_override(
     module_name = "intrinsic-core",
     patch_strip = 1,
-    patches = ["//bazel/patches:robotiq_hande_finger_offset.patch"],
+    patches = [
+        "//bazel/patches:gazebo_hwm_stub_visibility.patch",
+        "//bazel/patches:robotiq_hande_finger_offset.patch",
+    ],
     sha256 = INTRINSIC_CORE_SHA256,
     urls = [INTRINSIC_CORE_URL],
 )

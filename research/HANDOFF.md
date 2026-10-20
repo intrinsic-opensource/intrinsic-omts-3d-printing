@@ -80,7 +80,7 @@ Each is recorded in the study with its reasoning.
 
 ## 4. Open Questions
 
-### 4.1 For Intrinsic (answered 2026-10-20)
+### 4.1 For Intrinsic (1–3 answered 2026-10-20)
 
 1. **Scope of the reBot ICON support:** hardware only. No simulation model and
    no gripper. For simulation we use Intrinsic's generic Gazebo stand-in with a
@@ -88,6 +88,12 @@ Each is recorded in the study with its reasoning.
 2. **Variant:** to be decided; the B601-RS is most likely.
 3. **Timeline:** hard deadline at the end of 2026, with scope flexible to meet
    it.
+4. **New (2026-10-20): expose `gazebo_hwm_stub_image` outside intrinsic-core.**
+   A simulation-only hardware device for a new arm needs it, and OMTS patches
+   the visibility for now (step 1b).
+5. **New (2026-10-20): how will the reBot's gripper be exposed?** It is a
+   motor on the arm's CAN bus. A pinch-gripper service, ICON digital I/O, or
+   something else decides how step 1c should simulate it (see step 1c notes).
 
 ### 4.2 For the project owner
 
@@ -142,18 +148,96 @@ the UR5e, in an empty cell. Each step below ends in a demo.
 
 ### Step 1b: The reBot moves
 
-* Make the reBot an ICON-controlled hardware device in simulation. In sim mode,
-  hardware devices run Intrinsic's generic Gazebo stub (`image_sim =
-  gazebo_hwm_stub_image.tar` in `ur_hardware_device.bzl` and the KUKA RSI
-  device), not their real driver. The build rule needs only one of `image` and
-  `image_sim`. So a sim-only device needs a robot model, not a driver. This is
-  ours to build: Intrinsic's support covers hardware only (question 4.1.1).
-  Expect friction, since the stand-in has only been used with industrial arms.
-* Add an ICON config, joint limits and named joint configurations for the cell.
-* Point `robot.arm_part_name` in the new cell's `app_config.yaml` at the reBot.
-  `Robot` is vendor-neutral and should need no change.
-* **Demo:** `Robot` moves the reBot between named configurations and to a
-  Cartesian frame, top-down, in a loop.
+**Status: done (2026-10-20).** Deployed to the local cluster in sim.
+
+What was built:
+
+* **Arm and gripper split into two objects.** Gazebo's simulated hardware
+  module infers one joint group from all of a model's joints, which would have
+  made the fingers part of an 8-DoF "arm". The converter gained
+  `--root_link`/`--exclude_links`. `models/rebot_b601_rs` is now the 6-joint
+  arm, and `models/rebot_b601_rs_gripper` is the gripper, mounted on the
+  flange like the UR cell's Robotiq.
+* **Simulation-only ICON hardware device** `ai.intrinsic.rebot_b601_rs`: the
+  arm scene object (with `intrinsic:ik_solver` `kinematic_chain`, a `flange`
+  frame, joint limits and the `home`/`ready` named configurations) plus a
+  service shipping Intrinsic's Gazebo stub image.
+* **Cell config** `configs/rebot/`: an ICON config with one `HalArmPart` on
+  module `rebot`, the gripper attachment with `tool_frame` at the fingertips,
+  and two top-down demo frames, `demo_a` and `demo_b`.
+* **`//:rebot_solution`** now also installs ICON, the motion planner and the
+  `move_robot`/`move_to_contact` skills (`Robot` looks up both when it is
+  built). Instance names follow the OMTS defaults (`gripper`, `tool_frame`,
+  `icon`), so the existing jogging tools work with `--arm_part_name=rebot`.
+
+**Demo** (all 10 moves of two loops succeeded; the tool reaches the demo frames
+within micrometres):
+
+```bash
+bazel run -c opt //:rebot_solution -- --address=localhost:17080
+for i in 1 2 3; do
+  bazel run //tools/jogging:move_to_joint -- home --arm_part_name=rebot
+  bazel run //tools/jogging:move_to_joint -- ready --arm_part_name=rebot
+  bazel run //tools/jogging:move_to_frame -- --frame=demo_a --arm_part_name=rebot
+  bazel run //tools/jogging:move_to_frame -- --frame=demo_b \
+    --motion_type=LINEAR --arm_part_name=rebot
+done
+```
+
+Learned (friction worth knowing):
+
+* **Intrinsic's stub image is not visible outside intrinsic-core**, and neither
+  is the base image needed to build our own. OMTS patches the visibility
+  (`bazel/patches/gazebo_hwm_stub_visibility.patch`), next to the existing
+  Robotiq patch. Question 4.1.4 asks Intrinsic to expose it.
+* **`hardware_module_manifest` requires a real-mode `image`**, despite the
+  attribute being optional. The device passes the stub for both modes.
+* **A service's `default_config` must be a `google.protobuf.Any` textproto.**
+* **Right after a deploy, the first move fails** with `move_robot` "connection
+  refused" until Gazebo has started the hardware module and ICON has enabled
+  motion (a few seconds). Wait for "[rebot] Now enabled" in the
+  `rs-gazebo-simulator-0` logs.
+* **RViz works through `flowstate_ros_bridge`**, which `//:rebot_solution`
+  deploys. It runs in sim even though its manifest has no `sim_spec`. Over
+  Zenoh it publishes `/tf` (the whole belief world, frames like `rebot/link1`,
+  `gripper/tool_frame`, `root/demo_a`, fixed frame `root`) and
+  `/workcell_markers` (one mesh marker per link, fetched from the bridge's
+  `/flowstate_get_resource` service). No URDF is needed. Open it with the
+  `omts-rviz` shell function (Zenoh client settings plus Qt flags) and the
+  cell's config: `omts-rviz -d configs/rebot/rebot.rviz`. A plain `rviz2`
+  launch showed TF but no meshes; relaunching via `omts-rviz` fixed it.
+* **The bridge gives up if the executive is not up when it starts**, and then
+  never publishes. After a deploy, restart it if `/tf` stays empty:
+  `kubectl -n app-resources delete pod rs-flowstate-ros-bridge-0`.
+* **`/joint_states` uses UR joint names.** The bridge's default config
+  hard-codes `override_joint_names` (`shoulder_pan_joint`, …) and
+  `robot_base_frame_id: robot/robot/base_link`. The values are the reBot's,
+  only the names are wrong. RViz doesn't care, but MoveIt or anything matching
+  joints by name would: give the cell its own bridge config with `joint1`…
+  `joint6` and `rebot/base_link` when that is needed.
+* **Reload the Gazebo viewer after a redeploy or `--reset_sim`.** Each one
+  rebuilds Gazebo's world, and a viewer that stays connected can keep stale
+  entities. Symptoms seen here: arm links drawn scattered, and the nested
+  gripper drawn at the origin while Gazebo had it mounted and moving.
+* **Inspecting Gazebo directly:** the simulator container has no shell, but
+  its gz-transport is reachable from the host with the local `gz` tools:
+
+  ```bash
+  export GZ_PARTITION=intrinsic_sim GZ_IP=10.42.0.1 \
+    GZ_RELAY=$(kubectl get pod -n app-resources rs-gazebo-simulator-0 \
+      -o jsonpath='{.status.podIP}')
+  gz topic -e -t /world/default/pose/info -n 1   # live model/link poses
+  gz service -s /world/default/generate_world_sdf \
+    --reqtype gz.msgs.SdfGeneratorConfig --reptype gz.msgs.StringMsg \
+    --timeout 20000 --req ''                     # the SDF Gazebo is running
+  ```
+
+  `GZ_IP` is the host's `cni0` address. In that SDF the gripper is nested in
+  the `rebot` model with a fixed joint from `link6`, as intended.
+* **Top-down is exact only in part of the workspace.** `joint4`'s upper limit
+  (1.69 rad) stops the tool pointing straight down at some points, for example
+  0.30 m out and 0.20 m up. Straight down works from about 0.25 to 0.40 m out
+  and 0 to 0.15 m up (offline IK, checked live at the demo frames).
 
 ### Step 1c: The reBot picks and places a printed part
 
@@ -164,6 +248,32 @@ the UR5e, in an empty cell. Each step below ends in a demo.
 * Add a `GripperInterface` for the reBot's two-finger gripper (two prismatic
   joints in the URDF; see section 6 for which URDF's finger limits to use).
 * **Demo:** the reBot picks the part, places it at a second pose and repeats.
+
+Gripper actuation in sim, investigated 2026-10-20 and left for this step:
+
+* **World updates don't move the fingers in Gazebo.** Setting the gripper's
+  joints in the belief world (`update_object_joints`) changes nothing in the
+  simulation.
+* **Gazebo actuates an object as a gripper only when its instance has a gripper
+  service config** (`WorldObjectPlugin` in intrinsic-core's
+  `intrinsic/simulation/world/world_object_plugin.cc`). It then replaces the
+  per-joint controllers with an actuated-gripper plugin that finds the
+  prismatic joints itself. Two of Intrinsic's routes fit:
+  1. **`PinchGripperPart`**, the Robotiq resource-type style: the gripper scene
+     object plus Intrinsic's pinch-gripper server service. In sim, Gazebo serves
+     the `GenericGripper`/`PinchGripperServer` API. No Intrinsic skill commands
+     that API, so it would need a host-side call or a small custom skill.
+  2. **`PinchGripperRealtimeControlServiceConfig`** with Intrinsic's
+     `control_pinch_gripper` skill (grasp/release, usable as a `bt.Task`). The
+     service signals the gripper through ICON digital I/O, so it also needs
+     simulated DIO on the arm's module (a `DigitalInputOutput` plugin in the
+     SDF, as the UR models have), a `HalADIOPart` in ICON and the signal
+     mapping.
+* The simplest first spiral for 1c may be **no actuation at all**: grasp by
+  attaching the part to the tool (`attach_object_to_robot`), as a sim-only
+  stand-in, and add real finger motion later.
+* How Intrinsic's hardware support will expose the real gripper (a motor on
+  the arm's CAN bus) is unknown; ask before investing in either route.
 
 Milestone 1 is done at the step 1c demo.
 
@@ -199,10 +309,15 @@ axis; tip height from the base frame. Self-collision is ignored.
 * Maximum reach in any orientation is 0.78 m, consistent with Seeed's 754 mm
   figure.
 
-So the gripper can point straight down over about half a metre around the base,
-at bed heights near the base. That is wider than the SO-101's 0.32 m, so reach
-is not a concern for milestone 1. Step 1b confirms it with Intrinsic's motion
-planner, which also checks self-collision.
+So the gripper can point roughly down (within 14°) over about half a metre
+around the base, at bed heights near the base. That is wider than the SO-101's
+0.32 m, so reach is not a concern for milestone 1.
+
+Step 1b refined this: pointing **exactly** straight down works over a narrower
+band, about 0.25–0.40 m out at 0–0.15 m up, because `joint4`'s upper limit
+(1.69 rad) runs out first. Intrinsic's motion planner reached the two demo
+frames inside that band (0.30 m out, 0.05 m up). Size the bed position and
+grasp heights to that band, or allow a few degrees of tilt.
 
 ### 6.2 reBot gripper finger limits
 
@@ -237,11 +352,6 @@ hardware support once it exists.**
 
 Check these before building on them.
 
-* **Gazebo stub with a non-industrial arm.** The stub is used for UR and KUKA
-  devices; nothing found says it is limited to them, but it is untried.
-  Friction is expected here (step 1b).
-* **5- and 6-joint planning for small arms** in Intrinsic's motion planner is
-  untried.
 * **Host-side image capture through Intrinsic** was never exercised in this
   repo (`tools/calibration/sample_calibration_poses.py` sets `camera = None`).
   The study avoids it by reading the printer's camera directly.

@@ -1,0 +1,16 @@
+# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
+# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+
+metadata {
+  id {
+    name: "rebot_b601_rs_gripper"
+    package: "ai.intrinsic"
+  }
+  vendor {
+    display_name: "intrinsic"
+  }
+  display_name: "reBot Arm B601-RS gripper"
+  documentation {
+    description: "Two-finger rack-and-pinion gripper of the Seeed Studio reBot Arm B601-RS. The model origin is the fingertip plane; +x points out of the fingers."
+  }
+}
