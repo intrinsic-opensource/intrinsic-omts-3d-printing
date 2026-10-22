@@ -172,6 +172,7 @@ intrinsic_solution(
         "//models/rebot_b601_rs_gripper",
         "//models/rebot_ground",
         "//models/rebot_printed_part",
+        "//models/rebot_wall",
         ":flowstate_ros_bridge_asset",
     ],
     default_operation_mode = "sim",
@@ -184,11 +185,13 @@ intrinsic_solution(
         ":rebot_icon",
         ":rebot_ground",
         ":rebot_printed_part",
+        ":rebot_wall",
     ],
     object_world_updates = [
         "//configs:rebot/rebot.attachments.updates.pbtxt",
         "//configs:rebot/rebot_ground.updates.pbtxt",
         "//configs:rebot/rebot_pick_place.updates.pbtxt",
+        "//configs:rebot/rebot_wall.updates.pbtxt",
         "//configs:rebot/scene.updates.pbtxt",
     ],
 )
@@ -210,6 +213,12 @@ intrinsic_asset_instance(
     name = "rebot_printed_part",
     asset = "ai.intrinsic.rebot_printed_part",
     instance_name = "rebot_printed_part",
+)
+
+intrinsic_asset_instance(
+    name = "rebot_wall",
+    asset = "ai.intrinsic.rebot_wall",
+    instance_name = "rebot_wall",
 )
 
 intrinsic_asset_instance(

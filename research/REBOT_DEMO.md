@@ -95,5 +95,5 @@ bazel run -c opt //:omts_solution -- --address=localhost:17080
 | --- | --- |
 | First move fails with `move_robot` "connection refused" | The arm is not enabled yet; wait for "[rebot] Now enabled" (step 2). |
 | Gripper command succeeds but the fingers don't move in Gazebo | Gazebo still has the old world; run the reset in step 2. |
-| RViz shows TF but no meshes, or misses the ground or part | Restart the bridge pod (step 5) and relaunch RViz. |
+| RViz shows TF but no meshes, or misses objects Gazebo shows (such as the robot) | Restart the bridge pod (step 5) and relaunch RViz. When objects are added, the bridge republishes markers for only the new ones, and RViz opened later receives only that last message. |
 | A run failed midway and the arm or part is in the wrong place | Run the demo again; it resets to the initial world first. |

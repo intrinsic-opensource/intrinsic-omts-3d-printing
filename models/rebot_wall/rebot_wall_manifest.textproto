@@ -1,0 +1,16 @@
+# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
+# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+
+metadata {
+  id {
+    name: "rebot_wall"
+    package: "ai.intrinsic"
+  }
+  vendor {
+    display_name: "Intrinsic"
+  }
+  display_name: "reBot Wall"
+  documentation {
+    description: "Static 220 x 10 x 180 mm wall obstacle for the reBot simulation cell."
+  }
+}

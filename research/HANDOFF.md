@@ -99,6 +99,10 @@ Each is recorded in the study with its reasoning.
    commanded by `control_pinch_gripper` over GPIO signals (route a). If the
    real gripper is exposed differently, only the gripper device and
    `PinchGripper` adapter should need to change.
+6. **New (2026-10-22): feature requests for faster iteration**, drafted in
+   [`feature_requests/`](feature_requests/): keep RViz in sync without
+   restarting `flowstate_ros_bridge`, and keep the Gazebo viewer valid across
+   simulation resets.
 
 ### 4.2 For the project owner
 
@@ -299,7 +303,11 @@ Learned:
   silently dropped. Both new models therefore use GLB visuals (boxes written
   with `tools/models/urdf_to_sdf.write_glb`) and keep box collisions.
 * **The bridge fetches meshes once, at pod start,** and a redeploy does not
-  restart it. After adding objects, restart it:
+  restart it. It does notice objects added later, but publishes a marker
+  message for only those, and `/workcell_markers` keeps just the last message
+  (`KeepLast(1)`, transient local). An RViz opened afterwards then shows only
+  the new objects: after adding the wall, RViz showed the wall but not the
+  robot. After adding objects, restart it:
   `kubectl -n app-resources delete pod rs-flowstate-ros-bridge-0`.
 * **The part creeps up about 1 mm per transfer** in the belief world (z 0.017
   → 0.018 → 0.019 over one round trip): the attach captures the tool's actual
