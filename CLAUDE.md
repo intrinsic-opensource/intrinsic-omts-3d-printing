@@ -8,7 +8,7 @@ OMTS (Open Machine Tending Solution) is a reference CNC machine-tending app buil
 
 ## Current direction
 
-The `research` branch is adapting OMTS into a 3D-printer-tending solution with a low-cost Seeed reBot Arm. Intrinsic is adding ICON support for the arm and ARM64 (NVIDIA Jetson) support. Work is in simulation, with the arm alone in an empty cell; the target printer is undecided. Plan, decisions and open questions: `research/HANDOFF.md` (milestone plan in §5). Feasibility study: `research/PRINTER_UNLOADING.md`.
+The `research` branch is adapting OMTS into a 3D-printer-tending solution with a low-cost Seeed reBot Arm. Intrinsic is adding ICON support for the arm and ARM64 (NVIDIA Jetson) support. Work is in simulation, with the arm alone in an empty cell; the target printer is undecided. Plan, decisions and open questions: `research/HANDOFF.md` (milestone plan in §5). Printer-side design (plate-layout localization, grasp planning, camera checks): `research/PRINTER_UNLOADING.md`.
 
 ## Workflow
 

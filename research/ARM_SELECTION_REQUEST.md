@@ -6,6 +6,10 @@
 > this document weighs (sections 2 and 3.2). The variant is not yet confirmed;
 > the B601-RS remains the working assumption. The rest of this document is kept
 > as the record of the comparison. Current plan: `HANDOFF.md`.
+>
+> `PRINTER_UNLOADING.md` was later trimmed to the printer-side design. Its
+> section numbers cited here (4.3 for the SO-101 figure, and all of section 7)
+> refer to its version at commit `6b33ad7`.
 
 The target solution is an arm that unloads a 3D printer (`HANDOFF.md`,
 `PRINTER_UNLOADING.md`). The first milestone replaces the industrial arm in

@@ -1,7 +1,7 @@
 # Handoff: 3D Printer Tending
 
 Current state and plan for the printer-tending project, so work can continue on
-any machine. The feasibility study is [`PRINTER_UNLOADING.md`](PRINTER_UNLOADING.md);
+any machine. The printer-side design is [`PRINTER_UNLOADING.md`](PRINTER_UNLOADING.md);
 the arm comparison is [`ARM_SELECTION_REQUEST.md`](ARM_SELECTION_REQUEST.md).
 This file records what has been decided and what to do next.
 
@@ -13,7 +13,7 @@ This file records what has been decided and what to do next.
 | --- | --- |
 | Repo | Fork `https://github.com/NachoRosa95/intrinsic-omts`, branch `research` |
 | Research commit | `fbb9606` "Printer unloading viability research", on top of upstream `main` at `48be90d` (#151). Upstream has since been merged in through #156. |
-| Study | `research/PRINTER_UNLOADING.md` |
+| Printer design notes | `research/PRINTER_UNLOADING.md` (trimmed 2026-10-22; the full feasibility study, including the SO-101 evaluation, is at commit `6b33ad7`) |
 | Arm comparison (decided) | `research/ARM_SELECTION_REQUEST.md` |
 | SO-101 URDF | `research/so101_new_calib.urdf`, from the earlier SO-101 evaluation; superseded by the reBot decision |
 | reBot URDFs | Base for the sim model: [Seeed-Projects/reBot-Isaacsim](https://github.com/Seeed-Projects/reBot-Isaacsim) `urdf/00-arm-rs_asm-v3/urdf/00-arm-rs_asm-v3.urdf` (MIT), which fixes the gripper limits (section 6.2). Originals: [Seeed-Projects/reBot-DevArm](https://github.com/Seeed-Projects/reBot-DevArm) `Rebot_Arm_description/` (Apache-2.0 / CERN-OHL-W-2.0). |
@@ -58,7 +58,7 @@ original machine had no system pip; it was installed per-user with
 
 | Decision | Consequence |
 | --- | --- |
-| **Arm: Seeed reBot Arm** | Replaces the SO-101 plan (study section 7). The B601-RS is the working assumption until the variant is confirmed. |
+| **Arm: Seeed reBot Arm** | Replaces the SO-101 plan (study section 7, at commit `6b33ad7`). The B601-RS is the working assumption until the variant is confirmed. |
 | **Intrinsic adds ICON support for the reBot** | Hardware only, likely for the B601-RS. We do not write or validate a driver; the community-driver risks in `ARM_SELECTION_REQUEST.md` no longer apply to us. The simulation model is ours to build. |
 | **Deadline: end of 2026, scope flexible** | Intrinsic's hard deadline. Cut scope rather than slip; the spiral steps make that possible. |
 | **Target compute: NVIDIA Jetson (Orin or Thor)** | Intrinsic is adding ARM support; treat it as a given. Seeed sells reBot kits bundled with Jetson Orin or Thor. |
@@ -75,7 +75,7 @@ Each is recorded in the study with its reasoning.
 | Localize parts from the slicer's 3MF plate layout, not vision | The app starts each print and already has the 3MF; avoids per-job pose-estimator training | 4 |
 | Plain RGB camera for presence checks (A, B, C), not depth | The project must be open source and accessible; the printer's own camera may cost $0 | 5 |
 | **No force sensing** | Lets low-cost position-controlled arms qualify; accepts that short or collapsed prints go undetected | 4.3, 5.5 |
-| Host-side loop, one behavior tree built per print job | The layout is only known per job; also the simplest "print done" detection (polling the printer API) | 3.1, 6.1 |
+| Host-side loop, one behavior tree built per print job | The layout is only known per job; also the simplest "print done" detection (polling the printer API) | 1, 6.1 |
 | Grasp planning through OMTS's `GraspPlannerInterface`, with a new plate-footprint backend as the default | Fits the localization/grasp split added upstream in #144/#150; MoveIt stays optional because it needs ROS 2 | 4.4 |
 | Footprint grasp math in `src/core/footprint_grasp.py`, with a thin `PlateGraspPlanner` in `src/hardware/` | Pre-print layout validation must run without a solution connection, and `core/` cannot import `intrinsic.*` | 4.4, 6 |
 
@@ -531,7 +531,7 @@ Check these before building on them.
   once OMTS pins a release that includes that change.
 * **Upstream gap, still open at `48be90d`:** the solution does not declare
   `dio_wait_for_input`, so `DioCncMachine.build_wait_cycle_complete_task`
-  sleeps and never checks the input (study section 3.1).
+  sleeps and never checks the input (study section 1).
 * **Abandoned draft:** an early draft of the study was started as a Claude Doc
   (`https://claude.ai/code/artifact/3ea4bddf-2151-46ba-b2d6-65779142ea43`),
   with only two sections filled in. The Markdown study replaces it; it can be
