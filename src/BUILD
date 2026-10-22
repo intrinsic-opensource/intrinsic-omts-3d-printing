@@ -31,10 +31,12 @@ py_binary(
         "//src/core:tray",
         "//src/core:types",
         "//src/core:workpiece",
+        "//src/hardware:gripper",
         "//src/hardware:robot",
         "@com_google_absl_py//absl:app",
         "@com_google_absl_py//absl/flags",
         "@com_google_absl_py//absl/logging",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:worlds",
     ],
 )

@@ -19,9 +19,10 @@ This file records what has been decided and what to do next.
 | reBot URDFs | Base for the sim model: [Seeed-Projects/reBot-Isaacsim](https://github.com/Seeed-Projects/reBot-Isaacsim) `urdf/00-arm-rs_asm-v3/urdf/00-arm-rs_asm-v3.urdf` (MIT), which fixes the gripper limits (section 6.2). Originals: [Seeed-Projects/reBot-DevArm](https://github.com/Seeed-Projects/reBot-DevArm) `Rebot_Arm_description/` (Apache-2.0 / CERN-OHL-W-2.0). |
 | Reference source | `intrinsic-core` at `main` (past `20261012.0`). OMTS itself pins the `20261012.0` release in `MODULE.bazel` (`INTRINSIC_CORE_RELEASE`), so check behavior against that tag when it matters. |
 
-Steps 1a–1c are implemented in simulation (section 5). In step 1c the part
-moves only in the belief world (RViz), not in Gazebo; step 1d (planned) makes
-the gripper move and carry the part in Gazebo.
+Steps 1a–1d are done in simulation (section 5), which completes milestone 1:
+the reBot picks a printed part with its gripper, carries it in Gazebo, and
+places it, with RViz (the belief world) matching. To deploy and run the demo,
+see [`REBOT_DEMO.md`](REBOT_DEMO.md).
 
 ---
 
@@ -94,8 +95,10 @@ Each is recorded in the study with its reasoning.
    A simulation-only hardware device for a new arm needs it, and OMTS patches
    the visibility for now (step 1b).
 5. **New (2026-10-20): how will the reBot's gripper be exposed?** It is a
-   motor on the arm's CAN bus. A pinch-gripper service, ICON digital I/O, or
-   something else decides how step 1d should simulate it (see step 1d).
+   motor on the arm's CAN bus. Step 1d simulates it as a pinch gripper
+   commanded by `control_pinch_gripper` over GPIO signals (route a). If the
+   real gripper is exposed differently, only the gripper device and
+   `PinchGripper` adapter should need to change.
 
 ### 4.2 For the project owner
 
@@ -204,10 +207,16 @@ Learned (friction worth knowing):
   Zenoh it publishes `/tf` (the whole belief world, frames like `rebot/link1`,
   `gripper/tool_frame`, `root/demo_a`, fixed frame `root`) and
   `/workcell_markers` (one mesh marker per link, fetched from the bridge's
-  `/flowstate_get_resource` service). No URDF is needed. Open it with the
-  `omts-rviz` shell function (Zenoh client settings plus Qt flags) and the
-  cell's config: `omts-rviz -d configs/rebot/rebot.rviz`. A plain `rviz2`
-  launch showed TF but no meshes; relaunching via `omts-rviz` fixed it.
+  `/flowstate_get_resource` service). No URDF is needed. Open it as a Zenoh
+  client of the local cluster with the cell's config:
+
+  ```bash
+  export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+  export ZENOH_CONFIG_OVERRIDE='mode="client";connect/endpoints=["tcp/127.0.0.1:7447"]'
+  ros2 run rviz2 rviz2 -d configs/rebot/rebot.rviz
+  ```
+
+  One launch showed TF but no meshes; relaunching RViz fixed it.
 * **The bridge gives up if the executive is not up when it starts**, and then
   never publishes. After a deploy, restart it if `/tf` stays empty:
   `kubectl -n app-resources delete pod rs-flowstate-ros-bridge-0`.
@@ -244,9 +253,9 @@ Learned (friction worth knowing):
 ### Step 1c: The reBot picks and places a printed part
 
 **Status: done in the belief world (2026-10-20); Gazebo does not carry the
-part.** Deployed and verified in local simulation. Watch the demo in RViz.
-Decided 2026-10-20: keep this stand-in for now; step 1d makes Gazebo carry the
-part.
+part.** Superseded by step 1d, where the gripper carries it in Gazebo.
+Deployed and verified in local simulation. Watch the demo in RViz. Decided
+2026-10-20: keep this stand-in for now; step 1d makes Gazebo carry the part.
 
 * Added `models/rebot_printed_part/`, a 40 × 40 × 30 mm, 20 g model with a box
   collision and a GLB visual, and fixed source A / destination B frames in
@@ -326,12 +335,9 @@ Gripper actuation in sim, investigated 2026-10-20 and deferred:
 
 ### Step 1d: The gripper moves and attachment works in simulation
 
-**Status: planned (2026-10-20).**
-
-Goal: in Gazebo, the reBot's fingers open and close, and the part is carried
-by the gripper. It leaves A when the arm lifts, travels to B, and stays at B
-after release. The belief world (RViz) keeps matching Gazebo. This removes
-step 1c's belief-only stand-in.
+**Status: done (2026-10-20).** Deployed and verified in local simulation with
+command path a (`PinchGripperRealtimeControlServiceConfig` with
+`control_pinch_gripper`). The part now moves in Gazebo, not only in RViz.
 
 What intrinsic-core does, checked 2026-10-20 (`intrinsic/simulation/`):
 
@@ -340,56 +346,96 @@ What intrinsic-core does, checked 2026-10-20 (`intrinsic/simulation/`):
   `gazebo/server_main_impl.cc`) and configures a gripper plugin when the
   device's service config is one of: `PinchGripperPart`,
   `PinchGripperRealtimeControlServiceConfig`, `PinchGripperOpcuaServiceConfig`,
-  an EOAT `GripperConfig`, or the suction equivalents. The reBot gripper is
-  currently a plain scene object, so it gets only per-joint controllers no
-  skill can command.
+  an EOAT `GripperConfig`, or the suction equivalents. A plain scene object
+  gets only per-joint controllers no skill can command.
 * **The pinch-gripper plugin both moves the fingers and holds the part.**
   `ActuatedGripperPlugin` drives every prismatic or revolute joint with finite
-  limits (both reBot fingers qualify). On grasp, it welds the object touching a
-  "sticky" finger link with a `FixedJointGripper` fixed joint (0.5 s
-  debounce). The sticky link is the first finger link with collision geometry,
-  chosen arbitrarily. So one route gives both finger motion and a reliable
-  carry, with no friction tuning.
+  limits (both reBot fingers qualify). When a grasp stops at an object (and the
+  commanded opening is under 2 cm), it welds the object touching a "sticky"
+  finger link with a `FixedJointGripper` fixed joint. So one route gives both
+  finger motion and a reliable carry, with no friction tuning.
+* **In sim, route a needs no ICON digital I/O.** The gripper service
+  (`gripper_services.cc`) skips the configured ICON endpoint in sim and talks
+  to Gazebo's simulated GPIO service (`<simulation server>:12394`), where the
+  gripper plugin registers the configured signals. The planned `DigitalInputOutput`
+  SDF plugin and `HalADIOPart` were not needed; they matter only for real
+  hardware.
 
-Plan, one demo per sub-step:
+What was built, one demo per sub-step:
 
-1. **1d-i: the fingers move on command.** Turn
-   `models/rebot_b601_rs_gripper` into a simulation-only hardware device, as
-   step 1b did for the arm: the scene object plus a service whose config is a
-   pinch-gripper config. Choose the command path first (spike):
-   * **a. `PinchGripperRealtimeControlServiceConfig` with
-     `control_pinch_gripper`.** An Intrinsic skill, usable as a `bt.Task`.
-     Needs simulated DIO on the arm's module (a `DigitalInputOutput` plugin in
-     the arm SDF, as the UR models have), a `HalADIOPart` in
-     `configs/rebot/icon_config.textproto`, and the open/close signal mapping.
-   * **b. `PinchGripperPart` with Intrinsic's pinch-gripper server.** No ICON
-     DIO, but no Intrinsic skill commands it, so it needs a host-side call or
-     a small custom skill. Check first whether OMTS's Hand-E path
-     (`robotiq_pinch_gripper_resource_type`, the Hand-E sim driver and
-     `hand_e_gripper_cmd_skill`) can be reused for another gripper.
+1. **1d-i: the fingers move on command.** `models/rebot_b601_rs_gripper` is
+   now a hardware device, `ai.intrinsic.rebot_b601_rs_gripper`: its scene
+   object (renamed `..._gripper_scene_object`) plus intrinsic-core's
+   `pinch_gripper_realtime_control_service`, which OMTS builds from source.
+   The instance config `configs/rebot/gripper.instance.pbtxt` sets
+   `hardware_device { service { service_config } }` with one grasp/release
+   signal (`gripper_close`), a gripping-indicated signal (`gripper_holding`)
+   and `is_default_closed: true` (finger joint 0 is closed). New
+   `PinchGripper` adapter (`src/hardware/gripper.py`, `gripper.type: pinch`)
+   and a `pinch` type in `//tools/gripper:control_gripper`. **Demo:**
+   `control_gripper --gripper_type=pinch --action=open|close` moved both
+   Gazebo fingers from ±0.1 mm to ±50.1 mm and back.
+2. **1d-ii: a grasp holds the part.** `rebot_pick_place.py` opens the gripper
+   above the part, descends, grasps, attaches, carries, releases, then
+   detaches. Grasp frames dropped from z 0.05 to 0.01, so the fingertips close
+   over the lower 20 mm of the part (open gap is 100 mm, finger length about
+   50 mm). The `(gripper, part)` exclusion already covers the finger links.
+   **Demo:** sampling `/world/default/pose/info` during a cycle, the fingers
+   closed to ±22 mm on the part, which rose to z 0.12, moved A→B, landed at
+   z 0.015, and came back to A.
+3. **1d-iii: full cycle in Gazebo and RViz.** After each detach, a new
+   `Robot.build_place_object_at_frame_task` (`update_world`) snaps the belief
+   part onto the destination's rest frame (`part_a_rest` / `part_b_rest`).
+   **Demo:**
+   `bazel run //:rebot_demo -- --address=localhost:17080 --num_cycles=3`;
+   afterwards Gazebo has the part at (0.300, −0.121, 0.015) and the belief
+   world at (0.300, −0.120, 0.015). Without the snap, three cycles left the
+   belief part 6 mm high.
 
-   Prefer the route closest to how Intrinsic will expose the real gripper
-   (question 4.1.5); ask before building DIO plumbing. **Demo:** fingers open
-   and close in the Gazebo viewer from `//tools/gripper:control_gripper`
-   (extended with a reBot gripper type).
-2. **1d-ii: a grasp holds the part.** Add a `GripperInterface` implementation
-   for the reBot gripper, and open/close tasks around the existing
-   attach/detach in `src/behaviors/rebot_pick_place.py`. Keep attach/detach,
-   which still update the belief world for planning. Check the grasp depth and
-   open width (50 mm stroke per finger, section 6.2) against the 40 mm part,
-   and extend the contact-segment collision exclusions to the finger links.
-   **Demo:** the part leaves A with the arm, in Gazebo.
-3. **1d-iii: full cycle in Gazebo and RViz.** Run A→B→A cycles. Compare the
-   part's Gazebo pose (`/world/default/pose/info`) with the belief world after
-   each place. If they drift (see the 1 mm creep in step 1c), snap the belief
-   pose after detach. **Demo:**
-   `bazel run //:rebot_demo -- --address=localhost:17080 --num_cycles=2`, with
-   the part moving in both the Gazebo viewer and RViz.
+Learned:
 
-Risks to check early: grasp detection needs real contact with the sticky
-finger link (coarse 8 mm collision meshes may miss a 40 mm part); and a
-`PinchGripperPart`-style device may change the gripper's instance and object
-names that `RobotConfig` (`tool_object_name: gripper`) and `tool_frame` rely on.
+* **A redeploy does not rebuild Gazebo's world; a simulation reset does.**
+  After adding the gripper device, Gazebo kept the old per-joint controllers
+  until `solution.simulator.reset()`. Reset after deploys that change
+  devices or object poses:
+  `bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 --files --reset_sim`
+  (`--files` with no paths resets without applying updates).
+* **The gripper service needs a gripping-indicated signal**, or it exits with
+  "GrippingIndicated Config not set". It enables itself on startup; no enable
+  skill is needed.
+* **Hardware-device instance configs go in the `config` attribute.**
+  `service_config` generates a plain `service {}` block, which a hardware
+  device ignores. The `config` file avoids depending on the service's config
+  proto, which intrinsic-core keeps internal.
+* **`control_pinch_gripper` also moves the belief-world fingers**, to their
+  lower limit on grasp and upper limit on release, so RViz shows the gripper
+  opening and closing.
+* **The step 1c commit had a failing test:** the tree had lost the
+  part-to-ground exclusion that the test (and the planner) expect. Step 1d
+  restores it.
+* **`control_pinch_gripper` returns before the fingers stop.** It only sends
+  the GPIO command, so the arm started lifting while the fingers were still
+  closing. `PinchGripper` now follows each grasp and release with a dwell
+  (`GripperConfig.settle_seconds`, default 1.5 s): a full stroke takes 0.45 s
+  in Gazebo, and the part is welded 0.5 s after contact. Measured after the
+  fix: the fingers stop on the part, then the part rises 1.5 s later. On real
+  hardware, waiting for the gripping-indicated signal would be better than a
+  fixed dwell.
+* **The demo runs slower** (one A→B→A cycle in 27 s): the reBot's application
+  limits, which the planner uses, are now 0.5 rad/s (joints 1–3), 0.75 rad/s
+  (joints 4–6) and 3 rad/s², down from 1–1.5 rad/s and 8 rad/s². They are
+  simulation placeholders; jogging is slower too.
+* **The arm starts and ends folded at `home` with the gripper closed**, the
+  reBot's standard resting state; the initial joint positions were `ready`
+  before. A finite demo run ends by closing the gripper above A (clear of the
+  released part) and folding back to `home`.
+* **A redeploy or simulation reset keeps the arm's live pose.** Changing the
+  initial joints updated `init_world`, but the belief and simulated worlds
+  kept the arm at `ready`, because the reset rebuilds Gazebo from the belief
+  world. `rebot_demo` now runs with `start_from_world_state=INITIAL` (flag
+  `--from_initial_world`, default true), which resets both worlds to
+  `init_world` first, rebuilds Gazebo's gripper, and puts the part back at A.
+  So every run starts from the same state, even after a failed one.
 
 Milestone 1 is done at the step 1d demo.
 

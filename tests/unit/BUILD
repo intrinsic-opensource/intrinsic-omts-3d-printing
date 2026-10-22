@@ -88,6 +88,7 @@ py_test(
         "//src/hardware:vision",
         "@com_google_absl_py//absl/testing:absltest",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+        "@intrinsic_apis//intrinsic/hardware/gripper/eoat:eoat_service_py_pb2",
     ],
 )
 
@@ -135,6 +136,7 @@ py_test(
         "//src/behaviors:rebot_pick_place",
         "//src/core:infeed",
         "//src/core:tray",
+        "//src/hardware:gripper",
         "//src/hardware:robot",
         "@com_google_absl_py//absl/testing:absltest",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",

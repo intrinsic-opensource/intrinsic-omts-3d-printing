@@ -47,7 +47,7 @@ class GripperConfig:
   """Configuration for the end-effector gripper adapter.
 
   Attributes:
-      type: Gripper adapter type (`'robotiq'` or `'dio'`).
+      type: Gripper adapter type (`'robotiq'`, `'dio'` or `'pinch'`).
       joint_name: Finger joint name for `RobotiqGripper`.
       open_position: Open stroke position in meters for `RobotiqGripper`.
       close_position: Closed stroke position in meters for `RobotiqGripper`.
@@ -56,6 +56,12 @@ class GripperConfig:
       dio_close_pin: Digital output index to close `DioGripper`.
       dio_device_name: Optional ADIO device resource name for `DioGripper`.
       dio_output_block_name: Digital output block name for `DioGripper`.
+      resource_name: Gripper hardware device instance commanded by
+        `PinchGripper` through `ai.intrinsic.control_pinch_gripper`.
+      settle_seconds: Dwell after each `PinchGripper` grasp or release.
+        `control_pinch_gripper` returns once the command is sent, before the
+        fingers stop, so the arm would otherwise move while they are still
+        closing or opening. Defaults to `PinchGripper.DEFAULT_SETTLE_SECONDS`.
   """
 
   type: str
@@ -67,12 +73,16 @@ class GripperConfig:
   dio_close_pin: int | None = None
   dio_device_name: str | None = None
   dio_output_block_name: str | None = None
+  resource_name: str | None = None
+  settle_seconds: float | None = None
 
   def __post_init__(self) -> None:
     if self.type == "robotiq":
       required = ("joint_name", "open_position", "close_position")
     elif self.type == "dio":
       required = ("dio_open_pin", "dio_close_pin", "dio_output_block_name")
+    elif self.type == "pinch":
+      required = ("resource_name",)
     else:
       return
     missing = [name for name in required if getattr(self, name) is None]
@@ -394,6 +404,8 @@ def _construct_section(
         "dio_close_pin",
         "dio_output_block_name",
       }
+    elif gripper_type == "pinch":
+      required_fields = {"type", "resource_name"}
     else:
       required_fields = {"type"}
   else:

@@ -1,0 +1,44 @@
+# proto-file: intrinsic/assets/proto/v1/instance_config.proto
+# proto-message: intrinsic_proto.assets.v1.InstanceConfig
+
+# Instance config for the reBot gripper hardware device. Gazebo reads the
+# service config from here and builds an actuated pinch gripper from the
+# gripper's two prismatic finger joints.
+#
+# In sim, the service ignores service_instance_name and talks to Gazebo's
+# simulated GPIO service, so the signal name is a free choice. On real
+# hardware, it would name a signal on the realtime control service (ICON)
+# instance `icon`; revisit it once Intrinsic exposes the real gripper.
+#
+# Finger joint 0 is closed and 0.05 m is open, hence is_default_closed.
+hardware_device {
+  service {
+    service_config {
+      [type.googleapis.com/intrinsic_proto.gripper_service.PinchGripperRealtimeControlServiceConfig] {
+        signals {
+          grasp {
+            bool_values {
+              key: "gripper_close"
+              value: true
+            }
+          }
+          release {
+            bool_values {
+              key: "gripper_close"
+              value: false
+            }
+          }
+          # In sim, Gazebo reports this true while the gripper holds an object.
+          gripping_indicated {
+            bool_values {
+              key: "gripper_holding"
+              value: true
+            }
+          }
+        }
+        service_instance_name: "icon"
+        is_default_closed: true
+      }
+    }
+  }
+}

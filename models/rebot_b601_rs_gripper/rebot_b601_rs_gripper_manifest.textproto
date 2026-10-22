@@ -1,5 +1,5 @@
-# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
-# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+# proto-file: intrinsic/assets/hardware_devices/proto/v1/hardware_device_manifest.proto
+# proto-message: intrinsic_proto.hardware_devices.v1.HardwareDeviceManifest
 
 metadata {
   id {
@@ -9,8 +9,22 @@ metadata {
   vendor {
     display_name: "intrinsic"
   }
-  display_name: "reBot Arm B601-RS gripper"
+  display_name: "reBot Arm B601-RS gripper (simulation)"
   documentation {
-    description: "Two-finger rack-and-pinion gripper of the Seeed Studio reBot Arm B601-RS. The model origin is the fingertip plane; +x points out of the fingers."
+    description: "Two-finger gripper of the Seeed Studio reBot Arm B601-RS, driven by Intrinsic's pinch gripper realtime control service. In sim, the service drives Gazebo's simulated GPIO, which moves the fingers and holds grasped objects. Real-hardware support comes from Intrinsic."
+  }
+}
+graph {
+  nodes {
+    key: "scene_object"
+    value {
+      asset: "ai.intrinsic.rebot_b601_rs_gripper_scene_object"
+    }
+  }
+  nodes {
+    key: "service"
+    value {
+      asset: "ai.intrinsic.pinch_gripper_realtime_control_service"
+    }
   }
 }

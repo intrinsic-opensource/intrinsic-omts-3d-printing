@@ -1,8 +1,12 @@
 # proto-file: intrinsic/world/public/proto/object_world_updates.proto
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
 
-# The part rests on the simulated floor at source A. Its grasp frames and the
-# corresponding destination B frames use the straight-down reBot demo pose.
+# The 40 x 40 x 30 mm part rests on the ground (top at z=0) at source A. Grasp
+# frames put the fingertips (tool_frame) 10 mm above the ground, so the fingers
+# close over the lower 20 mm of the part; pre-grasp frames are 0.12 m up. The
+# tool points straight down, inside the reBot's top-down band (HANDOFF 6.1).
+# part_*_rest are the part's nominal resting poses; after each place, the
+# belief world snaps the part onto the destination's rest frame.
 updates {
   update_transform {
     node_a {
@@ -72,7 +76,7 @@ updates {
       position {
         x: 0.3
         y: -0.12
-        z: 0.05
+        z: 0.01
       }
       orientation {
         x: 1
@@ -124,13 +128,59 @@ updates {
       position {
         x: 0.3
         y: 0.12
-        z: 0.05
+        z: 0.01
       }
       orientation {
         x: 1
         y: 0
         z: 0
         w: 0
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+
+updates {
+  create_frame {
+    new_frame_name: "part_a_rest"
+    parent_t_new_frame {
+      position {
+        x: 0.3
+        y: -0.12
+        z: 0.015
+      }
+      orientation {
+        w: 1
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+
+updates {
+  create_frame {
+    new_frame_name: "part_b_rest"
+    parent_t_new_frame {
+      position {
+        x: 0.3
+        y: 0.12
+        z: 0.015
+      }
+      orientation {
+        w: 1
       }
     }
     parent_object_with_filter {

@@ -30,6 +30,7 @@ from intrinsic.world.proto import (
   collision_action_pb2,
   collision_settings_pb2,
   object_world_refs_pb2,
+  object_world_updates_pb2,
 )
 
 from src.core.config import RobotConfig
@@ -46,10 +47,10 @@ class Robot:
   """Robot arm adapter targeting Intrinsic SBL skills.
 
   The wrapped skills (`move_robot`, `move_to_contact`, `attach_object_to_robot`,
-  `detach_object`) are vendor-neutral and bind to any ICON-controlled arm, so a
-  single implementation serves UR, KUKA, FANUC, etc. Robot-specific details
-  (kinematics, named joint configurations, tool frames) come from the world
-  and `RobotConfig`.
+  `detach_object`, `update_world`) are vendor-neutral and bind to any
+  ICON-controlled arm, so a single implementation serves UR, KUKA, FANUC, etc.
+  Robot-specific details (kinematics, named joint configurations, tool frames)
+  come from the world and `RobotConfig`.
   """
 
   def __init__(
@@ -471,3 +472,30 @@ class Robot:
       object_entity=object_ref,
     )
     return bt.Task(action=action, name=task_name)
+
+  def build_place_object_at_frame_task(
+    self,
+    object_name: str,
+    frame_name: str,
+    parent_object: str = "root",
+    name: str | None = None,
+  ) -> bt.Node:
+    """Builds an update_world task placing an object exactly on a frame.
+
+    After a detach, the belief world keeps the pose captured at attach time,
+    which drifts slightly from where the part physically lands. Snapping the
+    object onto its nominal rest frame keeps repeated cycles from accumulating
+    that drift.
+    """
+    task_name = name or f"Place {object_name} at {parent_object}/{frame_name}"
+    update_world_skill = self._solution.skills.ai.intrinsic.update_world
+    object_ref = create_transform_node_ref(object_name)
+    update = object_world_updates_pb2.ObjectWorldUpdate(
+      update_transform=object_world_updates_pb2.UpdateTransformRequest(
+        node_a=create_transform_node_ref(parent_object, frame_name),
+        node_b=object_ref,
+        node_to_update=object_ref,
+        a_t_b=pose_pb2.Pose(orientation=quaternion_pb2.Quaternion(w=1.0)),
+      )
+    )
+    return bt.Task(action=update_world_skill(update=update), name=task_name)

@@ -151,18 +151,20 @@ alias(
 )
 
 # Printer-tending cell under development on the research branch
-# (research/HANDOFF.md): a Seeed reBot Arm B601-RS alone in an empty world,
-# controlled by ICON in simulation (no gripper actuation, camera or perception
-# services yet). flowstate_ros_bridge streams /tf and /joint_states to ROS 2
-# (RViz) over Zenoh. Kept as its own solution so omts_solution and its cells are
-# unaffected.
+# (research/HANDOFF.md): a Seeed reBot Arm B601-RS on a ground slab, controlled
+# by ICON in simulation, picking and placing a printed part with its pinch
+# gripper (no camera or perception services yet). flowstate_ros_bridge streams
+# /tf and /joint_states to ROS 2 (RViz) over Zenoh. Kept as its own solution so
+# omts_solution and its cells are unaffected.
 intrinsic_solution(
     name = "rebot_solution",
     assets = [
         "@intrinsic-core//incode/motion_planning/skills:move_robot_skill",
+        "@intrinsic-core//intrinsic/manipulation/skills:control_pinch_gripper_skill",
         "@intrinsic-core//intrinsic/manipulation/skills/force:move_to_contact_skill",
         "@intrinsic-core//intrinsic/skills/apps:attach_object_to_robot_skill",
         "@intrinsic-core//intrinsic/skills/apps:detach_object_skill",
+        "@intrinsic-core//intrinsic/skills/apps:update_world_skill",
         "@intrinsic-core//intrinsic/simulation/gazebo/asset:gazebo_simulator_type",
         "@intrinsic-core//intrinsic_control/intrinsic/icon/machines/common:generic_icon_mainloop_type",
         "@intrinsic-core//intrinsic_motion_planning/intrinsic/motion_planning/service:motion_planner_service_asset",
@@ -200,6 +202,7 @@ intrinsic_asset_instance(
 intrinsic_asset_instance(
     name = "rebot_gripper",
     asset = "ai.intrinsic.rebot_b601_rs_gripper",
+    config = "//configs:rebot/gripper.instance.pbtxt",
     instance_name = "gripper",
 )
 

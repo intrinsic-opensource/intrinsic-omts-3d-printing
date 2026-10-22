@@ -14,7 +14,7 @@ end-to-end machine tending cycle.
 | [`machining.py`](machining.py) | `build_machining_handshake_subtree` | **Subtree 3**: Robot standby outside enclosure, CNC door close, 0.5 s cycle-start DIO pulse, and cycle-complete wait/timeout. |
 | [`unload_machine.py`](unload_machine.py) | `build_unload_machine_subtree` | **Subtree 4**: Door/vise open, machine & vise approach, compliant touchdown to machined part, 3 cm `-Z` retract, grasp, world attach, 3 cm `-Z` lift clear of vise jaws, and linear extraction. |
 | [`return_infeed.py`](return_infeed.py) | `build_return_to_infeed_subtree` | **Subtree 5**: Blended/direct approach to infeed placement frame, compliant table touchdown, release, world detach, linear retract, and return to `view` frame. |
-| [`rebot_pick_place.py`](rebot_pick_place.py) | `build_rebot_pick_place_tree` | ReBot-only simulation demo: fixed-pose, position-only approaches and Object World attach/detach as a temporary no-actuation grasp stand-in. |
+| [`rebot_pick_place.py`](rebot_pick_place.py) | `build_rebot_pick_place_tree` | reBot simulation demo: fixed-pose, position-only approaches; the pinch gripper grasps and releases the part (Gazebo holds it), world attach/detach keeps the belief world in step, and the part snaps to its rest frame after each place. |
 
 ## Key Orchestration Rules
 

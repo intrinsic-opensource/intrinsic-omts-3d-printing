@@ -108,6 +108,7 @@ py_library(
         ":motions",
         "//src/core:infeed",
         "//src/core:types",
+        "//src/hardware:gripper",
         "//src/hardware:robot",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
     ],

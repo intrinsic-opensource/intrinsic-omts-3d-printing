@@ -1,4 +1,5 @@
 load("@intrinsic-core//intrinsic/scene/build_defs:sdf_scene_object.bzl", "sdf_scene_object")
+load("@intrinsic-core//intrinsic_sdk/intrinsic/assets/hardware_devices/build_defs:hardware_device.bzl", "intrinsic_hardware_device")
 load("@intrinsic-core//intrinsic_sdk/intrinsic/assets/scene_objects/build_defs:scene_object.bzl", "intrinsic_scene_object")
 
 package(default_visibility = ["//visibility:public"])
@@ -12,13 +13,27 @@ filegroup(
 )
 
 sdf_scene_object(
-    name = "rebot_b601_rs_gripper_scene_object",
+    name = "rebot_b601_rs_gripper_sdf_scene_object",
     src = "rebot_b601_rs_gripper.sdf",
     sdf_assets = [":rebot_b601_rs_gripper_meshes"],
 )
 
 intrinsic_scene_object(
+    name = "rebot_b601_rs_gripper_scene_object",
+    manifest = ":rebot_b601_rs_gripper_scene_object_manifest.textproto",
+    scene_object = ":rebot_b601_rs_gripper_sdf_scene_object",
+    visibility = ["//visibility:private"],
+)
+
+# Hardware device pairing the gripper geometry with Intrinsic's pinch gripper
+# realtime control service, which ai.intrinsic.control_pinch_gripper commands.
+# Gazebo turns a device with a PinchGripperRealtimeControlServiceConfig into a
+# simulated gripper; the config lives in the instance (see the root BUILD).
+intrinsic_hardware_device(
     name = "rebot_b601_rs_gripper",
-    manifest = ":rebot_b601_rs_gripper_manifest.textproto",
-    scene_object = ":rebot_b601_rs_gripper_scene_object",
+    assets = [
+        ":rebot_b601_rs_gripper_scene_object",
+        "@intrinsic-core//intrinsic_hardware/intrinsic/hardware/gripper/service_asset:pinch_gripper_realtime_control_service",
+    ],
+    manifest = "rebot_b601_rs_gripper_manifest.textproto",
 )

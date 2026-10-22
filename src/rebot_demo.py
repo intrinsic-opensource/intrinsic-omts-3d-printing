@@ -12,19 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Runs the reBot's simulation-only printed-part pick-and-place demo."""
+"""Runs the reBot's printed-part pick-and-place demo in simulation."""
 
 from collections.abc import Sequence
 
 from absl import app, flags, logging
-from intrinsic.solutions import deployments
+from intrinsic.solutions import deployments, worlds
 
 from src.behaviors.rebot_pick_place import build_rebot_pick_place_tree
-from src.core.config import RobotConfig
+from src.core.config import GripperConfig, RobotConfig
 from src.core.infeed import GridInfeedStrategy
 from src.core.tray import Tray
 from src.core.types import SlotState
 from src.core.workpiece import Workpiece
+from src.hardware.gripper import PinchGripper
 from src.hardware.robot import Robot
 
 _ADDRESS = flags.DEFINE_string(
@@ -36,6 +37,13 @@ _NUM_CYCLES = flags.DEFINE_integer(
   "num_cycles",
   1,
   "Number of A-to-B-to-A cycles; values <= 0 repeat continuously.",
+)
+_FROM_INITIAL_WORLD = flags.DEFINE_bool(
+  "from_initial_world",
+  True,
+  "Reset the belief and simulation worlds to the deployed initial world "
+  "(arm folded at home, part at A) before running. Without it, the demo "
+  "starts from wherever the last run left the arm and part.",
 )
 
 
@@ -66,17 +74,30 @@ def main(argv: Sequence[str]) -> None:
     tool_frame_name="tool_frame",
   )
   robot = Robot(solution=solution, config=robot_config)
+  gripper = PinchGripper(
+    solution=solution,
+    config=GripperConfig(
+      type="pinch",
+      resource_name=robot_config.tool_object_name,
+    ),
+  )
   tree = build_rebot_pick_place_tree(
     robot=robot,
+    gripper=gripper,
     infeed_strategy=infeed_strategy,
     tool_object_name=robot_config.tool_object_name,
     num_cycles=_NUM_CYCLES.value,
   )
   logging.info(
-    "Executing simulation-only reBot pick-and-place (cycles=%d)...",
+    "Executing reBot pick-and-place (cycles=%d)...",
     _NUM_CYCLES.value,
   )
-  solution.executive.run(tree)
+  solution.executive.run(
+    tree,
+    start_from_world_state=(
+      worlds.EditWorldId.INITIAL if _FROM_INITIAL_WORLD.value else None
+    ),
+  )
 
 
 if __name__ == "__main__":

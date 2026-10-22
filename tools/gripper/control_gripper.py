@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Interactive and CLI tool to command robotic grippers (Robotiq, DIO)."""
+"""Interactive and CLI tool to command grippers (Robotiq, DIO, pinch)."""
 
 import argparse
 import sys
@@ -25,6 +25,7 @@ from src.core.config import GripperConfig
 from src.hardware.gripper import (
   DioGripper,
   GripperInterface,
+  PinchGripper,
   RobotiqGripper,
 )
 
@@ -73,6 +74,12 @@ def create_gripper(
       action_name=getattr(args, "action_name", None),
     )
     return RobotiqGripper(solution=solution, config=config)
+  if gripper_type == "pinch":
+    config = GripperConfig(
+      type="pinch",
+      resource_name=getattr(args, "resource_name", "gripper"),
+    )
+    return PinchGripper(solution=solution, config=config)
   raise ValueError(f"Unsupported gripper type: {gripper_type}")
 
 
@@ -170,8 +177,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     "--gripper_type",
     type=str,
     default="robotiq",
-    choices=["robotiq", "dio", "sideloaded"],
-    help="Gripper type: 'robotiq' or 'dio' (default: 'robotiq').",
+    choices=["robotiq", "dio", "sideloaded", "pinch"],
+    help=(
+      "Gripper type: 'robotiq', 'dio' or 'pinch' (control_pinch_gripper)"
+      " (default: 'robotiq')."
+    ),
+  )
+  parser.add_argument(
+    "--resource_name",
+    type=str,
+    default="gripper",
+    help="Gripper hardware device instance for --gripper_type=pinch.",
   )
   parser.add_argument(
     "--joint_name",

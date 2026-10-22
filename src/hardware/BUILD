@@ -30,6 +30,7 @@ py_library(
         "//src/core:types",
         "//src/utils:math_utils",
         "@intrinsic-core//intrinsic/manipulation/skills/force:move_to_contact_proto_py_pb2",
+        "@intrinsic-core//intrinsic/world/proto:object_world_updates_py_pb2",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
         "@intrinsic_apis//intrinsic/math/proto:point_py_pb2",
         "@intrinsic_apis//intrinsic/math/proto:pose_py_pb2",
@@ -48,7 +49,9 @@ py_library(
     deps = [
         "//src/core:config",
         "//src/utils:math_utils",
+        "//src/utils:script_utils",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+        "@intrinsic_apis//intrinsic/hardware/gripper/eoat:eoat_service_py_pb2",
     ],
 )
 

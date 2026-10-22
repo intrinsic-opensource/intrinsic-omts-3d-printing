@@ -1,7 +1,7 @@
 # Seeed reBot Arm B601-RS (`ai.intrinsic.rebot_b601_rs`)
 
 Simulation-only ICON hardware device for the Seeed Studio reBot Arm B601-RS:
-6 revolute joints, without the gripper, which is the separate scene object
+6 revolute joints, without the gripper, which is the separate hardware device
 [`//models/rebot_b601_rs_gripper`](../rebot_b601_rs_gripper/). Used by
 `//:rebot_solution`.
 
@@ -17,7 +17,7 @@ mode. Real hardware support comes from Intrinsic.
 | File | Origin |
 | --- | --- |
 | `rebot_b601_rs.sdf`, `*.glb` | Generated (see below). The arm carries `intrinsic:ik_solver` (`kinematic_chain`) and a `flange` attachment frame at `link6`. |
-| `rebot_b601_rs_limits.updates.pbtxt` | Hand-written. Initial joint positions (`ready`) and joint limits. Positions come from the URDF; velocity, acceleration and jerk are conservative simulation placeholders, not measured on the arm. |
+| `rebot_b601_rs_limits.updates.pbtxt` | Hand-written. Initial joint positions (folded `home`, the reBot's resting pose) and joint limits. Positions come from the URDF; velocity, acceleration and jerk are simulation placeholders, not measured on the arm. The application limits the planner uses are kept slow (0.5–0.75 rad/s, 3 rad/s²) so the demo is easy to follow. |
 | `rebot_b601_rs.named_configurations.pbtxt` | Hand-written. `home` (folded) and `ready` (tool pointing straight down, 0.30 m in front of the base, 0.10 m up). |
 | `rebot_b601_rs_*manifest.textproto`, `rebot_b601_rs_default_config.pbtxt`, `BUILD` | Hardware device, scene object and service packaging. |
 | `mesh_colors.json` | Color rules for the generator, shared with the gripper. |
@@ -56,13 +56,22 @@ The gripper is mounted on the flange by `configs/rebot/rebot.attachments.updates
 with the URDF's `j_gripper_end` transform, which also adds `tool_frame` at the
 fingertips.
 
+The gripper is a simulation-only hardware device: its scene object plus
+Intrinsic's pinch gripper realtime control service, commanded by
+`ai.intrinsic.control_pinch_gripper`. Its instance config,
+[`configs/rebot/gripper.instance.pbtxt`](../../configs/rebot/gripper.instance.pbtxt),
+names the grasp/release signals. In sim, the service drives Gazebo's simulated
+GPIO directly (no ICON digital I/O), and Gazebo's actuated gripper plugin moves
+both fingers and holds a grasped object with a fixed joint. Finger joint 0 is
+closed and 0.05 m is open, so the config sets `is_default_closed`.
+
 ## Current limitations
 
 * **Joint limits beyond position are placeholders.** Revisit them against the
   real arm once Intrinsic's hardware support lands.
-* **Gripper fingers are independent and unactuated in simulation.** Step 1c
-  uses Object World attach/detach as a temporary grasp stand-in; real finger
-  coupling and control remain future work pending Intrinsic's gripper interface.
+* **The gripper's command path is a simulation choice.** Real hardware will
+  depend on how Intrinsic exposes the gripper motor (HANDOFF question 4.1.5);
+  the signal names in the instance config are placeholders until then.
 * **Collision meshes are coarse simplifications** (8 mm vertex clustering),
   not conservative hulls. Revisit before relying on motion planning near
   obstacles.
