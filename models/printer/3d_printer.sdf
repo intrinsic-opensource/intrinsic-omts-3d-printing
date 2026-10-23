@@ -1,0 +1,52 @@
+<?xml version="1.0" ?>
+<sdf version="1.9" xmlns:intrinsic="https://intrinsic.ai/">
+  <model name="printer">
+    <static>true</static>
+    <link name="base_link">
+      <visual name="visual">
+        <!-- GLB is Y-up; rotate +90 deg about X so the printer stands upright (Z-up). -->
+        <pose>0 0 0 1.5708 0 0</pose>
+        <geometry><mesh><uri>3d_printer.glb</uri></mesh></geometry>
+      </visual>
+      <!-- Body is hollow so parts can sit on the bed (top at z=0.0895).
+           Footprint x[-0.236,0.26] y[-0.215,0.284], height 0.701. -->
+      <collision name="base_collision">
+        <pose>0.0120 0.0345 0.0447 0 0 0</pose>
+        <geometry><box><size>0.4960 0.4990 0.0895</size></box></geometry>
+      </collision>
+      <collision name="top_collision">
+        <pose>0.0120 0.0345 0.5755 0 0 0</pose>
+        <geometry><box><size>0.4960 0.4990 0.2510</size></box></geometry>
+      </collision>
+      <collision name="post_a_collision">
+        <pose>-0.2210 -0.2000 0.2698 0 0 0</pose>
+        <geometry><box><size>0.0300 0.0300 0.3605</size></box></geometry>
+      </collision>
+      <collision name="post_b_collision">
+        <pose>0.2450 -0.2000 0.2698 0 0 0</pose>
+        <geometry><box><size>0.0300 0.0300 0.3605</size></box></geometry>
+      </collision>
+      <collision name="post_c_collision">
+        <pose>-0.2210 0.2690 0.2698 0 0 0</pose>
+        <geometry><box><size>0.0300 0.0300 0.3605</size></box></geometry>
+      </collision>
+      <collision name="post_d_collision">
+        <pose>0.2450 0.2690 0.2698 0 0 0</pose>
+        <geometry><box><size>0.0300 0.0300 0.3605</size></box></geometry>
+      </collision>
+      <!-- Spool stack: x[-0.444,-0.226] y[0.022,0.237] z[0,0.220] -->
+      <collision name="spool_stack_collision">
+        <pose>-0.335 0.1295 0.11 0 0 0</pose>
+        <geometry><box><size>0.218 0.215 0.22</size></box></geometry>
+      </collision>
+    </link>
+    <!-- Center of the print bed surface; spawn parts relative to this frame. -->
+    <frame name="bed_frame" attached_to="base_link" intrinsic:create_entity="true">
+      <pose>0.006 -0.001 0.0895 0 0 0</pose>
+    </frame>
+    <!-- Top-center of the printer, useful as an approach/view target. -->
+    <frame name="top_frame" attached_to="base_link" intrinsic:create_entity="true">
+      <pose>0.012 0.0345 0.701 0 0 0</pose>
+    </frame>
+  </model>
+</sdf>

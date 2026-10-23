@@ -1,8 +1,6 @@
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@intrinsic-core//intrinsic/assets/build_defs:asset.bzl", "intrinsic_asset_instance")
 load("@intrinsic-core//intrinsic/assets/build_defs:solution.bzl", "intrinsic_solution")
-load("@intrinsic-core//intrinsic_inference/assets/inference_service/bazel:intrinsic_mlmodel.bzl", "intrinsic_mlmodel")
+load("@intrinsic-core//intrinsic_sdk/intrinsic/assets/build_defs:asset.bzl", "intrinsic_asset_instance")
 load("//bazel:imported_asset.bzl", "imported_asset_bundle")
 load("//bazel:solution_manifest.bzl", "solution_manifest_only")
 
@@ -64,14 +62,11 @@ intrinsic_solution(
         "@intrinsic-core//intrinsic_perception/intrinsic/perception/cameras/hardware_devices:orbbec_gemini_335le_hardware_device",
         "@intrinsic-core//intrinsic_motion_planning/intrinsic/motion_planning/service:motion_planner_service_asset",
         "@intrinsic-core//intrinsic_control/intrinsic/icon/machines/common:generic_icon_mainloop_type",
-        "@intrinsic-core//intrinsic_inference/assets/inference_service:inference_service_asset",
-        "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator:ioc_pose_estimator_service_asset",
+        "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator:nvidia_pose_estimator_service_asset",
         "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_train_service:ioc_train_service_asset",
         ":flowstate_ros_bridge_asset",
         ":hand_e_gripper_service_asset",
         ":orbbec_gemini_driver_asset",
-        "//src/foundationpose:foundationpose_mlmodel",
-        ":rfdetr_mlmodel",
         "//models/raw_stock_2x3x5",
     ] + select({
         ":is_lab_bb_01": [
@@ -81,9 +76,8 @@ intrinsic_solution(
         "//conditions:default": [
             "@intrinsic-core//intrinsic_control/intrinsic/icon/hardware_modules/universal_robots:ur5e_hardware_module_core",
             "//models/camera_mount",
-            "//models/cnc_enclosure",
             "//models/omts_enclosure",
-            "//models/schunk_egp_64nnb",
+            "//models/printer",
         ],
     }),
     default_operation_mode = "real",
@@ -100,8 +94,7 @@ intrinsic_solution(
         ":orbbec_camera",
         ":orbbec_gemini_driver",
         ":motion_planner_service",
-        ":inference_service",
-        ":pose_estimator_service",
+        ":nvidia_pose_estimator_service",
         ":train_service",
         ":flowstate_ros_bridge",
         ":hand_e_gripper_service",
@@ -110,8 +103,7 @@ intrinsic_solution(
         ],
         "//conditions:default": [
             ":camera_mount",
-            ":cnc_enclosure",
-            ":schunk_egp_64nnb",
+            ":printer",
         ],
     }),
     object_world_updates = select({
@@ -126,8 +118,7 @@ intrinsic_solution(
             "//configs:omts/ur_module.attachments.updates.pbtxt",
             "//configs:omts/scene.updates.pbtxt",
             "//configs:omts/align_robot.updates.pbtxt",
-            "//configs:omts/cnc_enclosure.updates.pbtxt",
-            "//configs:omts/schunk.updates.pbtxt",
+            "//configs:omts/printer.updates.pbtxt",
             "//configs:omts/camera_mount.updates.pbtxt",
             "//configs:omts/orbbec_gemini.updates.pbtxt",
         ],
@@ -244,8 +235,9 @@ intrinsic_asset_instance(
 )
 
 intrinsic_asset_instance(
-    name = "cnc_enclosure",
-    asset = "ai.intrinsic.cnc_enclosure",
+    name = "printer",
+    asset = "ai.intrinsic.printer",
+    instance_name = "printer",
 )
 
 intrinsic_asset_instance(
@@ -319,22 +311,15 @@ intrinsic_asset_instance(
 )
 
 intrinsic_asset_instance(
-    name = "inference_service",
-    asset = "ai.intrinsic.inference_service",
-    instance_name = "inference_service",
-)
-
-intrinsic_asset_instance(
     name = "motion_planner_service",
     asset = "ai.intrinsic.motion_planner_service",
     instance_name = "motion_planner_service",
 )
 
 intrinsic_asset_instance(
-    name = "pose_estimator_service",
-    asset = "ai.intrinsic.ioc_pose_estimator_service",
-    instance_name = "pose_estimator_service",
-    service_config = "//configs:common/pose_estimator_config.textproto",
+    name = "nvidia_pose_estimator_service",
+    asset = "ai.intrinsic.nvidia_pose_estimator_service",
+    instance_name = "nvidia_pose_estimator_service",
 )
 
 intrinsic_asset_instance(
@@ -436,34 +421,3 @@ intrinsic_asset_instance(
     instance_name = "orbbec_gemini_driver",
 )
 
-intrinsic_asset_instance(
-    name = "schunk_egp_64nnb",
-    asset = "ai.intrinsic.schunk_egp_64nnb",
-    instance_name = "schunk_egp_64nnb",
-)
-
-copy_file(
-    name = "rfdetr_segmentation_config_pbtxt",
-    src = "@segmentation_weights_bundle//:config.pbtxt",
-    out = "rfdetr_segmentation_config.pbtxt",
-    allow_symlink = True,
-)
-
-copy_file(
-    name = "rfdetr_segmentation_onnx_file",
-    src = "@segmentation_weights_bundle//:segmentation.onnx",
-    out = "segmentation.onnx",
-    allow_symlink = True,
-)
-
-intrinsic_mlmodel(
-    name = "rfdetr_mlmodel",
-    backend = "triton",
-    config = ":rfdetr_segmentation_config_pbtxt",
-    description = "RF-DETR segmentation model for object detection and segmentation.",
-    display_name = "RF-DETR Segmentation Model",
-    id = "ai.intrinsic.ioc_pose_estimation.segmentor.rfdetr",
-    model_files = {
-        ":rfdetr_segmentation_onnx_file": "1/segmentation.onnx",
-    },
-)

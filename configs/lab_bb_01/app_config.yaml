@@ -15,8 +15,8 @@ gripper:
 
 vision:
   camera_name: "orbbec_camera"
-  perception_service_name: "pose_estimator_service"
-  pose_estimator_id: "ai.intrinsic.raw_stock_2x3x5_estimator"
+  perception_service_name: "nvidia_pose_estimator_service"
+  pose_estimator_id: "ai.intrinsic.raw_stock_2x3x5_estimator_text"
   scene_object_id: "ai.intrinsic.raw_stock_2x3x5"
   sensor_ids: [1, 4]
   min_num_instances: 1
@@ -38,8 +38,8 @@ grasp:
 cycle:
   num_cycles: 1
   workpiece_id: "raw_stock_2x3x5"
-  approach_offset_z: 0.10
-  standoff_distance_meters: 0.03
+  approach_offset_z: 0.12
+  standoff_distance_meters: 0.05
   retract_distance_meters: 0.015
   pick_touchdown_force_newtons: 15.0
   load_seat_force_newtons: 8.0

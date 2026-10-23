@@ -874,7 +874,7 @@ class FakeSolution:
       ),
       "world_service": ("intrinsic_proto.world.ObjectWorldService",),
       "orbbec_camera": ("CameraConfig",),
-      "pose_estimator_service": (
+      "nvidia_pose_estimator_service": (
         "intrinsic_proto.perception.v1.PoseEstimationService",
       ),
     }
@@ -1428,8 +1428,9 @@ class HermeticSolutionAndBehaviorTreeContractTest(absltest.TestCase):
   ) -> None:
     omts_instances = set(self.cell_world_objects["omts"])
     lab_instances = set(self.cell_world_objects["lab_bb_01"])
-    self.assertIn("cnc_enclosure", omts_instances)
-    self.assertIn("schunk_egp_64nnb", omts_instances)
+    self.assertIn("printer", omts_instances)
+    self.assertNotIn("cnc_enclosure", omts_instances)
+    self.assertNotIn("schunk_egp_64nnb", omts_instances)
     self.assertNotIn("cnc_enclosure", lab_instances)
     self.assertNotIn("schunk_egp_64nnb", lab_instances)
 
@@ -1482,9 +1483,12 @@ class HermeticSolutionAndBehaviorTreeContractTest(absltest.TestCase):
       _assert_no_parallel_universe_lock_conflicts(bt_proto)
 
     config = load_app_config("configs/omts/app_config.yaml")
+    # The omts cell no longer ships a CNC enclosure (replaced by a printer);
+    # add it back to the fake world so the door task emits its update_world
+    # and the contract has a real lock conflict to catch.
     solution = FakeSolution(
       self.skill_infos,
-      world_objects=self.cell_world_objects["omts"],
+      world_objects=[*self.cell_world_objects["omts"], "cnc_enclosure"],
     )
     robot = Robot(solution=solution, config=config.robot)
     assert config.machine is not None

@@ -1,0 +1,8 @@
+# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
+# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+metadata {
+  id { package: "ai.intrinsic" name: "printer" }
+  vendor { display_name: "Intrinsic" }
+  documentation { description: "3D printer with filament spool stack (static)." }
+  display_name: "3D Printer"
+}

@@ -112,16 +112,16 @@ py_test(
         "//src/hardware:vision",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_protobuf//:protobuf_python",
-        "@intrinsic-core//intrinsic/executive/proto:behavior_tree_py_pb2",
-        "@intrinsic-core//intrinsic/world/proto:object_world_service_py_pb2",
         "@intrinsic-core//intrinsic_sdk/intrinsic/assets/build_defs:asset_py_pb2",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:proto_building",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:provided",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_service_py_pb2",
         "@intrinsic-core//intrinsic_sdk/intrinsic/world/python:object_world_resources",
         "@intrinsic_apis//intrinsic/assets/proto:asset_type_py_pb2",
         "@intrinsic_apis//intrinsic/assets/proto:id_py_pb2",
+        "@intrinsic_apis//intrinsic/executive/proto:behavior_tree_py_pb2",
         "@intrinsic_apis//intrinsic/executive/proto:proto_builder_py_pb2",
         "@intrinsic_apis//intrinsic/resources/proto:resource_handle_py_pb2",
         "@intrinsic_apis//intrinsic/skills/proto:equipment_py_pb2",
@@ -182,8 +182,8 @@ py_test(
         "//src/utils:world_utils",
         "//tools/jogging:store_frame_lib",
         "@com_google_absl_py//absl/testing:absltest",
-        "@intrinsic-core//intrinsic/world/proto:object_world_updates_py_pb2",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
     ],
 )
 
@@ -239,9 +239,9 @@ py_test(
         "//src/utils:world_utils",
         "//tools/world:edit_frames_rviz_lib",
         "@com_google_absl_py//absl/testing:absltest",
-        "@intrinsic-core//intrinsic/world/proto:object_world_updates_py_pb2",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:proto_conversion",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
     ],
 )
 
@@ -269,9 +269,8 @@ py_test(
         "//src/core:config",
         "//tools/world:apply_scene_updates_lib",
         "@com_google_absl_py//absl/testing:absltest",
-        "@intrinsic-core//intrinsic/world/proto:object_world_updates_py_pb2",
-        "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/proto:ioc_service_config_py_pb2",
         "@intrinsic-core//intrinsic_perception/intrinsic/perception/skills/calibration:sample_calibration_poses_py_pb2",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
         "@intrinsic_apis//intrinsic/assets/services/proto:service_manifest_py_pb2",
         "@intrinsic_apis//intrinsic/icon/server/config:icon_main_config_py_pb2",
         "@intrinsic_apis//intrinsic/perception/proto/v1:camera_config_py_pb2",
@@ -285,7 +284,7 @@ py_test(
         "//tools/calibration:calibrate_camera_lib",
         "//tools/world:apply_scene_updates_lib",
         "@com_google_absl_py//absl/testing:absltest",
-        "@intrinsic-core//intrinsic/world/proto:object_world_updates_py_pb2",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
         "@intrinsic_apis//intrinsic/perception/proto/v1:camera_to_robot_calibration_py_pb2",
     ],
 )
@@ -308,22 +307,6 @@ py_test(
         "@com_google_absl_py//absl/testing:absltest",
         "@intrinsic-core//intrinsic/world/service/robot_calibration:robot_update_service_py_pb2",
         "@intrinsic-core//intrinsic/world/service/robot_calibration:robot_update_service_py_pb2_grpc",
-    ],
-)
-
-py_test(
-    name = "test_register_using_train_service",
-    srcs = ["test_register_using_train_service.py"],
-    deps = [
-        "//tools/pose_estimation:register_using_train_service_lib",
-        "@com_google_absl_py//absl/testing:absltest",
-        "@com_google_googleapis//google/longrunning:operations_py_proto",
-        "@com_google_googleapis//google/rpc:status_py_proto",
-        "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_train_service/proto:ioc_pose_estimator_params_py_pb2",
-        "@intrinsic-core//intrinsic_sdk/intrinsic/assets/proto:installed_assets_py_pb2",
-        "@intrinsic_apis//intrinsic/assets/proto:view_py_pb2",
-        "@intrinsic_apis//intrinsic/perception/proto/v1:train_service_py_pb2",
-        "@intrinsic_apis//intrinsic/scene/proto/v1:scene_object_py_pb2",
     ],
 )
 
@@ -354,14 +337,5 @@ py_test(
         "//src/utils:script_utils",
         "@com_google_absl_py//absl/testing:absltest",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
-    ],
-)
-
-py_test(
-    name = "test_run_pose_estimation",
-    srcs = ["test_run_pose_estimation.py"],
-    deps = [
-        "//tools/pose_estimation:run_pose_estimation_lib",
-        "@com_google_absl_py//absl/testing:absltest",
     ],
 )
