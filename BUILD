@@ -76,9 +76,8 @@ intrinsic_solution(
         "//conditions:default": [
             "@intrinsic-core//intrinsic_control/intrinsic/icon/hardware_modules/universal_robots:ur5e_hardware_module_core",
             "//models/camera_mount",
-            "//models/cnc_enclosure",
             "//models/omts_enclosure",
-            "//models/schunk_egp_64nnb",
+            "//models/printer",
         ],
     }),
     default_operation_mode = "real",
@@ -104,8 +103,7 @@ intrinsic_solution(
         ],
         "//conditions:default": [
             ":camera_mount",
-            ":cnc_enclosure",
-            ":schunk_egp_64nnb",
+            ":printer",
         ],
     }),
     object_world_updates = select({
@@ -120,8 +118,7 @@ intrinsic_solution(
             "//configs:omts/ur_module.attachments.updates.pbtxt",
             "//configs:omts/scene.updates.pbtxt",
             "//configs:omts/align_robot.updates.pbtxt",
-            "//configs:omts/cnc_enclosure.updates.pbtxt",
-            "//configs:omts/schunk.updates.pbtxt",
+            "//configs:omts/printer.updates.pbtxt",
             "//configs:omts/camera_mount.updates.pbtxt",
             "//configs:omts/orbbec_gemini.updates.pbtxt",
         ],
@@ -149,8 +146,9 @@ intrinsic_asset_instance(
 )
 
 intrinsic_asset_instance(
-    name = "cnc_enclosure",
-    asset = "ai.intrinsic.cnc_enclosure",
+    name = "printer",
+    asset = "ai.intrinsic.printer",
+    instance_name = "printer",
 )
 
 intrinsic_asset_instance(
@@ -334,8 +332,3 @@ intrinsic_asset_instance(
     instance_name = "orbbec_gemini_driver",
 )
 
-intrinsic_asset_instance(
-    name = "schunk_egp_64nnb",
-    asset = "ai.intrinsic.schunk_egp_64nnb",
-    instance_name = "schunk_egp_64nnb",
-)
