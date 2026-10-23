@@ -5,9 +5,13 @@ How to deploy the reBot printer-tending cell and run its pick-and-place demo
 deploys and runs on this machine: Bazel, Git LFS and the local cluster at
 `localhost:17080` work.
 
-The demo runs in simulation only. The reBot starts folded at its `home`
-resting pose with the gripper closed, picks a printed part at A, carries it to
-B with its gripper, brings it back, then closes the gripper and folds up again.
+The demo runs in simulation only. It simulates a printer-tending setup: a 3D
+printer stands in front of the reBot, and A is on the ground behind it. The
+reBot starts folded at its `park_left` resting pose (`home` turned to its left,
+away from the printer) with the gripper closed, picks a
+printed part at A, carries it into the printer and sets it on the bed (B),
+brings it back, then closes the gripper and folds up again. The printer is a
+stand-in model (`models/printer`); the target printer is still undecided.
 
 ## 1. Get the code
 
@@ -43,8 +47,10 @@ no new line appears; drop `--since=2m` to see the earlier one.
 ## 3. Check the arm and gripper (optional)
 
 ```bash
-bazel run //tools/jogging:move_to_joint -- ready --arm_part_name=rebot
-bazel run //tools/jogging:move_to_joint -- home --arm_part_name=rebot
+bazel run //tools/jogging:move_to_frame -- --frame=demo_a --arm_part_name=rebot
+bazel run //tools/jogging:move_to_frame -- --frame=demo_b \
+  --motion_type=LINEAR --arm_part_name=rebot
+bazel run //tools/jogging:move_to_joint -- park_left --arm_part_name=rebot
 bazel run //tools/gripper:control_gripper -- --gripper_type=pinch --action=open
 bazel run //tools/gripper:control_gripper -- --gripper_type=pinch --action=close
 ```
@@ -56,10 +62,10 @@ bazel run //:rebot_demo -- --address=localhost:17080 --num_cycles=2
 ```
 
 Each run first resets the belief and simulated worlds to the deployed initial
-world: arm folded at `home`, part at A. Pass `--from_initial_world=false` to
+world: arm folded at `park_left`, part at A. Pass `--from_initial_world=false` to
 start from wherever the last run left them. Each cycle moves the part A→B→A
-and takes about 30 s; a finite run ends by closing the gripper and folding
-back to `home`.
+and takes about 35 s; a finite run ends by closing the gripper and folding
+back to `park_left`.
 `--num_cycles=0` repeats until stopped. The command prints
 `Execution successful` when done.
 To change the arm speed, edit the application limits in

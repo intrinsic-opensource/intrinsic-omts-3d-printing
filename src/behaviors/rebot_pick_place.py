@@ -22,6 +22,10 @@ from src.core.types import InfeedMode
 from src.hardware.gripper import GripperInterface
 from src.hardware.robot import Robot
 
+# The object each location's part rests on: the ground behind the robot at A,
+# the printer's bed in front of it at B.
+_SUPPORT_OBJECTS = {"a": "rebot_ground", "b": "printer"}
+
 
 def _build_transfer(
   robot: Robot,
@@ -32,11 +36,15 @@ def _build_transfer(
   destination: str,
 ) -> bt.Node:
   collision_pair = (tool_object_name, workpiece_name)
-  # The part rests on the ground, so its collision box touches the ground's.
-  # Exclude that pair only on the segments at or leaving the ground.
-  ground_contact_pairs = [
+  # A resting part's collision box touches its support's. Exclude that pair
+  # only on the segments at or leaving that support.
+  source_contact_pairs = [
     collision_pair,
-    (workpiece_name, "rebot_ground"),
+    (workpiece_name, _SUPPORT_OBJECTS[source]),
+  ]
+  destination_contact_pairs = [
+    collision_pair,
+    (workpiece_name, _SUPPORT_OBJECTS[destination]),
   ]
   return bt.Sequence(
     name=f"Transfer printed part {source} to {destination}",
@@ -54,7 +62,7 @@ def _build_transfer(
         frame_name=f"part_{source}_grasp",
         parent_object="root",
         motion_type="LINEAR",
-        excluded_collision_pairs=ground_contact_pairs,
+        excluded_collision_pairs=source_contact_pairs,
         task_name=f"Position-only grasp approach at {source}",
       ),
       gripper.build_close_task(name=f"Grasp printed part at {source}"),
@@ -67,7 +75,7 @@ def _build_transfer(
         frame_name=f"part_{source}_pregrasp",
         parent_object="root",
         motion_type="LINEAR",
-        excluded_collision_pairs=ground_contact_pairs,
+        excluded_collision_pairs=source_contact_pairs,
         task_name=f"Retract with grasped part from {source}",
       ),
       create_move_to_frame_task(
@@ -83,7 +91,7 @@ def _build_transfer(
         frame_name=f"part_{destination}_grasp",
         parent_object="root",
         motion_type="LINEAR",
-        excluded_collision_pairs=ground_contact_pairs,
+        excluded_collision_pairs=destination_contact_pairs,
         task_name=f"Position-only place approach at {destination}",
       ),
       gripper.build_open_task(name=f"Release printed part at {destination}"),
@@ -101,7 +109,7 @@ def _build_transfer(
         frame_name=f"part_{destination}_pregrasp",
         parent_object="root",
         motion_type="LINEAR",
-        excluded_collision_pairs=ground_contact_pairs,
+        excluded_collision_pairs=destination_contact_pairs,
         task_name=f"Retract after placing at {destination}",
       ),
     ],
@@ -114,6 +122,7 @@ def build_rebot_pick_place_tree(
   infeed_strategy: GridInfeedStrategy,
   tool_object_name: str,
   num_cycles: int = 1,
+  rest_configuration: str = "home",
 ) -> bt.BehaviorTree:
   """Builds a repeatable A-to-B-to-A transfer of one printed part.
 
@@ -121,8 +130,9 @@ def build_rebot_pick_place_tree(
   gripper closes on the part and, in simulation, Gazebo holds it while the
   gripper is closed. Attaching the part to the robot keeps the belief world in
   step for motion planning. Each cycle transfers the same grid-infeed part from
-  A to B and back to A. The arm starts folded at its `home` configuration with
-  the gripper closed, and a finite run ends by restoring that state.
+  A to B and back to A. The arm starts folded at `rest_configuration` (a named
+  configuration) with the gripper closed, and a finite run ends by restoring
+  that state.
   """
   if infeed_strategy.mode != InfeedMode.GRID:
     raise ValueError("The reBot demo requires the fixed-pose grid infeed.")
@@ -168,15 +178,17 @@ def build_rebot_pick_place_tree(
 
   # Close the gripper above A, where the released part is clear of the
   # fingers, then fold: the run ends in the same state it started from.
-  return_home = bt.Sequence(
-    name="Return to home (folded, gripper closed)",
+  return_to_rest = bt.Sequence(
+    name=f"Return to {rest_configuration} (folded, gripper closed)",
     children=[
       gripper.build_close_task(name="Close gripper before folding"),
-      robot.build_move_joint_task("home", name="Fold to home"),
+      robot.build_move_joint_task(
+        rest_configuration, name=f"Fold to {rest_configuration}"
+      ),
     ],
   )
   root = bt.Sequence(
     name="reBot pick-and-place demo",
-    children=[cycles, return_home],
+    children=[cycles, return_to_rest],
   )
   return bt.BehaviorTree(name="reBot Simulation Pick and Place", root=root)

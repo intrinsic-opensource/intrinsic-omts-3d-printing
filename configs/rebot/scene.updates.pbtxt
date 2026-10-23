@@ -2,16 +2,17 @@
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
 
 # Named frames for the reBot cell. demo_a and demo_b are top-down tool poses
-# (tool_frame +z pointing straight down) 0.30 m in front of the base and 0.05 m
-# above it, either side of center, for the step 1b motion demo.
+# (tool_frame +z pointing straight down) 0.30 m from the base at 105 and 125
+# deg from the printer's direction, on its left and clear of the printer and
+# of the part at A, and 0.05 m above it, for the step 1b motion demo.
 
 updates {
   create_frame {
     new_frame_name: "demo_a"
     parent_t_new_frame {
       position {
-        x: 0.3
-        y: -0.12
+        x: -0.078
+        y: 0.29
         z: 0.05
       }
       orientation {
@@ -36,8 +37,8 @@ updates {
     new_frame_name: "demo_b"
     parent_t_new_frame {
       position {
-        x: 0.3
-        y: 0.12
+        x: -0.172
+        y: 0.246
         z: 0.05
       }
       orientation {
@@ -54,5 +55,24 @@ updates {
         }
       }
     }
+  }
+}
+
+# The arm starts at "park_left" (the folded "home" turned to the robot's
+# left), not at "home": folded straight ahead, the gripper reaches into the
+# printer's front opening.
+updates {
+  update_object_joints {
+    object {
+      by_name {
+        object_name: "rebot"
+      }
+    }
+    joint_positions: 1.5708
+    joint_positions: -0.05
+    joint_positions: -0.05
+    joint_positions: 0
+    joint_positions: 0
+    joint_positions: 0
   }
 }

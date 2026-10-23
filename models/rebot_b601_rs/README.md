@@ -18,7 +18,7 @@ mode. Real hardware support comes from Intrinsic.
 | --- | --- |
 | `rebot_b601_rs.sdf`, `*.glb` | Generated (see below). The arm carries `intrinsic:ik_solver` (`kinematic_chain`) and a `flange` attachment frame at `link6`. |
 | `rebot_b601_rs_limits.updates.pbtxt` | Hand-written. Initial joint positions (folded `home`, the reBot's resting pose) and joint limits. Positions come from the URDF; velocity, acceleration and jerk are simulation placeholders, not measured on the arm. The application limits the planner uses are kept slow (0.5–0.75 rad/s, 3 rad/s²) so the demo is easy to follow. |
-| `rebot_b601_rs.named_configurations.pbtxt` | Hand-written. `home` (folded) and `ready` (tool pointing straight down, 0.30 m in front of the base, 0.10 m up). |
+| `rebot_b601_rs.named_configurations.pbtxt` | Hand-written. `home` (folded), `park_left` (`home` turned 90° to the left, for cells with something in front of the robot) and `ready` (tool pointing straight down, 0.30 m in front of the base, 0.10 m up). |
 | `rebot_b601_rs_*manifest.textproto`, `rebot_b601_rs_default_config.pbtxt`, `BUILD` | Hardware device, scene object and service packaging. |
 | `mesh_colors.json` | Color rules for the generator, shared with the gripper. |
 

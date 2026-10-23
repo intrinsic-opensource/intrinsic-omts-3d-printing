@@ -447,10 +447,71 @@ Learned:
 
 Milestone 1 is done at the step 1d demo.
 
+### Step 2a: The printer is in the cell
+
+**Status: done (2026-10-23).** Deployed and run live in local simulation: two
+A→B→A cycles in 71 s, and Gazebo has the part back at A, flat, within 1 mm.
+
+* `//:rebot_solution` now deploys the stand-in printer model
+  (`models/printer`, from the `omts` cell rework) in front of the reBot,
+  placed by `configs/rebot/printer.updates.pbtxt`. Its open front faces the
+  robot (yaw −90°), the spool stack is on the robot's left, and the bed centre
+  is at x = 0.36 m, z = 0.0895 m.
+* A and B are on opposite sides of the robot. A is on the ground behind it,
+  0.30 m out at 145° from the printer's direction, where the part starts; B is
+  the centre of the printer's bed.
+* **One tilted grasp for both ends.** The tool is pitched 35° about the jaw
+  axis, its approach leaning away from the robot along the part's x axis, and
+  each rest pose's x axis points away from the robot (A's is yawed 145°). The
+  grasp is therefore the same relative to the part at A and B, and the part is
+  always set down flat. Pre-grasps back off along the approach axis (0.08 m
+  at A, 0.06 m at B), so the descents follow the fingers.
+* **The arm rests at a new `park_left` configuration**: the folded `home`
+  turned 90° to the robot's left. The cell starts the arm there
+  (`configs/rebot/scene.updates.pbtxt`), and the tree folds back to it
+  (`rest_configuration`, default `home`). The step 1b demo frames
+  `demo_a`/`demo_b` moved to the robot's left too, at 105° and 125°.
+* The tree excludes the part against whatever it rests on at each end: the
+  ground at A, the printer at B (`_SUPPORT_OBJECTS` in
+  `src/behaviors/rebot_pick_place.py`).
+* The printer replaces the wall obstacle from `be64fe5`, whose placement was
+  inside it; the wall model and placement are removed.
+* **Demo:** deploy and run as in [`REBOT_DEMO.md`](REBOT_DEMO.md): the reBot
+  carries the part from behind it into the printer and back.
+
+Learned (each item cost one failed live run):
+
+* **`joint1` turns only ±160°, so straight behind the robot is unreachable.**
+  Offline IK found contorted solutions there that ignore self-collision; the
+  planner found none. A sits at 145°, which keeps about 0.27 rad of `joint1`
+  margin.
+* **`home` reaches into anything in front of the robot.** Folded, the tool is
+  at (0.30, 0, 0.23), inside the printer's front opening, and the first move
+  out clipped the printer's front edge. Hence `park_left`.
+* **Straight down cannot reach into the printer.** At 0.36 m out the planner
+  found no top-down IK above 0.15 m, and at 0.15 m its only solutions put the
+  forearm (`link3`) into the printer's top, which starts at z = 0.45 m. Exact
+  top-down came from the step 1b frames, not from any requirement; section 6.1
+  had already suggested allowing tilt. Following the planner's elbow-up branch
+  offline, B's pre-grasp clears the top only from about 25° of tilt, by 3.2 cm
+  at 35°.
+* **Offline IK is a guide, not a check.** FK from the generated SDF matches
+  `ready` exactly, but numeric IK with random seeds finds branches the
+  planner never returns, and the scan ignored self-collision. Scoring the
+  branch the planner actually reported (from its error message) is what
+  predicted the live result. Confirm frames live.
+* **Placement.** The bed centre at 0.36 m leaves about 7 cm between the robot
+  base (radius 0.12 m) and the printer's front edge (x = 0.146 m). The open
+  fingertips clear the bed by 1 cm at B's grasp.
+* **Gazebo's part yaw drifts slowly**: 145° → 148.6° over two cycles (four
+  grasps and places), with position within 1 mm. The belief world snaps the
+  part to its rest frame after each place; Gazebo does not.
+
 ### After milestone 1 (sketch, to be re-planned at each step)
 
-* Add a generic printer bed as the pick surface, then the printer as an
-  obstacle once the target printer is chosen.
+* ~~Add a generic printer bed as the pick surface, then the printer as an
+  obstacle once the target printer is chosen.~~ A stand-in printer is in the
+  cell (step 2a); swap in the real model once the target printer is chosen.
 * Pick from a 3MF plate layout with the footprint grasp planner.
 * Move to hardware on a Jetson once Intrinsic's ICON support lands.
 * Camera presence checks, printer adapter, per-job cycle.

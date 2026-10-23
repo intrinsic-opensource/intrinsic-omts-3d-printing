@@ -42,7 +42,7 @@ _FROM_INITIAL_WORLD = flags.DEFINE_bool(
   "from_initial_world",
   True,
   "Reset the belief and simulation worlds to the deployed initial world "
-  "(arm folded at home, part at A) before running. Without it, the demo "
+  "(arm folded at park_left, part at A) before running. Without it, the demo "
   "starts from wherever the last run left the arm and part.",
 )
 
@@ -87,6 +87,8 @@ def main(argv: Sequence[str]) -> None:
     infeed_strategy=infeed_strategy,
     tool_object_name=robot_config.tool_object_name,
     num_cycles=_NUM_CYCLES.value,
+    # The printer stands in front of the robot, where "home" reaches into it.
+    rest_configuration="park_left",
   )
   logging.info(
     "Executing reBot pick-and-place (cycles=%d)...",

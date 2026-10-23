@@ -18,8 +18,37 @@
 # "home": folded rest pose, just inside the joint2/joint3 limits at zero.
 # "ready": gripper pointing straight down, 0.30 m in front of the base and
 # 0.10 m above it (fingertips).
+# "park_left": "home" turned 90 deg to the robot's left (joint1), for cells
+# where something stands in front of the robot, which "home" reaches into.
 updates {
   set_named_configurations {
+    named_configurations_to_set {
+      name: "park_left"
+      joint_positions {
+        key: "joint1"
+        value: 1.5708
+      }
+      joint_positions {
+        key: "joint2"
+        value: -0.05
+      }
+      joint_positions {
+        key: "joint3"
+        value: -0.05
+      }
+      joint_positions {
+        key: "joint4"
+        value: 0
+      }
+      joint_positions {
+        key: "joint5"
+        value: 0
+      }
+      joint_positions {
+        key: "joint6"
+        value: 0
+      }
+    }
     named_configurations_to_set {
       name: "home"
       joint_positions {

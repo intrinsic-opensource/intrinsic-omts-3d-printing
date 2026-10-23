@@ -1,12 +1,26 @@
 # proto-file: intrinsic/world/public/proto/object_world_updates.proto
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
 
-# The 40 x 40 x 30 mm part rests on the ground (top at z=0) at source A. Grasp
-# frames put the fingertips (tool_frame) 10 mm above the ground, so the fingers
-# close over the lower 20 mm of the part; pre-grasp frames are 0.12 m up. The
-# tool points straight down, inside the reBot's top-down band (HANDOFF 6.1).
-# part_*_rest are the part's nominal resting poses; after each place, the
-# belief world snaps the part onto the destination's rest frame.
+# A tending round trip on opposite sides of the reBot. Source A is on the
+# ground behind the robot, 0.30 m out at 145 deg from the printer's direction
+# (joint1 turns only +-160 deg, so straight behind is out of reach).
+# Destination B is the centre of the printer's bed in front of it
+# (printer/bed_frame, x=0.36, top at z=0.0895, placed by
+# printer.updates.pbtxt). The 40 x 40 x 30 mm part starts at A.
+#
+# The grasp is the same relative to the part at both ends, so the part is
+# always set down flat: the tool is pitched 35 deg about the jaw axis (tool
+# y), its approach (tool z) leaning away from the robot along the part's x
+# axis. Each rest pose's x axis points away from the robot (A's is yawed
+# 145 deg), so the tilt lowers the elbow at both ends; at B it keeps the
+# forearm under the printer's top (z=0.45), which straight down does not. The
+# fingertips (tool_frame) are 10 mm above the surface the part rests on, so
+# the fingers close over its lower 20 mm. Pre-grasps back off along the
+# approach axis, so the descent follows the fingers: 0.08 m at A, 0.06 m at B
+# (below the printer's top). part_*_rest are the part's nominal resting poses;
+# after each place, the belief world snaps the part onto the destination's
+# rest frame.
+
 updates {
   update_transform {
     node_a {
@@ -32,12 +46,15 @@ updates {
     }
     a_t_b {
       position {
-        x: 0.3
-        y: -0.12
+        x: -0.245
+        y: 0.17
         z: 0.015
       }
       orientation {
-        w: 1
+        x: 0
+        y: 0
+        z: 0.953717
+        w: 0.3007058
       }
     }
   }
@@ -48,15 +65,15 @@ updates {
     new_frame_name: "part_a_pregrasp"
     parent_t_new_frame {
       position {
-        x: 0.3
-        y: -0.12
-        z: 0.12
+        x: -0.2074
+        y: 0.1437
+        z: 0.0755
       }
       orientation {
-        x: 1
-        y: 0
-        z: 0
-        w: 0
+        x: -0.2867882
+        y: -0.909576
+        z: -0.090424
+        w: 0.2867882
       }
     }
     parent_object_with_filter {
@@ -74,15 +91,15 @@ updates {
     new_frame_name: "part_a_grasp"
     parent_t_new_frame {
       position {
-        x: 0.3
-        y: -0.12
+        x: -0.245
+        y: 0.17
         z: 0.01
       }
       orientation {
-        x: 1
-        y: 0
-        z: 0
-        w: 0
+        x: -0.2867882
+        y: -0.909576
+        z: -0.090424
+        w: 0.2867882
       }
     }
     parent_object_with_filter {
@@ -100,14 +117,14 @@ updates {
     new_frame_name: "part_b_pregrasp"
     parent_t_new_frame {
       position {
-        x: 0.3
-        y: 0.12
-        z: 0.12
+        x: 0.3256
+        y: 0
+        z: 0.1486
       }
       orientation {
-        x: 1
+        x: 0.953717
         y: 0
-        z: 0
+        z: 0.3007058
         w: 0
       }
     }
@@ -126,14 +143,14 @@ updates {
     new_frame_name: "part_b_grasp"
     parent_t_new_frame {
       position {
-        x: 0.3
-        y: 0.12
-        z: 0.01
+        x: 0.36
+        y: 0
+        z: 0.0995
       }
       orientation {
-        x: 1
+        x: 0.953717
         y: 0
-        z: 0
+        z: 0.3007058
         w: 0
       }
     }
@@ -152,12 +169,15 @@ updates {
     new_frame_name: "part_a_rest"
     parent_t_new_frame {
       position {
-        x: 0.3
-        y: -0.12
+        x: -0.245
+        y: 0.17
         z: 0.015
       }
       orientation {
-        w: 1
+        x: 0
+        y: 0
+        z: 0.953717
+        w: 0.3007058
       }
     }
     parent_object_with_filter {
@@ -175,11 +195,14 @@ updates {
     new_frame_name: "part_b_rest"
     parent_t_new_frame {
       position {
-        x: 0.3
-        y: 0.12
-        z: 0.015
+        x: 0.36
+        y: 0
+        z: 0.1045
       }
       orientation {
+        x: 0
+        y: 0
+        z: 0
         w: 1
       }
     }

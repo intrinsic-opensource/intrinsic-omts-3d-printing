@@ -1,0 +1,46 @@
+# proto-file: intrinsic/world/public/proto/object_world_updates.proto
+# proto-message: intrinsic_proto.world.ObjectWorldUpdates
+
+# 3D printer on the ground in front of the reBot, its open front (printer -Y)
+# facing the robot (yaw -90 deg about Z), so the spool stack is on the robot's
+# left (+Y). The bed centre (printer/bed_frame) lands at x=0.36, y=0,
+# z=0.0895, inside the reBot's straight-down band; the printer's front edge is
+# at x=0.146, about 7 cm clear of the robot base.
+updates {
+  update_transform {
+    node_a {
+      by_name {
+        object {
+          object_name: "root"
+        }
+      }
+    }
+    node_b {
+      by_name {
+        object {
+          object_name: "printer"
+        }
+      }
+    }
+    node_to_update {
+      by_name {
+        object {
+          object_name: "printer"
+        }
+      }
+    }
+    a_t_b {
+      position {
+        x: 0.361
+        y: 0.006
+        z: 0
+      }
+      orientation {
+        x: 0
+        y: 0
+        z: -0.70710678
+        w: 0.70710678
+      }
+    }
+  }
+}

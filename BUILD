@@ -143,8 +143,9 @@ alias(
 
 # Printer-tending cell under development on the research branch
 # (research/HANDOFF.md): a Seeed reBot Arm B601-RS on a ground slab, controlled
-# by ICON in simulation, picking and placing a printed part with its pinch
-# gripper (no camera or perception services yet). flowstate_ros_bridge streams
+# by ICON in simulation, moving a printed part between the ground behind it and
+# the bed of a 3D printer in front of it with its pinch gripper (no camera or
+# perception services yet). flowstate_ros_bridge streams
 # /tf and /joint_states to ROS 2 (RViz) over Zenoh. Kept as its own solution so
 # omts_solution and its cells are unaffected.
 intrinsic_solution(
@@ -162,8 +163,8 @@ intrinsic_solution(
         "//models/rebot_b601_rs",
         "//models/rebot_b601_rs_gripper",
         "//models/rebot_ground",
+        "//models/printer",
         "//models/rebot_printed_part",
-        "//models/rebot_wall",
         ":flowstate_ros_bridge_asset",
     ],
     default_operation_mode = "sim",
@@ -171,18 +172,18 @@ intrinsic_solution(
         ":flowstate_ros_bridge",
         ":gazebo_simulator",
         ":motion_planner_service",
+        ":printer",
         ":rebot",
         ":rebot_gripper",
         ":rebot_icon",
         ":rebot_ground",
         ":rebot_printed_part",
-        ":rebot_wall",
     ],
     object_world_updates = [
         "//configs:rebot/rebot.attachments.updates.pbtxt",
         "//configs:rebot/rebot_ground.updates.pbtxt",
+        "//configs:rebot/printer.updates.pbtxt",
         "//configs:rebot/rebot_pick_place.updates.pbtxt",
-        "//configs:rebot/rebot_wall.updates.pbtxt",
         "//configs:rebot/scene.updates.pbtxt",
     ],
 )
@@ -204,12 +205,6 @@ intrinsic_asset_instance(
     name = "rebot_printed_part",
     asset = "ai.intrinsic.rebot_printed_part",
     instance_name = "rebot_printed_part",
-)
-
-intrinsic_asset_instance(
-    name = "rebot_wall",
-    asset = "ai.intrinsic.rebot_wall",
-    instance_name = "rebot_wall",
 )
 
 intrinsic_asset_instance(

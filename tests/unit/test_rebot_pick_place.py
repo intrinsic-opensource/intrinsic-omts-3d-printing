@@ -100,6 +100,29 @@ class RebotPickPlaceTest(absltest.TestCase):
       ("rebot_infeed_r0_c0", "rebot_ground"),
       motion_calls[3].kwargs["excluded_collision_pairs"],
     )
+    # The place at B excludes the part against the printer, its support there.
+    self.assertEqual(
+      motion_calls[4].kwargs["excluded_collision_pairs"],
+      [
+        ("gripper", "rebot_infeed_r0_c0"),
+        ("rebot_infeed_r0_c0", "printer"),
+      ],
+    )
+    # The B-to-A transfer picks from the printer and places on the ground.
+    self.assertEqual(
+      motion_calls[7].kwargs["excluded_collision_pairs"],
+      [
+        ("gripper", "rebot_infeed_r0_c0"),
+        ("rebot_infeed_r0_c0", "printer"),
+      ],
+    )
+    self.assertEqual(
+      motion_calls[10].kwargs["excluded_collision_pairs"],
+      [
+        ("gripper", "rebot_infeed_r0_c0"),
+        ("rebot_infeed_r0_c0", "rebot_ground"),
+      ],
+    )
 
     motion_types = [call.kwargs["motion_type"] for call in motion_calls]
     self.assertEqual(motion_types.count("LINEAR"), 8)
@@ -174,6 +197,23 @@ class RebotPickPlaceTest(absltest.TestCase):
     )
     self.robot.build_move_joint_task.assert_called_once_with(
       "home", name="Fold to home"
+    )
+
+  def test_returns_to_the_given_rest_configuration(self):
+    tree = build_rebot_pick_place_tree(
+      robot=self.robot,
+      gripper=self.gripper,
+      infeed_strategy=self.infeed,
+      tool_object_name="gripper",
+      rest_configuration="park_left",
+    )
+
+    self.assertEqual(
+      tree.root.children[1].name,
+      "Return to park_left (folded, gripper closed)",
+    )
+    self.robot.build_move_joint_task.assert_called_once_with(
+      "park_left", name="Fold to park_left"
     )
 
 
