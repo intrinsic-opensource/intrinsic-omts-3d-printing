@@ -27,6 +27,12 @@ subtrees out). For a robot arm that ICON controls, `--ik_solver` adds
 `intrinsic:ik_solver` and Cartesian limits, and `--flange_link` adds the
 `flange` attachment frame where tools mount.
 
+`--collision_boxes` takes a JSON file of box collisions by link,
+`{"link": [{"pose": [x, y, z, roll, pitch, yaw], "size": [sx, sy, sz]}]}`
+in the link frame, which replace that link's collision meshes. Use it where a
+mesh collides badly: Gazebo approximates mesh collisions with a convex
+decomposition, which fills concave parts such as a gripper finger.
+
 `--visual_cell_size` and `--collision_cell_size` (meters, defaults 0.5 mm and
 5 mm) trade mesh detail for file size. Color rules are a JSON list of
 `{"pattern", "rgba", "metallic", "roughness"}`, matched in order against each

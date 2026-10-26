@@ -34,7 +34,7 @@ import os
 import pathlib
 import struct
 import xml.etree.ElementTree as ET
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 
@@ -323,6 +323,28 @@ class ColorRule:
   roughness: float = 0.6
 
 
+@dataclasses.dataclass(frozen=True)
+class CollisionBox:
+  """A box collision in a link's frame, replacing that link's meshes."""
+
+  pose: tuple[float, float, float, float, float, float]  # x y z roll pitch yaw
+  size: tuple[float, float, float]
+
+
+def load_collision_boxes(path: str | None) -> dict[str, list[CollisionBox]]:
+  """Loads `{"link": [{"pose": [x, y, z, r, p, y], "size": [sx, sy, sz]}]}`."""
+  if not path:
+    return {}
+  with open(path) as f:
+    return {
+      link: [
+        CollisionBox(pose=tuple(b["pose"]), size=tuple(b["size"]))
+        for b in boxes
+      ]
+      for link, boxes in json.load(f).items()
+    }
+
+
 def load_color_rules(path: str | None) -> list[ColorRule]:
   """Loads `[{"pattern", "rgba", "metallic"?, "roughness"?}, ...]` JSON."""
   if not path:
@@ -402,6 +424,7 @@ def convert(
   exclude_links: Sequence[str] = (),
   ik_solver: str | None = None,
   flange_link: str | None = None,
+  collision_boxes: Mapping[str, Sequence[CollisionBox]] | None = None,
 ) -> pathlib.Path:
   """Writes `<model_name>.sdf` and one GLB per link visual and collision.
 
@@ -424,6 +447,10 @@ def convert(
         model as a robot.
       flange_link: Adds an Intrinsic attachment frame named "flange" at this
         link's origin, where tools such as a gripper are attached.
+      collision_boxes: Box collisions by link name, in the link frame. They
+        replace that link's collision meshes. Use them where a mesh collides
+        badly, such as gripper fingers: Gazebo approximates mesh collisions
+        with convex hulls, which fill a finger's concave shape.
 
   Returns:
       Path of the written SDF file.
@@ -464,6 +491,10 @@ def convert(
   ]
   if flange_link is not None and flange_link not in included:
     raise ValueError(f"Flange link '{flange_link}' is not in the model.")
+  collision_boxes = collision_boxes or {}
+  unknown = sorted(set(collision_boxes) - included)
+  if unknown:
+    raise ValueError(f"Collision box links {unknown} are not in the model.")
   parent_joint = {j.find("child").get("link"): j.get("name") for j in joints}
 
   sdf = ET.Element("sdf", {"version": "1.9"})
@@ -493,10 +524,18 @@ def convert(
       for key in ("ixx", "ixy", "ixz", "iyy", "iyz", "izz"):
         _sub(inertia, key, inertial.find("inertia").get(key, "0"))
 
+    for index, box in enumerate(collision_boxes.get(name, ())):
+      element = _sub(sdf_link, "collision", name=f"{name}_collision_{index}")
+      _sub(element, "pose", _pose_text(box.pose[:3], box.pose[3:]))
+      geometry = _sub(_sub(element, "geometry"), "box")
+      _sub(geometry, "size", " ".join(f"{v:g}" for v in box.size))
+
     for tag, cell_size, rules in (
       ("visual", visual_cell_size, color_rules),
       ("collision", collision_cell_size, ()),
     ):
+      if tag == "collision" and name in collision_boxes:
+        continue
       parts = _mesh_parts(link, tag, mesh_dir, cell_size, rules)
       if not parts:
         continue
@@ -586,6 +625,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     default=None,
     help="Link whose origin becomes the Intrinsic 'flange' attachment frame.",
   )
+  parser.add_argument(
+    "--collision_boxes",
+    default=None,
+    help="Optional JSON of box collisions by link, replacing their meshes.",
+  )
   args = parser.parse_args(argv)
 
   # `bazel run` starts in the runfiles tree; resolve relative paths against
@@ -604,6 +648,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     exclude_links=[x for x in args.exclude_links.split(",") if x],
     ik_solver=args.ik_solver,
     flange_link=args.flange_link,
+    collision_boxes=load_collision_boxes(
+      base / args.collision_boxes if args.collision_boxes else None
+    ),
   )
   print(f"Wrote {sdf_path}")
 

@@ -507,6 +507,54 @@ Learned (each item cost one failed live run):
   grasps and places), with position within 1 mm. The belief world snaps the
   part to its rest frame after each place; Gazebo does not.
 
+### Step 2b: The fingers release the part cleanly
+
+**Status: done (2026-10-26).** Run live in local simulation with Gazebo's
+part and finger poses recorded through one cycle.
+
+* Watching step 2a's demo, the part was set down off-centre on the bed and
+  the next grasp shoved it back. Recorded in Gazebo: at the release on the
+  bed, the part slid 17 mm with the left finger link (the robot's right),
+  lifted 0.7 mm and turned 0.9°, while that finger stalled at 39 of 50 mm for
+  1 s; then the part dropped free, off-centre.
+* **Fix:** the fingers now collide as boxes. `//tools/models:urdf_to_sdf`
+  gained `--collision_boxes` (a JSON of boxes per link, in the link frame,
+  replacing that link's collision meshes), and the gripper was regenerated
+  with `models/rebot_b601_rs_gripper/finger_collision_boxes.json`. It first
+  had three boxes per finger; they are now a stack of 19 fitted slice by slice
+  to the URDF's full-resolution finger mesh, which tapers to a near point
+  (tip box 3 × 2 mm; within 1.6 mm of the surface along the pad). The 8 mm
+  vertex clustering had blunted the finger (a 12 mm wide tip; the real tip
+  widens from under 2 mm). Inner faces are the pads; the racks, inside the
+  gripper body, have no collision.
+* **Result:** the release on the bed moves the part 0.1 mm (was 17 mm), the
+  fingers open fully in 0.48 s, and after a full A→B→A cycle the part is back
+  at A within 0.1 mm and 0.02°.
+
+Learned:
+
+* **Gazebo doesn't collide with our meshes as written.** Intrinsic's world
+  conversion gives every mesh collision `optimization='convex_decomposition'`
+  (up to 32 convex hulls). On the coarse (8 mm clustered) finger meshes, the
+  hulls bridged the pad and the rack, so the fingers stopped 1.75 mm short of
+  a part (a 43.5 mm gap on 40 mm), and the tilted fingers' sloped hull faces
+  caught the part. Read the generated world
+  (`/world/default/generate_world_sdf`, section 1b) to see what Gazebo uses.
+* **It was not the weld.** The plugin welds the part to one finger link (the
+  first with collision, chosen arbitrarily) and removes the weld 2–4 ms after
+  the release command, before the fingers move. The drag was contact.
+* **The simulated fingers are weak.** Without gains in the SDF, the plugin
+  derives critically damped PD gains from the finger's mass (0.075 kg →
+  kp = 16.9 N/m, kd = 2.26), about 0.3 N of squeeze. A finger stalls against
+  anything that holds the part with more than that, and the plugin's
+  "stopped" check (first finger only, 0.01 mm per step) then fires.
+* **Grasp B can still sit about 1.3 mm off-centre** (fingers at 21.3/18.6 mm),
+  well inside what the fingers correct. Not chased further.
+* **`bed_frame` is 6 mm off the printer's visual bed.** The GLB's bed plate is
+  centred at printer (0.000, +0.0007, 0.0895); `bed_frame` is at
+  (0.006, −0.001, 0.0895). B follows `bed_frame`, so it sits 6 mm to the
+  robot's right of the visual centre. Fix in the model or the placement; open.
+
 ### After milestone 1 (sketch, to be re-planned at each step)
 
 * ~~Add a generic printer bed as the pick surface, then the printer as an

@@ -46,11 +46,29 @@ bazel run //tools/models:urdf_to_sdf -- $COMMON \
   --out_dir=models/rebot_b601_rs --model_name=rebot_b601_rs \
   --exclude_links=gripper_end --ik_solver=kinematic_chain --flange_link=link6
 
-# Gripper: the subtree from gripper_end.
+# Gripper: the subtree from gripper_end, with box collisions for the fingers.
 bazel run //tools/models:urdf_to_sdf -- $COMMON \
   --out_dir=models/rebot_b601_rs_gripper --model_name=rebot_b601_rs_gripper \
-  --root_link=gripper_end
+  --root_link=gripper_end \
+  --collision_boxes=models/rebot_b601_rs_gripper/finger_collision_boxes.json
 ```
+
+The fingers collide as boxes, not meshes:
+[`finger_collision_boxes.json`](../rebot_b601_rs_gripper/finger_collision_boxes.json)
+gives each finger a stack of 19, in its link frame, that follows the finger's
+taper to a near point. Each box covers one slice of the URDF's full-resolution
+finger collision mesh along the finger (slice edges, in mm from the
+fingertip: 0, 1.5, 3, 4.5, 6, 7.5, 9, 14, 19, …, 49, 52, 55, 58, 60, 73),
+sized to that slice's extent, so it never cuts into the finger. It is within
+2 mm of the real surface at the tip and 1.6 mm along the pad, and about 5 mm
+on the rear flare's outside face; the inner faces are exactly the pads'. The
+fingers' racks, inside the gripper body, have no collision. The finger shape
+agrees with the convex finger pieces in Seeed's MuJoCo model
+([ReBot_Arm_DigitalTwin_RS](https://github.com/Yang-Ci/ReBot_Arm_DigitalTwin_RS),
+`rebotarm_mujoco_rs`) to about 1 mm.
+Gazebo replaces mesh collisions with a convex decomposition, which on the
+coarse finger meshes filled the space between pad and rack: the fingers stopped
+1.75 mm short of a part and, tilted, dragged it when opening (HANDOFF step 2b).
 
 The gripper is mounted on the flange by `configs/rebot/rebot.attachments.updates.pbtxt`,
 with the URDF's `j_gripper_end` transform, which also adds `tool_frame` at the
@@ -74,7 +92,7 @@ closed and 0.05 m is open, so the config sets `is_default_closed`.
   the signal names in the instance config are placeholders until then.
 * **Collision meshes are coarse simplifications** (8 mm vertex clustering),
   not conservative hulls. Revisit before relying on motion planning near
-  obstacles.
+  obstacles. The fingers use boxes instead (see Regenerating).
 * **Joint sign convention** follows the reBot-Isaacsim URDF (`joint2`,
   `joint3` from −3.14 to 0), which differs from Seeed's other RS URDFs.
   Confirm against Intrinsic's hardware support when it lands.

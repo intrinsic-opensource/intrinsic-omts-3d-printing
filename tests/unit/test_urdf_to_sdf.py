@@ -223,6 +223,40 @@ class ConvertTest(absltest.TestCase):
       material["pbrMetallicRoughness"]["baseColorFactor"], [0, 1, 0, 1]
     )
 
+  def test_collision_boxes_replace_link_meshes(self):
+    model = self._convert(
+      collision_boxes={
+        "arm": [
+          urdf_to_sdf.CollisionBox((0, 0, 0.5, 0, 0, 0), (0.1, 0.2, 1)),
+          urdf_to_sdf.CollisionBox((0.25, 0, 0, 0, 0, 0), (0.05, 0.05, 0.05)),
+        ]
+      }
+    )
+    collisions = model.findall("link[@name='arm']/collision")
+    self.assertEqual(
+      [c.get("name") for c in collisions], ["arm_collision_0", "arm_collision_1"]
+    )
+    self.assertEqual(collisions[0].find("pose").text, "0 0 0.5 0 0 0")
+    self.assertEqual(collisions[0].find("geometry/box/size").text, "0.1 0.2 1")
+    self.assertFalse((self.out / "arm_collision.glb").exists())
+    self.assertTrue((self.out / "arm_visual.glb").exists())
+
+  def test_collision_box_links_must_be_in_model(self):
+    box = urdf_to_sdf.CollisionBox((0, 0, 0, 0, 0, 0), (1, 1, 1))
+    with self.assertRaises(ValueError):
+      self._convert(exclude_links=["arm"], collision_boxes={"arm": [box]})
+
+  def test_load_collision_boxes(self):
+    path = self.src / "boxes.json"
+    path.write_text(
+      json.dumps({"arm": [{"pose": [1, 2, 3, 0, 0, 0], "size": [4, 5, 6]}]})
+    )
+    self.assertEqual(
+      urdf_to_sdf.load_collision_boxes(str(path)),
+      {"arm": [urdf_to_sdf.CollisionBox((1, 2, 3, 0, 0, 0), (4, 5, 6))]},
+    )
+    self.assertEqual(urdf_to_sdf.load_collision_boxes(None), {})
+
 
 if __name__ == "__main__":
   absltest.main()
