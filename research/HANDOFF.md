@@ -79,6 +79,15 @@ Each is recorded in the study with its reasoning.
 | Grasp planning through OMTS's `GraspPlannerInterface`, with a new plate-footprint backend as the default | Fits the localization/grasp split added upstream in #144/#150; MoveIt stays optional because it needs ROS 2 | 4.4 |
 | Footprint grasp math in `src/core/footprint_grasp.py`, with a thin `PlateGraspPlanner` in `src/hardware/` | Pre-print layout validation must run without a solution connection, and `core/` cannot import `intrinsic.*` | 4.4, 6 |
 
+### 3.3 Perception from the wrist camera (2026-10-26)
+
+| Decision | Consequence |
+| --- | --- |
+| **Locate the print with an Orbbec camera under the wrist, as OMTS does** | Overrides two study decisions in 3.2: vision replaces the 3MF plate layout as the localization source, and a wrist depth camera replaces the fixed RGB camera. The plate layout stays as a later confidence check. |
+| **Reuse OMTS and Intrinsic Core first; minimize custom code** | Part of the goal is to measure how easy the integration is. Every change to OMTS or a deviation from its design is flagged in the step that needs it. |
+| **Run the reBot cell through `omts_app`** | The pick-and-place `rebot_demo` was custom; the perception milestone moves the cell onto OMTS's own app and tree, with `machine: None` like `lab_bb_01`. |
+| **No force sensing still holds** | OMTS's compliant touchdowns (`move_to_contact`) must become optional (milestone 2, step 3c). |
+
 ---
 
 ## 4. Open Questions
@@ -103,6 +112,11 @@ Each is recorded in the study with its reasoning.
    [`feature_requests/`](feature_requests/): keep RViz in sync without
    restarting `flowstate_ros_bridge`, and keep the Gazebo viewer valid across
    simulation resets.
+
+7. **New (2026-10-26): does the NVIDIA pose estimator run on a Jetson?**
+   `nvidia_pose_estimator_service` (FoundationPose with SAM 3) runs on the
+   desktop GPU in sim. Milestone 2 depends on it; the Jetson target needs an
+   ARM64 build with enough GPU memory.
 
 ### 4.2 For the project owner
 
@@ -555,14 +569,82 @@ Learned:
   (0.006, −0.001, 0.0895). B follows `bed_frame`, so it sits 6 mm to the
   robot's right of the visual centre. Fix in the model or the placement; open.
 
-### After milestone 1 (sketch, to be re-planned at each step)
+---
 
-* ~~Add a generic printer bed as the pick surface, then the printer as an
-  obstacle once the target printer is chosen.~~ A stand-in printer is in the
-  cell (step 2a); swap in the real model once the target printer is chosen.
-* Pick from a 3MF plate layout with the footprint grasp planner.
+## 5b. Milestone 2: The reBot Locates the Print by Perception
+
+Goal: the arm finds the part on the bed with the wrist camera alone and picks
+it, running OMTS's own app (`omts_app`) with the existing perception pipeline.
+Precision is secondary; no force sensing. Decisions in 3.3. Deviations from
+the OMTS design are marked **Flag**.
+
+### Step 3a: The camera is on the wrist and captures images
+
+* Add the Orbbec Gemini 335Le device and driver to `rebot_solution`, as in
+  `omts_solution`, and attach the camera under the wrist with an
+  `orbbec_gemini.updates.pbtxt` like `configs/omts/`.
+* Add a `view` frame above the bed, checked offline for reach and for the
+  camera body clearing the printer.
+* **Flag:** OMTS's `camera_mount` model fits the UR flange. The reBot gets the
+  camera attached directly, without a mount model, until there is a real
+  bracket.
+* Demo: the arm moves to `view`, `capture_images` runs in sim, and the RGB and
+  depth images show the part on the bed.
+
+### Step 3b: The pose estimator finds the part
+
+* Add `nvidia_pose_estimator_service` and `ioc_train_service`, and register an
+  estimator for `ai.intrinsic.rebot_printed_part` with
+  `register_using_ioc_train_service` (README 4.3).
+* Demo: `run_pose_estimation` at `view`, compared with the part's pose in
+  Gazebo. Record the error and how yaw behaves on a near-square part.
+
+### Step 3c: `omts_app` picks the part from perception
+
+* Add `configs/rebot/app_config.yaml`: `machine` omitted, `pinch` gripper,
+  `perception` infeed, `cuboid_center` grasp planner, the `view` frame. The
+  lab cell's flow then runs: pick from perception, return to the infeed at a
+  random `return_shift`.
+* **Flag: compliant touchdown.** OMTS's pick and return end in
+  `move_to_contact`, which needs force sensing the reBot does not have. Try
+  user settings first: OMTS already wraps the touchdown in a retry and a
+  fallback linear move to the seated pose (`create_seated_approach_tasks`,
+  added for Gazebo timeouts), so adding `move_to_contact` to `rebot_solution`
+  and a short `touchdown_timeout_seconds` may be enough. Unverified: whether
+  the skill fails at run time (the fallback catches it) or when the tree is
+  built (no force-torque part in the reBot's ICON), and every pick and place
+  would log two failed attempts. The clean fix is code: a config switch for a
+  plain linear move. Giving the simulated reBot a force sensor would also work
+  but hides the gap until hardware, so not that.
+* **Flag: top-down grasp only.** The `cuboid_center` frame calculator makes a
+  vertical grasp (it only chooses among four yaws) and has no orientation
+  setting, and the reBot could not reach straight down inside the printer
+  (step 2a). Also check its raw-stock axis assumptions on the printed part.
+  Options, not yet decided:
+  * **Move the arm.** Its placement is free; further back, or at another
+    height, may open up straight-down grasps inside the printer.
+  * **Horizontal grasp.** Never tried. The `moveit` backend can sample side
+    approaches (square to a face), but needs a MoveIt setup for the reBot.
+  * **Code change:** an approach tilt in `cuboid_center`'s config, as in the
+    step 2a frames.
+* `rebot_demo` stays as it is.
+* Demo: `omts_app --config=configs/rebot/app_config.yaml --num_cycles=N`.
+  Each cycle sets the part down at a new random offset, so every pick after
+  the first is located by perception alone.
+
+### Step 3d: Camera-to-robot calibration in sim (optional)
+
+* Run OMTS's hand-eye calibration tools (Charuco board, calibration skills,
+  `tools/README.md`) on the reBot in sim. Not needed for accuracy in sim; it
+  rehearses the path the hardware will need.
+
+### After milestone 2 (sketch, to be re-planned at each step)
+
+* Place at A (an outfeed) instead of returning to the bed.
+* Cross-check perception against the 3MF plate layout for confidence.
+* Try the MoveIt grasp planner backend for non-cuboid parts.
 * Move to hardware on a Jetson once Intrinsic's ICON support lands.
-* Camera presence checks, printer adapter, per-job cycle.
+* Printer adapter and per-job cycle.
 
 ---
 
