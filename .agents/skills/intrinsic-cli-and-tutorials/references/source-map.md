@@ -1,6 +1,6 @@
 # Source map: where things live (read this instead of grepping whole repos)
 
-The root is `/home/berti/gits/`. `CORE` = `intrinsic-core/`, `OMTS` = `intrinsic-omts/` (**this repo**), `EX` = `sdk-examples/`.
+The root is `~/`. `CORE` = `intrinsic-core/`, `OMTS` = `intrinsic-omts/` (**this repo**), `EX` = `sdk-examples/`.
 
 `CORE` paths refer to the local checkout (a3bd446, tag 20261012.0). `verify_kb.py` confirms they also exist at the OMTS core pin c40e02a, except for the forwarders marked "deleted at pin". To read a pinned file, run `git -C ../intrinsic-core show c40e02a:<path>`.
 

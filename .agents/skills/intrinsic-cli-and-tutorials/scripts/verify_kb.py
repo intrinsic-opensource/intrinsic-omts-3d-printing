@@ -18,7 +18,7 @@ Checks:
      .github/copilot-instructions.md.
 
 Usage:
-  python3 .agents/skills/intrinsic-cli-and-tutorials/scripts/verify_kb.py [--root /home/berti/gits]
+  python3 .agents/skills/intrinsic-cli-and-tutorials/scripts/verify_kb.py [--root ~]
 Exit code 1 if a path is missing in the checkout or frontmatter is invalid.
 """
 

@@ -5,7 +5,7 @@ description: 'Create or edit hardware parts and physical assets for Intrinsic Co
 
 # Creating and editing hardware parts (Intrinsic Core / OMTS)
 
-Paths are relative to `/home/berti/gits/`. **Simulation first** (`--operation_mode=sim`). Ask before any real-hardware action.
+Paths are relative to `~/` (sibling checkouts: `~/intrinsic-core`, `~/intrinsic-omts`, `~/sdk-examples`). **Simulation first** (`--operation_mode=sim`). Ask before any real-hardware action.
 
 ## Pick the asset kind
 
