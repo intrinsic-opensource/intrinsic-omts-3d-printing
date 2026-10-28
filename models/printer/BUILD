@@ -6,7 +6,7 @@ package(default_visibility = ["//visibility:public"])
 sdf_scene_object(
     name = "printer_scene_object",
     src = "3d_printer.sdf",
-    sdf_assets = ["3d_printer.glb"],
+    sdf_assets = ["frame.obj", "heatbed.obj"],
 )
 
 intrinsic_scene_object(
