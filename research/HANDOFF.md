@@ -622,6 +622,13 @@ Learned:
   reach the pose, and from the front corners the camera body hits a post.
   With the bed at 0.36 m from the base, the best view looked in from 0.30 m
   and lost about the near half of the bed to the near clip.
+* **The camera, not the grasp, sets how close the printer can be.** At 0.36 m
+  the bed was well within the arm's reach and the grasps planned fine; what
+  failed was seeing it. The depth sensor needs 0.25 m to the bed, and the arm
+  cannot hold the camera far enough back while it looks in, because that pose
+  folds the gripper back toward its own base. So the minimum distance from the
+  arm to the printer comes from the camera's near clip and view, not from IK.
+  Place the arm for the view first, then check the grasps.
 * **How far the printer can sit from the reBot** (offline, 35° grasp): views
   improve the further it is (5 cm out: 93% of the bed has depth; 10 cm: all
   of it). The tilted grasp reaches about 0.62 m from the base, so beyond 15 cm
