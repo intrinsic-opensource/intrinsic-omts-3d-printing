@@ -269,6 +269,7 @@ py_test(
         "//src/core:config",
         "//tools/world:apply_scene_updates_lib",
         "@com_google_absl_py//absl/testing:absltest",
+        "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator/proto:nvidia_service_config_py_pb2",
         "@intrinsic-core//intrinsic_perception/intrinsic/perception/skills/calibration:sample_calibration_poses_py_pb2",
         "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
         "@intrinsic_apis//intrinsic/assets/services/proto:service_manifest_py_pb2",

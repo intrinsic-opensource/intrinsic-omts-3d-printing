@@ -17,7 +17,7 @@ This file records what has been decided and what to do next.
 | Arm comparison (decided) | `research/ARM_SELECTION_REQUEST.md` |
 | SO-101 URDF | `research/so101_new_calib.urdf`, from the earlier SO-101 evaluation; superseded by the reBot decision |
 | reBot URDFs | Base for the sim model: [Seeed-Projects/reBot-Isaacsim](https://github.com/Seeed-Projects/reBot-Isaacsim) `urdf/00-arm-rs_asm-v3/urdf/00-arm-rs_asm-v3.urdf` (MIT), which fixes the gripper limits (section 6.2). Originals: [Seeed-Projects/reBot-DevArm](https://github.com/Seeed-Projects/reBot-DevArm) `Rebot_Arm_description/` (Apache-2.0 / CERN-OHL-W-2.0). |
-| Reference source | `intrinsic-core` at `main` (past `20261012.0`). OMTS itself pins the `20261012.0` release in `MODULE.bazel` (`INTRINSIC_CORE_RELEASE`), so check behavior against that tag when it matters. |
+| Reference source | `intrinsic-core` checked out at the commit OMTS pins: `INTRINSIC_CORE_COMMIT` in `MODULE.bazel` (`c40e02aa` since #161), not a release tag. The `20261012.0` tag predates it and lacks `nvidia_pose_estimator`. Check behavior against the pinned commit when it matters. |
 
 Steps 1a–1d are done in simulation (section 5), which completes milestone 1:
 the reBot picks a printed part with its gripper, carries it in Gazebo, and
@@ -40,16 +40,26 @@ cd intrinsic-omts
 git remote add fork https://github.com/NachoRosa95/intrinsic-omts.git
 git fetch fork && git checkout -b research fork/research
 
-# intrinsic-core next to it, for reading drivers, skills and tutorials
+# intrinsic-core next to it, for reading drivers, skills and tutorials, at the
+# commit OMTS pins (INTRINSIC_CORE_COMMIT in MODULE.bazel)
 cd .. && git clone https://github.com/intrinsic-ai/intrinsic-core.git
+cd intrinsic-core && git checkout --detach \
+  "$(sed -n 's/^INTRINSIC_CORE_COMMIT = "\(.*\)"/\1/p' ../intrinsic-omts/MODULE.bazel)"
 ```
+
+A clone made the way Intrinsic's getting-started guide does it
+(`gh repo clone ... -- --revision=...`) has no fetch refspec, so `git fetch`
+only gets `HEAD` and `main` tracks nothing. Fix it with
+`git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'`,
+`git fetch origin` and `git branch --set-upstream-to=origin/main main`.
 
 This matches the working machine: `origin` is upstream
 (`intrinsic-ai/intrinsic-omts`) and `fork` is
 `NachoRosa95/intrinsic-omts`. Push research work to `fork`.
 
 Perception (milestone 2, step 3b) also needs the NVIDIA pose estimator's
-model assets, including the gated SAM 3 weights; see step 3b.
+model assets, including the gated SAM 3 weights, exported once per machine;
+see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md) section 4.1.
 
 For quick analysis scripts (URDF kinematics, 3MF parsing), install `numpy`. The
 original machine had no system pip; it was installed per-user with
@@ -118,10 +128,13 @@ Each is recorded in the study with its reasoning.
    restarting `flowstate_ros_bridge`, and keep the Gazebo viewer valid across
    simulation resets.
 
-7. **New (2026-10-26): does the NVIDIA pose estimator run on a Jetson?**
-   `nvidia_pose_estimator_service` (FoundationPose with SAM 3) runs on the
-   desktop GPU in sim. Milestone 2 depends on it; the Jetson target needs an
-   ARM64 build with enough GPU memory.
+7. **New (2026-10-26): does the NVIDIA pose estimator run on a Jetson, and
+   which one?** `nvidia_pose_estimator_service` (FoundationPose with SAM 3)
+   runs on the desktop GPU in sim, peaking at 15.3 GB with only the batch
+   setting lowered (step 3b). A 16 GB Orin NX, whose memory is shared with
+   the CPU, would not fit it as built; an Orin AGX (32/64 GB) or Thor would.
+   Ask whether the service will expose FoundationPose's hypothesis count and
+   FP16 precision, which the library already supports.
 
 ### 4.2 For the project owner
 
@@ -671,46 +684,109 @@ Learned:
 
 ### Step 3b: The pose estimator finds the part
 
-**Status: blocked (2026-10-28), waiting for SAM 3 access.** Access to
-`facebook/sam3` has been requested on HuggingFace.
+**Status: done (2026-10-28).** Deployed to the local cluster in sim. From
+`view`, `run_pose_estimation` finds the part on the bed with score 0.999, 0.5
+mm from its true position and within 0.1° of its orientation (modulo the box's
+quarter turns). How to set up, deploy, register and run it is in
+[`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md) section 4.
 
-* Add `nvidia_pose_estimator_service` and `ioc_train_service`, and register an
-  estimator for `ai.intrinsic.rebot_printed_part` with
-  `register_using_ioc_train_service` (README 4.3). The service is OMTS's,
-  unchanged; only the registration is new, because FoundationPose fits the
-  registered object's exact model and OMTS's raw-stock registration does not
-  match the printed part.
-* Demo: `run_pose_estimation` at `view`, compared with the part's pose in
-  Gazebo. Record the error and how yaw behaves on a near-square part.
+* `rebot_solution` adds `nvidia_pose_estimator_service`, `ioc_train_service`
+  (omts_solution's instance) and the `estimate_pose_multi_view` skill. The
+  estimator for `ai.intrinsic.rebot_printed_part` is registered with
+  Intrinsic Core's `register_using_ioc_train_service` and the prompt "cube".
+  Only the registration is new: FoundationPose fits the registered object's
+  exact model, and OMTS's raw-stock registration does not match the part.
+* **The model assets ride in the solution, behind `--//:perception_models`**
+  (off by default). A deploy uninstalls every asset the solution does not
+  declare, so the three model Data assets installed with `inctl` (as the
+  `nvidia_pose_estimator` README says) were gone after the next deploy and the
+  service failed with "foundationpose_models not found". Declaring them in
+  the solution fixes that, but the SAM 3 target only analyzes when Bazel
+  knows where its export is (`--repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR`),
+  which CI and fresh machines do not have; hence the flag. Use the
+  `<name>_bundle` targets for FoundationPose and FoundationStereo; the plain
+  names are only the bundle files.
+* **Flag: the reBot has its own pose estimator instance**, with
+  `configs/rebot/nvidia_pose_estimator_config.textproto`: Intrinsic's default
+  config with the FoundationPose refinement batch cut from 42 to 14. With the
+  default, the first estimate ran out of GPU memory on the 16 GB laptop GPU
+  ("Failed to create TensorRT execution context").
 
-Learned so far:
+Learned:
 
-* **OMTS's perception needs a gated model.** `nvidia_pose_estimator_service`
-  starts only once three model Data assets are installed on the cluster
-  (Intrinsic Core's `nvidia_pose_estimator` README, section 2): FoundationPose
-  and FoundationStereo, which Bazel downloads, and SAM 3, which it cannot.
-  `facebook/sam3` is gated with manual approval on HuggingFace, so each user
-  must request access, log in (`hf auth login`), run Intrinsic's export script
-  on a GPU and install a 3.3 GB bundle with `inctl asset install`. Nothing in
-  `intrinsic-core`'s guides avoids this. None of it was set up on this
-  machine.
+* **OMTS's perception needs a gated model.** The service starts only once its
+  three model assets are present: FoundationPose and FoundationStereo, which
+  Bazel downloads, and SAM 3, which it cannot. `facebook/sam3` is gated with
+  manual approval on HuggingFace, so each user must request access, log in
+  (`hf auth login`) and run Intrinsic's export script on a GPU (3.3 GB of
+  ONNX). Nothing in `intrinsic-core`'s guides avoids this.
+* **The export script needs Python 3.12 or older.** It pins `numpy<2`, which
+  has no packages for the system's Python 3.14, so its environment failed to
+  build. Creating the environment with Bazel's Python 3.12 and passing it as
+  `--venv-dir` works.
+* **GPU memory is the pipeline's tightest limit, and the service config
+  barely reaches it.** Measured on the 16 GB laptop GPU (sim, `nvidia-smi`
+  every 0.1 s): 11.1 GB with the models loaded and idle; each estimate then
+  steps to 15.3 GB for about a second and back. That leaves about 1 GB, with
+  nothing else on the GPU. Where it goes:
+  * SAM 3's engines are built in full 32-bit precision, the same size as the
+    ONNX: vision encoder 1.8 GB, text encoder 1.4 GB, decoders 0.26 GB. Its
+    input is fixed at 1008 x 1008 by the export.
+  * Each estimate allocates FoundationPose's TensorRT working memory: the
+    scoring network always runs all 252 hypotheses in one batch (3.35 GB at
+    the default refinement batch, which ran out of memory), plus refinement in
+    chunks of `batch_size`.
+  * Everything stays loaded after warm-up by design; there is no setting to
+    load models on demand.
+  * FoundationStereo is not loaded with hardware depth, which the config
+    already uses.
+* **Minimum GPU memory (from these measurements, no further tests): 16 GB**
+  dedicated, with the batch lowered to 14 and the GPU otherwise idle (15.3 GB
+  peak). Intrinsic's default config needs more than 16.4 GB (roughly 17 GB
+  from the failed allocation). Recommended: 24 GB. Jetson: 32 GB or more,
+  since memory is shared with the OS and the rest of the cell. Caveats: one
+  GPU (RTX 4090 Laptop, x86, TensorRT TF32), one registered part, one
+  estimate at a time; up to four detections did not raise the peak, but
+  several registered parts or a full plate are untested; Gazebo or a camera
+  driver sharing the GPU comes on top.
+* **Only `foundation_pose.batch_size` changes the peak.** The service builds
+  FoundationPose with the image size and `batch_size` only, so the library's
+  hypothesis count and precision stay at its defaults (252, TF32), although
+  the library supports both (`RuntimeConfig.n_hypotheses`,
+  `tensorrt_precision=FP16`). Setting `n_hypotheses: 126` changed the guesses
+  generated but not the scoring engine (still `score_tf32_b252`; the peak went
+  15.30 -> 15.24 GB), so it is back at the default. Lowering it, FP16 engines,
+  or dropping the text encoder once a prompt is cached would need changes in
+  Intrinsic's service.
+* **More detections cost time, not memory.** At the registration's 0.15
+  confidence threshold SAM 3 passed four candidates (the part and three false
+  positives) and an estimate took 5.9 s; registered at 0.5, only the part
+  passed (SAM 3 scored it 0.58) and it took 1.9 s, same pose, same 15.3 GB
+  peak. The service caches each estimator's threshold, so re-registering under
+  the same id does not change it until the service restarts; use a new id.
+* **Stale engine plans override settings.** The service picks a cached plan
+  by filename prefix, so after a setting changes the old plan keeps being used
+  (two refinement plans, `b14` and `b42`, were cached). Clearing it means
+  deleting the plans inside the pod and restarting it.
+* **The registration does not survive a deploy either.** It is saved as a
+  Data asset, so register again after every deploy (about a minute).
+* **The first warm-up is slow, later ones are not.** The service builds its
+  TensorRT engines on first start (201 s); after a redeploy it was ready in
+  18 s.
+* **Weak false positives come back too.** Besides the part (0.999), two
+  detections elsewhere in the scene scored 0.36 and 0.28, above the
+  registration's 0.15 threshold. Step 3c must use the best detection, or
+  raise the threshold.
+* **Sim accuracy is an upper bound.** The images are clean renders with exact
+  depth, the camera pose is exact, and the part is a plain cube; expect worse
+  on hardware.
 * **The original machine ran the older pipeline.** OMTS switched to
   `nvidia_pose_estimator_service` upstream in #161 (2026-10-22). Before that
   it used Intrinsic Core's `ioc_pose_estimator` on Triton, with an RF-DETR
-  segmentation model from OMTS's GitHub release (`segmentation.tar.gz`) and
-  FoundationPose weights from NGC, all fetched by Bazel with no gate, and
-  registration without a text prompt.
-* **Stopgap, not taken:** restore that pipeline in `rebot_solution` while
-  waiting. `ioc_pose_estimator` is still in the pinned Intrinsic Core
-  (`20261012.0`) and its weights still download freely, but #161 removed the
-  model packaging, build rules, dependencies and registration tool from OMTS
-  (see `git show 29635ca^`), so it would re-add code current OMTS dropped
-  (**Flag**). It is also unknown whether the pretrained RF-DETR model segments
-  the printed part. Worth trying only if access takes long.
-* Unchecked: whether deploying `rebot_solution` removes separately installed
-  model assets, as it replaced `omts_solution`'s. If it does, add the three
-  model Data asset targets (in `nvidia_pose_estimator`'s BUILD) to the
-  solution.
+  segmentation model from OMTS's GitHub release and FoundationPose weights
+  from NGC, all fetched by Bazel with no gate. Restoring it would avoid SAM 3
+  but re-add code current OMTS removed (`git show 29635ca^`); not needed now
+  that SAM 3 works.
 
 ### Step 3c: `omts_app` picks the part from perception
 
@@ -834,8 +910,9 @@ Check these before building on them.
 
 ## 8. Housekeeping
 
-* **Local fixes for `20261012.0`:** both are still needed with the pinned
-  release. `b7cc503` (no camera args to `estimate_pose_multi_view`) stays
+* **Local fixes for `20261012.0`:** written when OMTS pinned that release;
+  it now pins commit `c40e02aa` (#161), so recheck both against it. At the
+  time both were still needed with the pinned release. `b7cc503` (no camera args to `estimate_pose_multi_view`) stays
   needed on intrinsic-core `main` too. `c98d44a` (attach and detach via the
   robot) works around `attach_object_to_robot` parenting to the reference's
   final entity. intrinsic-core `main` (`3d137157`) attaches to a gripper's

@@ -20,7 +20,7 @@ plan, not working commands.
 | Step | What works | Section |
 | --- | --- | --- |
 | 3a | Camera on the wrist; `capture_images` returns RGB and depth at `view` | 3 |
-| 3b | Pose estimator registered for the part | 4, *not yet* |
+| 3b | Pose estimator finds the part from `view` | 4 |
 | 3c | `omts_app` picks the part from perception | 5, *not yet* |
 | 3d | Camera-to-robot calibration in sim (optional) | *not yet* |
 
@@ -37,7 +37,8 @@ git lfs pull   # the reBot meshes are LFS files
 bazel run -c opt //:rebot_solution -- --address=localhost:17080
 ```
 
-This replaces whatever solution is deployed. Then reset the simulation, so
+This replaces whatever solution is deployed. To use the pose estimator,
+deploy with its models instead (section 4.2). Then reset the simulation, so
 Gazebo rebuilds its world with the gripper and camera (a deploy alone does
 not):
 
@@ -132,22 +133,106 @@ What to expect in the image:
   depth.
 * The gripper is out of view.
 
-## 4. Register the pose estimator (step 3b, *not yet*)
+## 4. Find the part with the pose estimator (step 3b)
 
-Planned: add `nvidia_pose_estimator_service` and `ioc_train_service` to
-`rebot_solution`, then register an estimator for the printed part with
-Intrinsic Core's tool, as the OMTS README (section 4.3) does for the raw stock:
+The cell uses OMTS's pose estimator, `nvidia_pose_estimator_service`
+(SAM 3 segmentation and FoundationPose). It needs three model assets in the
+solution, so it only runs when you deploy with them (`--//:perception_models`);
+without them the rest of the cell still works and the service does not start.
+
+**GPU memory.** The pose estimator needs at least 16 GB of dedicated GPU
+memory: it peaks at about 15.3 GB with the reBot's config, which lowers the
+FoundationPose batch, and with nothing else on the GPU. Intrinsic's default
+config runs out of memory on 16 GB. 24 GB leaves room for the default config
+and other GPU programs; on a Jetson, whose memory is shared with the system,
+plan for 32 GB or more. Measured on one RTX 4090 Laptop GPU with one part
+registered (`HANDOFF.md` step 3b).
+
+### 4.1. One-time model setup
+
+SAM 3 is gated, so its model is exported locally once per machine:
+
+1. Request access to [facebook/sam3](https://huggingface.co/facebook/sam3) and
+   accept the license (approval is manual).
+2. Log in on this machine:
+
+   ```bash
+   python3 -m pip install --user --break-system-packages -U huggingface_hub
+   ~/.local/bin/hf auth login   # paste a Read token
+   ```
+
+3. Export the model with Intrinsic Core's script, at the commit OMTS pins (see
+   `HANDOFF.md` section 2 for the checkout). Its pinned dependencies need
+   Python 3.12 or older; on a newer system Python, give it a 3.12 environment
+   first (Bazel's copy works once OMTS has been built):
+
+   ```bash
+   PY312=$(ls -d $(bazel info output_base)/external/rules_python++python+python_3_12_x86_64-unknown-linux-gnu)/bin/python3
+   $PY312 -m venv ~/intrinsic-models/sam3_export_venv
+   cd ~/intrinsic-core
+   ./intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator/scripts/prepare_sam3_models.sh \
+     --output-dir ~/intrinsic-models/nvidia_pose_estimator \
+     --venv-dir ~/intrinsic-models/sam3_export_venv
+   ```
+
+   This downloads the checkpoint and writes four ONNX files and a vocabulary
+   (3.3 GB) to `~/intrinsic-models/nvidia_pose_estimator`. Run `bazel info`
+   from the OMTS checkout.
+
+### 4.2. Deploy with the models
 
 ```bash
-# Not yet: the services are not in rebot_solution.
-bazel run @intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_train_service/tools:register_using_ioc_train_service -- \
+bazel run -c opt --//:perception_models \
+  --repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR=$HOME/intrinsic-models/nvidia_pose_estimator \
+  //:rebot_solution -- --address=localhost:17080
+bazel run //tools/world:apply_scene_updates -- \
+  --address=localhost:17080 --files --reset_sim
+```
+
+The first deploy uploads 4 GB of models. The service then loads them onto the
+GPU (`rs-nvidia-pose-estimator-service-0`); wait for its log to say
+`Server listening` (several minutes the first time, under a minute later):
+
+```bash
+kubectl -n app-resources logs rs-nvidia-pose-estimator-service-0 | grep "Server listening"
+```
+
+### 4.3. Register the part (after every deploy)
+
+The registration tells the service which object to look for: the part's
+model and a text prompt. It is stored on the cluster as an asset, which a
+deploy removes, so register again after each deploy (about a minute):
+
+```bash
+bazel run -c opt \
+  --repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR=$HOME/intrinsic-models/nvidia_pose_estimator \
+  @intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_train_service/tools:register_using_ioc_train_service -- \
   --address="localhost:17080" \
   --scene_object_id="ai.intrinsic.rebot_printed_part" \
   --pose_estimator_id="ai.intrinsic.rebot_printed_part_estimator_text" \
+  --refinement_iters=5 --confidence_threshold=0.15 --visibility_threshold=0.15 \
   --text_prompt="cube"
 ```
 
-and check it from `view` with `run_pose_estimation` (OMTS README 4.3).
+It ends with `Complete! Pose estimator ai.intrinsic.rebot_printed_part_estimator_text saved.`
+
+### 4.4. Estimate the part's pose
+
+Put the part on the bed and move to `view` (section 3), then:
+
+```bash
+bazel run -c opt \
+  --repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR=$HOME/intrinsic-models/nvidia_pose_estimator \
+  @intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator:run_pose_estimation -- \
+  --address=localhost:17080 --service_name=nvidia_pose_estimator_service \
+  --camera_name=orbbec_camera \
+  --pose_estimator_id=ai.intrinsic.rebot_printed_part_estimator_text
+```
+
+It prints detections in the camera frame, best first. With the part in the
+middle of the bed, the top one scores about 1.0 and sits about 0.38 m straight
+ahead (`[0.000, 0.000, 0.381]`). Weaker detections (scores around 0.3)
+elsewhere in the scene are false positives.
 
 ## 5. Run `omts_app` (step 3c, *not yet*)
 
@@ -177,6 +262,9 @@ bazel run -c opt //:omts_solution -- --address=localhost:17080
 | Symptom | Fix |
 | --- | --- |
 | `move_to_frame` reports "IK solver couldn't find any solutions" for a frame you edited | The planner gives the same error for an unreachable pose and for one where the arm or camera would collide, for example the camera against a printer post. Move the frame or check clearances. |
+| Pose estimation fails with "Failed to create TensorRT execution context" | The GPU ran out of memory. The reBot's service config already uses a smaller FoundationPose batch for a 16 GB GPU; close other GPU programs, or lower `batch_size` further in `configs/rebot/nvidia_pose_estimator_config.textproto`. |
+| Pose estimation fails because the estimator is not found | A deploy removed the registration; register again (step 4.3). |
+| `rs-nvidia-pose-estimator-service-0` keeps restarting | The models are missing: deploy with `--//:perception_models` and `--repo_env` (step 4.2). |
 | The image display stays empty | Nothing has captured yet; trigger a capture (step 3). Check the GUI is on the cluster's partition (`GZ_PARTITION=intrinsic_sim`). |
 | First move fails with `move_robot` "connection refused" | The arm is not enabled yet; wait for "[rebot] Now enabled" (step 2). |
 | Gazebo shows no camera, or the gripper doesn't move | Gazebo still has the old world; run the reset in step 2. |
