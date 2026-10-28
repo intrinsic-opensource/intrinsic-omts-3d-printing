@@ -22,7 +22,9 @@ This file records what has been decided and what to do next.
 Steps 1a–1d are done in simulation (section 5), which completes milestone 1:
 the reBot picks a printed part with its gripper, carries it in Gazebo, and
 places it, with RViz (the belief world) matching. To deploy and run the demo,
-see [`REBOT_DEMO.md`](REBOT_DEMO.md).
+see [`REBOT_DEMO.md`](REBOT_DEMO.md). Milestone 2 (section 5b) moves the cell
+onto OMTS's own app with a wrist camera; how to run what works so far is in
+[`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md).
 
 ---
 
@@ -580,16 +582,73 @@ the OMTS design are marked **Flag**.
 
 ### Step 3a: The camera is on the wrist and captures images
 
-* Add the Orbbec Gemini 335Le device and driver to `rebot_solution`, as in
-  `omts_solution`, and attach the camera under the wrist with an
-  `orbbec_gemini.updates.pbtxt` like `configs/omts/`.
-* Add a `view` frame above the bed, checked offline for reach and for the
-  camera body clearing the printer.
-* **Flag:** OMTS's `camera_mount` model fits the UR flange. The reBot gets the
-  camera attached directly, without a mount model, until there is a real
-  bracket.
-* Demo: the arm moves to `view`, `capture_images` runs in sim, and the RGB and
-  depth images show the part on the bed.
+**Status: done (2026-10-28).** Deployed to the local cluster in sim. At `view`,
+`capture_images` returns RGB and depth with the part on the bed in both, and
+the step 2a demo still runs two cycles with the camera mounted.
+
+* `rebot_solution` reuses `omts_solution`'s `orbbec_camera` and
+  `orbbec_gemini_driver` instances unchanged, plus the `capture_images` skill.
+  In sim the camera service proxies to Gazebo's camera plugin, so nothing else
+  is needed.
+* `configs/rebot/orbbec_gemini.updates.pbtxt` mounts the camera under the
+  wrist, on the flange like `configs/omts/`: 7.6 cm out along the flange axis
+  (OMTS: 7.8 cm), 7 cm off it on the gripper's -x side, which is below the
+  gripper in the tilted grasps and at `view`. It looks parallel to the tool
+  axis (no tilt), with its baseline along the jaw axis.
+* **The mount pose is our guess, not a reBot part.** Only the `flange`
+  frame comes from Seeed's model. No bracket exists for it, and the wrist's
+  mounting points and cable routing are unchecked. Revisit when there is a
+  real bracket; `view` depends on it.
+* **Flag:** no mount model; the camera is attached directly (OMTS's
+  `camera_mount` fits the UR flange).
+* `view` (in `configs/rebot/scene.updates.pbtxt`) points the tool 60° down
+  into the printer with its usual roll, so the camera hangs below the gripper
+  just outside the printer's front, 0.30 m from the bed centre, looking
+  straight in.
+* First version (2026-10-27): camera on the gripper's upper side, tilted 20°
+  in, `view` looking 40° down from just inside the printer. Moved under the
+  wrist on 2026-10-28, as originally asked; see below.
+
+Learned:
+
+* **The view pose is tightly constrained.** The depth sensor's near clip is
+  0.25 m and the printer's top is closed, so the camera must look in from the
+  front at an angle. From further back or from the sides the reBot cannot
+  reach the pose, and from the front corners the camera body hits a post.
+  The chosen pose looks in at a low angle and loses about the near half of the
+  bed to the near clip (no depth there); the bed centre and far half have
+  depth. The fingers are out of view.
+* **Above or below the gripper is not a property of the mount.** A mount on
+  the other side is the same mount turned 180° about the tool axis; the
+  gripper is symmetric and joint 6 turns ±180°. Which side faces down is set by
+  the tool's roll in each pose. We keep the usual roll (no wrist roll-over,
+  which could hit joint 6's limit) and put the camera on the side that is
+  then below.
+* **The camera's tight spots are the bed at the grasps and the joint-5
+  motor.** Offline checks with the links' collision meshes over the full
+  joint ranges: the camera clears the bed and part by about 3 cm at the A and
+  B grasps, the joint-5 motor (on link4) by 2.2 cm at worst, and link3, link5
+  and link6 by 3 cm or more. Mounting the camera 12 cm back from the
+  fingertips instead of 9 makes it hit the joint-5 motor; 7 cm gives 4 cm of
+  room for a bracket. It touches link2 only when the arm is folded fully back.
+* **No tilt toward the tool axis works only at a low view angle.** With the
+  camera below the gripper and looking parallel to the tool, reachable views
+  that clear the printer look in about 60° from vertical; tilting the camera
+  in (20-40°) leaves almost none.
+* **"No IK" does not say why.** The planner reports the same error for an
+  unreachable pose and for one whose only solutions collide; the first
+  candidate failed because the camera met the front-left post. Picking the
+  pose took offline FK/IK plus a rough clearance check against the printer's
+  boxes (scratch code, not in the repo). The OMTS route would be dragging the
+  frame in RViz (`//tools/world:edit_frames_rviz`) and retrying.
+* **No tool shows a capture.** OMTS has no capture-and-view tool; the demo
+  images came from listening to Gazebo's camera topics (sim only) while the
+  skill ran. The Gazebo GUI's image display shows the same topics. Captures
+  are triggered, so the topics publish only when the skill runs.
+* **The device config is OMTS's lab camera.** Its serial number only matters
+  on hardware, where the reBot gets its own config.
+* **Payload:** the camera model weighs 0.22 kg; check against the reBot's
+  payload before hardware.
 
 ### Step 3b: The pose estimator finds the part
 

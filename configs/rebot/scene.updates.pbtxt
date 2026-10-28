@@ -58,6 +58,40 @@ updates {
   }
 }
 
+# view: the tool pose from which the wrist camera sees the bed (step 3a).
+# The tool points 60 deg down into the printer with its usual roll, so the
+# camera hangs below the gripper, just outside the printer's front at (0.10,
+# 0, 0.255), 0.30 m from the bed centre and looking straight in. The depth
+# sensor's near clip (0.25 m) and the low angle leave about three quarters of
+# the bed with depth. The printer's closed top rules out looking straight
+# down; most other camera poses are out of reach, need the wrist rolled over,
+# or put the camera into a post (checked offline, step 3a).
+updates {
+  create_frame {
+    new_frame_name: "view"
+    parent_t_new_frame {
+      position {
+        x: 0.2131
+        y: -0.024
+        z: 0.2706
+      }
+      orientation {
+        x: 0.866025
+        y: 0
+        z: 0.5
+        w: 0
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+
 # The arm starts at "park_left" (the folded "home" turned to the robot's
 # left), not at "home": folded straight ahead, the gripper reaches into the
 # printer's front opening.

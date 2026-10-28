@@ -1,0 +1,71 @@
+# proto-file: intrinsic/world/public/proto/object_world_updates.proto
+# proto-message: intrinsic_proto.world.ObjectWorldUpdates
+
+# Mounts the Orbbec Gemini 335Le under the reBot's wrist, as
+# configs/omts/orbbec_gemini.updates.pbtxt does on the UR flange, with no
+# mount model. The pose is our own choice, not a reBot part. The camera sits on
+# the gripper body's -x side (perpendicular to the jaws; below the gripper in
+# the tilted grasps and at view), 7.6 cm out along the flange axis and 7 cm off
+# it, looking parallel to the tool axis (no tilt), with its baseline along the
+# jaw axis and its image upright when the gripper's +x points up. Offline checks (step 3a in research/HANDOFF.md) give it about 3 cm
+# of clearance from the bed and part at the grasps and 2 cm from the wrist's
+# joint-5 motor at any joint angle.
+
+updates {
+  update_transform {
+    node_a {
+      by_name {
+        frame {
+          object_name: "rebot"
+          frame_name: "flange"
+        }
+      }
+    }
+    node_b {
+      by_name {
+        object {
+          object_name: "orbbec_camera"
+        }
+      }
+    }
+    node_to_update {
+      by_name {
+        object {
+          object_name: "orbbec_camera"
+        }
+      }
+    }
+    a_t_b {
+      position {
+        x: -0.07
+        y: -0.024
+        z: 0.076
+      }
+      orientation {
+        x: 0
+        y: 0
+        z: 0.707107
+        w: 0.707107
+      }
+    }
+  }
+}
+updates {
+  reparent_object {
+    object {
+      by_name {
+        object_name: "orbbec_camera"
+      }
+    }
+    new_parent {
+      reference {
+        by_name {
+          object_name: "rebot"
+        }
+      }
+      entity_filter {
+        include_final_entity: true
+      }
+    }
+  }
+}
