@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-OMTS (Open Machine Tending Solution) is a reference CNC machine-tending app built on Intrinsic Core and its Solution Building Library (SBL) Python SDK. Everything builds with Bazel (Bzlmod; `@intrinsic-core` and `@intrinsic_apis` are fetched from the same release tarball via `archive_override` in `MODULE.bazel`, pinned by `INTRINSIC_CORE_RELEASE` + `INTRINSIC_CORE_SHA256`; `@intrinsic-core` also applies `bazel/patches/robotiq_hande_finger_offset.patch`). Git LFS is required: `*.glb` meshes are LFS-tracked, and without LFS they silently become pointer files.
+OMTS (Open Machine Tending Solution) is a reference CNC machine-tending app built on Intrinsic Core and its Solution Building Library (SBL) Python SDK. Everything builds with Bazel (Bzlmod; `@intrinsic-core` and `@intrinsic_apis` are fetched from the same GitHub archive of a pinned intrinsic-core commit via `archive_override` in `MODULE.bazel`, pinned by `INTRINSIC_CORE_COMMIT` + `INTRINSIC_CORE_SHA256`, not by a release tag; `@intrinsic-core` also applies the patches in `bazel/patches/`). Git LFS is required: `*.glb` meshes are LFS-tracked, and without LFS they silently become pointer files.
 
 ## Current direction
 
