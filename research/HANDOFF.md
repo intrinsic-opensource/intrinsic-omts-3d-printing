@@ -48,6 +48,9 @@ This matches the working machine: `origin` is upstream
 (`intrinsic-ai/intrinsic-omts`) and `fork` is
 `NachoRosa95/intrinsic-omts`. Push research work to `fork`.
 
+Perception (milestone 2, step 3b) also needs the NVIDIA pose estimator's
+model assets, including the gated SAM 3 weights; see step 3b.
+
 For quick analysis scripts (URDF kinematics, 3MF parsing), install `numpy`. The
 original machine had no system pip; it was installed per-user with
 `get-pip.py --user`, then `python3 -m pip install --user numpy`.
@@ -668,11 +671,46 @@ Learned:
 
 ### Step 3b: The pose estimator finds the part
 
+**Status: blocked (2026-10-28), waiting for SAM 3 access.** Access to
+`facebook/sam3` has been requested on HuggingFace.
+
 * Add `nvidia_pose_estimator_service` and `ioc_train_service`, and register an
   estimator for `ai.intrinsic.rebot_printed_part` with
-  `register_using_ioc_train_service` (README 4.3).
+  `register_using_ioc_train_service` (README 4.3). The service is OMTS's,
+  unchanged; only the registration is new, because FoundationPose fits the
+  registered object's exact model and OMTS's raw-stock registration does not
+  match the printed part.
 * Demo: `run_pose_estimation` at `view`, compared with the part's pose in
   Gazebo. Record the error and how yaw behaves on a near-square part.
+
+Learned so far:
+
+* **OMTS's perception needs a gated model.** `nvidia_pose_estimator_service`
+  starts only once three model Data assets are installed on the cluster
+  (Intrinsic Core's `nvidia_pose_estimator` README, section 2): FoundationPose
+  and FoundationStereo, which Bazel downloads, and SAM 3, which it cannot.
+  `facebook/sam3` is gated with manual approval on HuggingFace, so each user
+  must request access, log in (`hf auth login`), run Intrinsic's export script
+  on a GPU and install a 3.3 GB bundle with `inctl asset install`. Nothing in
+  `intrinsic-core`'s guides avoids this. None of it was set up on this
+  machine.
+* **The original machine ran the older pipeline.** OMTS switched to
+  `nvidia_pose_estimator_service` upstream in #161 (2026-10-22). Before that
+  it used Intrinsic Core's `ioc_pose_estimator` on Triton, with an RF-DETR
+  segmentation model from OMTS's GitHub release (`segmentation.tar.gz`) and
+  FoundationPose weights from NGC, all fetched by Bazel with no gate, and
+  registration without a text prompt.
+* **Stopgap, not taken:** restore that pipeline in `rebot_solution` while
+  waiting. `ioc_pose_estimator` is still in the pinned Intrinsic Core
+  (`20261012.0`) and its weights still download freely, but #161 removed the
+  model packaging, build rules, dependencies and registration tool from OMTS
+  (see `git show 29635ca^`), so it would re-add code current OMTS dropped
+  (**Flag**). It is also unknown whether the pretrained RF-DETR model segments
+  the printed part. Worth trying only if access takes long.
+* Unchecked: whether deploying `rebot_solution` removes separately installed
+  model assets, as it replaced `omts_solution`'s. If it does, add the three
+  model Data asset targets (in `nvidia_pose_estimator`'s BUILD) to the
+  solution.
 
 ### Step 3c: `omts_app` picks the part from perception
 
