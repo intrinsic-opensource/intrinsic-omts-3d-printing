@@ -9,8 +9,8 @@ updates {
     node_b { by_name { object { object_name: "printer" } } }
     node_to_update { by_name { object { object_name: "printer" } } }
     a_t_b {
-      position { x: -0.57 y: -0.10 z: 1.02 }
-      orientation { x: 0 y: 0 z: 0.7071068 w: 0.7071068 }
+      position { x: -0.57 y: -0.10 z: 1.0 }
+      orientation { x: 0 y: 0 z: -0.7071068 w: 0.7071068 }
     }
   }
 }
