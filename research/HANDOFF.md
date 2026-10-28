@@ -603,8 +603,13 @@ the step 2a demo still runs two cycles with the camera mounted.
   `camera_mount` fits the UR flange).
 * `view` (in `configs/rebot/scene.updates.pbtxt`) points the tool 60° down
   into the printer with its usual roll, so the camera hangs below the gripper
-  just outside the printer's front, 0.30 m from the bed centre, looking
-  straight in.
+  outside the printer's front, 0.38 m from the bed centre, looking straight
+  in. The whole bed has depth.
+* **The printer moved 10 cm further out** (bed centre at x = 0.46, B's frames
+  with it). With the bed at 0.36 m, no reachable view put the camera further
+  than 0.30 m from the bed centre, which left about the near half of the bed
+  inside the depth sensor's near clip. The step 2a demo still runs two
+  cycles.
 * First version (2026-10-27): camera on the gripper's upper side, tilted 20°
   in, `view` looking 40° down from just inside the printer. Moved under the
   wrist on 2026-10-28, as originally asked; see below.
@@ -615,9 +620,13 @@ Learned:
   0.25 m and the printer's top is closed, so the camera must look in from the
   front at an angle. From further back or from the sides the reBot cannot
   reach the pose, and from the front corners the camera body hits a post.
-  The chosen pose looks in at a low angle and loses about the near half of the
-  bed to the near clip (no depth there); the bed centre and far half have
-  depth. The fingers are out of view.
+  With the bed at 0.36 m from the base, the best view looked in from 0.30 m
+  and lost about the near half of the bed to the near clip.
+* **How far the printer can sit from the reBot** (offline, 35° grasp): views
+  improve the further it is (5 cm out: 93% of the bed has depth; 10 cm: all
+  of it). The tilted grasp reaches about 0.62 m from the base, so beyond 15 cm
+  out the bed's far half is out of reach, and beyond 25 cm its centre. 10 cm
+  keeps margin at the far edge.
 * **Above or below the gripper is not a property of the mount.** A mount on
   the other side is the same mount turned 180° about the tool axis; the
   gripper is symmetric and joint 6 turns ±180°. Which side faces down is set by

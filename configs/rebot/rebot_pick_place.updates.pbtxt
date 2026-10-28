@@ -5,7 +5,7 @@
 # ground behind the robot, 0.30 m out at 145 deg from the printer's direction
 # (joint1 turns only +-160 deg, so straight behind is out of reach).
 # Destination B is the centre of the printer's bed in front of it
-# (printer/bed_frame, x=0.36, top at z=0.0895, placed by
+# (printer/bed_frame, x=0.46, top at z=0.0895, placed by
 # printer.updates.pbtxt). The 40 x 40 x 30 mm part starts at A.
 #
 # The grasp is the same relative to the part at both ends, so the part is
@@ -117,7 +117,7 @@ updates {
     new_frame_name: "part_b_pregrasp"
     parent_t_new_frame {
       position {
-        x: 0.3256
+        x: 0.4256
         y: 0
         z: 0.1486
       }
@@ -143,7 +143,7 @@ updates {
     new_frame_name: "part_b_grasp"
     parent_t_new_frame {
       position {
-        x: 0.36
+        x: 0.46
         y: 0
         z: 0.0995
       }
@@ -195,7 +195,7 @@ updates {
     new_frame_name: "part_b_rest"
     parent_t_new_frame {
       position {
-        x: 0.36
+        x: 0.46
         y: 0
         z: 0.1045
       }

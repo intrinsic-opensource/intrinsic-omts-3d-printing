@@ -3,9 +3,11 @@
 
 # 3D printer on the ground in front of the reBot, its open front (printer -Y)
 # facing the robot (yaw -90 deg about Z), so the spool stack is on the robot's
-# left (+Y). The bed centre (printer/bed_frame) lands at x=0.36, y=0,
-# z=0.0895, inside the reBot's straight-down band; the printer's front edge is
-# at x=0.146, about 7 cm clear of the robot base.
+# left (+Y). The bed centre (printer/bed_frame) lands at x=0.46, y=0,
+# z=0.0895; the printer's front edge is at x=0.246. It stood 10 cm closer
+# until step 3a: this far out the wrist camera can see the whole bed with
+# depth from view, and the tilted grasp still reaches the bed's far half
+# (offline check; about 15 cm further would lose it).
 updates {
   update_transform {
     node_a {
@@ -31,7 +33,7 @@ updates {
     }
     a_t_b {
       position {
-        x: 0.361
+        x: 0.461
         y: 0.006
         z: 0
       }

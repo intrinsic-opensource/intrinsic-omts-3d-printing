@@ -83,7 +83,7 @@ updates {
     node_a { by_name { object { object_name: "root" } } }
     node_b { by_name { object { object_name: "rebot_printed_part" } } }
     node_to_update { by_name { object { object_name: "rebot_printed_part" } } }
-    a_t_b { position { x: 0.36 y: 0 z: 0.1045 } orientation { w: 1 } }
+    a_t_b { position { x: 0.46 y: 0 z: 0.1045 } orientation { w: 1 } }
   }
 }
 EOF
