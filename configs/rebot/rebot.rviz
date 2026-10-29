@@ -15,7 +15,7 @@ Visualization Manager:
       Enabled: true
       Topic:
         Value: /workcell_markers
-        Durability Policy: Volatile
+        Durability Policy: Transient Local
         Reliability Policy: Reliable
         History Policy: Keep Last
         Depth: 5
