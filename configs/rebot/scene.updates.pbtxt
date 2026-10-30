@@ -1,62 +1,8 @@
 # proto-file: intrinsic/world/public/proto/object_world_updates.proto
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
 
-# Named frames for the reBot cell. demo_a and demo_b are top-down tool poses
-# (tool_frame +z pointing straight down) 0.30 m from the base at 105 and 125
-# deg from the printer's direction, on its left and clear of the printer and
-# of the part at A, and 0.05 m above it, for the step 1b motion demo.
-
-updates {
-  create_frame {
-    new_frame_name: "demo_a"
-    parent_t_new_frame {
-      position {
-        x: -0.078
-        y: 0.29
-        z: 0.05
-      }
-      orientation {
-        x: 1
-        y: 0
-        z: 0
-        w: 0
-      }
-    }
-    parent_object_with_filter {
-      reference {
-        by_name {
-          object_name: "root"
-        }
-      }
-    }
-  }
-}
-
-updates {
-  create_frame {
-    new_frame_name: "demo_b"
-    parent_t_new_frame {
-      position {
-        x: -0.172
-        y: 0.246
-        z: 0.05
-      }
-      orientation {
-        x: 1
-        y: 0
-        z: 0
-        w: 0
-      }
-    }
-    parent_object_with_filter {
-      reference {
-        by_name {
-          object_name: "root"
-        }
-      }
-    }
-  }
-}
+# Named frames for the reBot cell, used by omts_app
+# (configs/rebot/app_config.yaml), and its starting joint configuration.
 
 # view: the tool pose from which the wrist camera sees the bed (step 3a).
 # The tool points 60 deg down into the printer with its usual roll, so the
@@ -95,8 +41,8 @@ updates {
 # omts_app's "machine" frames (configs/rebot/app_config.yaml, step 3c). With
 # no machine, OMTS's load and unload subtrees still set the part down here and
 # pick it up again, so they are A, on the ground behind the robot: the tool
-# poses of the step 2a A grasp (rebot_pick_place.updates.pbtxt, tilted 35 deg),
-# which set the part down flat. place_vise holds the part at its resting
+# poses of the step 2a A grasp (tilted 35 deg, the part's x axis yawed 145
+# deg), which set the part down flat. place_vise holds the part at its resting
 # height (z = 0.015); the app config presses it 2 mm further when setting it
 # down (cycle.place_press_meters) and lists rebot_ground as a support, so the
 # re-grasp here closes at the part's centre.
