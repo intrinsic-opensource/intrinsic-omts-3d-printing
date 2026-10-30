@@ -3,8 +3,7 @@
 How to deploy the reBot printer-tending cell and run OMTS's own app
 (`omts_app`) on it, with the wrist camera locating the part (milestone 2,
 `HANDOFF.md` section 5b). It assumes the OMTS solution already deploys and
-runs on this machine: Bazel, Git LFS and the local cluster at
-`localhost:17080` work.
+runs on this machine: Bazel and the local cluster at `localhost:17080` work.
 
 The cell is a Seeed reBot Arm B601-RS with its pinch gripper and an Orbbec
 Gemini 335Le under its wrist, a stand-in 3D printer in front of it
@@ -32,9 +31,13 @@ random offset, so the next cycle has to find it again. Simulation only.
 
 ### 1. Get the code
 
+The reBot cell is on the `added-rebot-solution` branch of
+[intrinsic-opensource/intrinsic-omts-3d-printing](https://github.com/intrinsic-opensource/intrinsic-omts-3d-printing):
+
 ```bash
-git checkout research
-git lfs pull   # the reBot meshes are LFS files
+git remote add opensource https://github.com/intrinsic-opensource/intrinsic-omts-3d-printing.git
+git fetch opensource
+git switch -c added-rebot-solution --track opensource/added-rebot-solution
 ```
 
 ### 2. Export the SAM 3 model (once per machine)
