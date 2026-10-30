@@ -84,6 +84,10 @@ def build_load_machine_subtree(
         (config.robot.tool_object_name, config.robot.enclosure_object_name),
       ]
     )
+  vise_collision_pairs.extend(
+    (support, workpiece_object_name)
+    for support in config.cycle.workpiece_support_objects
+  )
 
   entry_frames = [
     machine_approach_frame_name,
@@ -112,6 +116,7 @@ def build_load_machine_subtree(
       approach_frames=entry_frames,
       approach_motion_types="ANY",
       excluded_collision_pairs=vise_collision_pairs,
+      press_m=config.cycle.place_press_meters,
     )
   )
 

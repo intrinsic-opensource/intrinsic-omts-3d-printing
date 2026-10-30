@@ -147,8 +147,9 @@ same checks as a **pre-print validation** step rejects bad layouts before
 printing, so every accepted layout is pickable.
 
 The bed pick is then: approach a standoff above the expected part top, a slow
-linear move to `z_grasp`, grasp, retract. The reBot demo already picks this way
-with fixed frames (`src/behaviors/rebot_pick_place.py`).
+linear move to `z_grasp`, grasp, retract. The reBot cell's `omts_app` cycle
+already picks from the bed this way, with grasp frames from perception
+(`configs/rebot/app_config.yaml`).
 
 ---
 
