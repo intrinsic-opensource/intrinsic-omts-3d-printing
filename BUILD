@@ -461,4 +461,3 @@ intrinsic_asset_instance(
     asset = "ai.intrinsic.orbbec_gemini_driver",
     instance_name = "orbbec_gemini_driver",
 )
-
