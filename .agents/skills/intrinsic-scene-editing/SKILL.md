@@ -5,7 +5,7 @@ description: 'Modify Intrinsic Core / OMTS scenes (the workcell world). Covers a
 
 # Editing scenes (ObjectWorld) in Intrinsic Core / OMTS
 
-Paths are relative to `/home/berti/gits/`. The cluster gateway is `localhost:17080`. **Default to simulation.** Never move real hardware without explicit user confirmation.
+Paths are relative to the directory holding the sibling checkouts (`~/` by default). The cluster gateway is `localhost:17080`. **Default to simulation.** Never move real hardware without explicit user confirmation.
 
 ## Mental model (read once)
 

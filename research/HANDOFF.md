@@ -1,8 +1,7 @@
 # Handoff: 3D Printer Tending
 
 Current state and plan for the printer-tending project, so work can continue on
-any machine. The printer-side design is [`PRINTER_UNLOADING.md`](PRINTER_UNLOADING.md);
-the arm comparison is [`ARM_SELECTION_REQUEST.md`](ARM_SELECTION_REQUEST.md).
+any machine. The printer-side design is [`PRINTER_UNLOADING.md`](PRINTER_UNLOADING.md).
 This file records what has been decided and what to do next.
 
 ---
@@ -11,10 +10,10 @@ This file records what has been decided and what to do next.
 
 | Item | Location |
 | --- | --- |
-| Repo | Fork `https://github.com/NachoRosa95/intrinsic-omts`, branch `research` |
+| Repo | `https://github.com/intrinsic-opensource/intrinsic-omts-3d-printing`, branch `added-rebot-solution` |
 | Research commit | `fbb9606` "Printer unloading viability research", on top of upstream `main` at `48be90d` (#151). Upstream has since been merged in through #156. |
 | Printer design notes | `research/PRINTER_UNLOADING.md` (trimmed 2026-10-22; the full feasibility study, including the SO-101 evaluation, is at commit `6b33ad7`) |
-| Arm comparison (decided) | `research/ARM_SELECTION_REQUEST.md` |
+| Arm comparison (decided) | Summarized in section 6.3; the full comparison (`ARM_SELECTION_REQUEST.md`) is in git history at `b5b4eee` |
 | SO-101 URDF | `research/so101_new_calib.urdf`, from the earlier SO-101 evaluation; superseded by the reBot decision |
 | reBot URDFs | Base for the sim model: [Seeed-Projects/reBot-Isaacsim](https://github.com/Seeed-Projects/reBot-Isaacsim) `urdf/00-arm-rs_asm-v3/urdf/00-arm-rs_asm-v3.urdf` (MIT), which fixes the gripper limits (section 6.2). Originals: [Seeed-Projects/reBot-DevArm](https://github.com/Seeed-Projects/reBot-DevArm) `Rebot_Arm_description/` (Apache-2.0 / CERN-OHL-W-2.0). |
 | Reference source | `intrinsic-core` checked out at the commit OMTS pins: `INTRINSIC_CORE_COMMIT` in `MODULE.bazel` (`c40e02aa` since #161), not a release tag. The `20261012.0` tag predates it and lacks `nvidia_pose_estimator`. Check behavior against the pinned commit when it matters. |
@@ -36,9 +35,9 @@ did the same round trip with perception; it is in git history (`42fcafc`).
 git clone https://github.com/intrinsic-ai/intrinsic-omts.git
 cd intrinsic-omts
 
-# The fork, which holds the research branch
-git remote add fork https://github.com/NachoRosa95/intrinsic-omts.git
-git fetch fork && git checkout -b research fork/research
+# The 3D-printing fork, which holds the reBot cell
+git remote add opensource https://github.com/intrinsic-opensource/intrinsic-omts-3d-printing.git
+git fetch opensource && git switch -c added-rebot-solution --track opensource/added-rebot-solution
 
 # intrinsic-core next to it, for reading drivers, skills and tutorials, at the
 # commit OMTS pins (INTRINSIC_CORE_COMMIT in MODULE.bazel)
@@ -53,9 +52,8 @@ only gets `HEAD` and `main` tracks nothing. Fix it with
 `git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'`,
 `git fetch origin` and `git branch --set-upstream-to=origin/main main`.
 
-This matches the working machine: `origin` is upstream
-(`intrinsic-ai/intrinsic-omts`) and `fork` is
-`NachoRosa95/intrinsic-omts`. Push research work to `fork`.
+`origin` is upstream (`intrinsic-ai/intrinsic-omts`) and `opensource` is
+`intrinsic-opensource/intrinsic-omts-3d-printing`, where this work is pushed.
 
 Perception (milestone 2, step 3b) also needs the NVIDIA pose estimator's
 model assets, including the gated SAM 3 weights, exported once per machine;
@@ -69,15 +67,14 @@ original machine had no system pip; it was installed per-user with
 
 ## 3. Decisions Taken
 
-### 3.1 Kickoff with Intrinsic (2026-10-20)
+### 3.1 Project decisions
 
 | Decision | Consequence |
 | --- | --- |
 | **Arm: Seeed reBot Arm** | Replaces the SO-101 plan (study section 7, at commit `6b33ad7`). The B601-RS is the working assumption until the variant is confirmed. |
-| **Intrinsic adds ICON support for the reBot** | Hardware only, likely for the B601-RS. We do not write or validate a driver; the community-driver risks in `ARM_SELECTION_REQUEST.md` no longer apply to us. The simulation model is ours to build. |
-| **Deadline: end of 2026, scope flexible** | Intrinsic's hard deadline. Cut scope rather than slip; the spiral steps make that possible. |
-| **Target compute: NVIDIA Jetson (Orin or Thor)** | Intrinsic is adding ARM support; treat it as a given. Seeed sells reBot kits bundled with Jetson Orin or Thor. |
-| **Simulation first** | Hardware waits for Intrinsic's ICON support. All milestone 1 work runs in Gazebo (`--operation_mode=sim`). |
+| **ICON support for the reBot is expected from Intrinsic Core** | Hardware only, likely for the B601-RS. This project does not write or validate a driver; the community-driver risks (section 6.3) apply only if that changes. The simulation model is ours to build. |
+| **Target compute: NVIDIA Jetson (Orin or Thor)** | ARM64 support is expected. Seeed sells reBot kits bundled with Jetson Orin or Thor. |
+| **Simulation first** | Hardware waits for ICON support for the arm. All milestone 1 work runs in Gazebo (`--operation_mode=sim`). |
 | **No printer yet** | The target printer stays undecided. The arm first works on its own in an empty cell, with no obstacles. |
 | **Spiral workflow** | Start simple and add complexity in small steps, with something to demo at every step (section 5, and `CLAUDE.md`). |
 
@@ -107,14 +104,12 @@ Each is recorded in the study with its reasoning.
 
 ## 4. Open Questions
 
-### 4.1 For Intrinsic (1–3 answered 2026-10-20)
+### 4.1 For Intrinsic Core
 
-1. **Scope of the reBot ICON support:** hardware only. No simulation model and
-   no gripper. For simulation we use Intrinsic's generic Gazebo stand-in with a
-   model built from the URDF (step 1b).
+1. **Scope of the reBot ICON support:** expected to cover the hardware only,
+   with no simulation model and no gripper. For simulation we use Intrinsic's
+   generic Gazebo stand-in with a model built from the URDF (step 1b).
 2. **Variant:** to be decided; the B601-RS is most likely.
-3. **Timeline:** hard deadline at the end of 2026, with scope flexible to meet
-   it.
 4. **New (2026-10-20): expose `gazebo_hwm_stub_image` outside intrinsic-core.**
    A simulation-only hardware device for a new arm needs it, and OMTS patches
    the visibility for now (step 1b).
@@ -136,7 +131,7 @@ Each is recorded in the study with its reasoning.
    Ask whether the service will expose FoundationPose's hypothesis count and
    FP16 precision, which the library already supports.
 
-### 4.2 For the project owner
+### 4.2 Open project questions
 
 1. **Target printer and firmware.** Deferred: decides the status API, camera
    source and 3MF variant. Needed before the printer enters the cell.
@@ -884,7 +879,7 @@ Learned:
 * Place at A (an outfeed) instead of returning to the bed.
 * Cross-check perception against the 3MF plate layout for confidence.
 * Try the MoveIt grasp planner backend for non-cuboid parts.
-* Move to hardware on a Jetson once Intrinsic's ICON support lands.
+* Move to hardware on a Jetson once ICON support for the arm is available.
 * Printer adapter and per-job cycle.
 
 ---
@@ -949,6 +944,49 @@ add a finger mimic, and confirm the joint conventions against Intrinsic's
 hardware support once it exists.**
 
 ---
+
+### 6.3 Getting a non-UR arm into ICON, and fallback arms
+
+From the arm comparison done before the reBot was chosen (removed
+2026-10-30; the full comparison is in git history at `b5b4eee`). It matters
+again if ICON support for the reBot does not materialize or another arm is considered.
+
+* **The path for a third-party arm.** ICON accepts a non-UR arm through its
+  ROS 2 bridge, `icon_hwm_controller`, which needs a `ros2_control` hardware
+  plugin for the arm (intrinsic-core `ros2_bridge_tutorial.md`). The bridge
+  runs in lockstep with ICON, carries arm joints only (the gripper is
+  commanded outside ICON), and targets ROS 2 Kilted. Without a working
+  plugin, the fallback is a custom real-time ICON hardware module in C++,
+  weeks of work. The arms therefore differ mainly in how much driver work
+  comes first: vendor-maintained, community-maintained, or none.
+* **reBot driver risks, if we had to drive it ourselves.** The only
+  `ros2_control` plugin is the community
+  [`robstride_ros2_control`](https://github.com/s2015-turtle/robstride_ros2)
+  (MIT), tested only against a simulated motor. Open: it has never run on
+  hardware; it passes CAN frames as ROS messages through `ros2_socketcan`,
+  not built for hard deadlines (the bus itself should allow about 500 Hz for
+  seven motors at 1 Mbit/s); the gripper is a seventh motor on the same bus,
+  and only one process can own the bus, so it must run in the same plugin;
+  and the motors must use RobStride's private protocol (Seeed's configuration
+  suggests they do). Seeed's own ROS 2 stack drives the real arm from a
+  Python node; its `ros2_control` setup is a MoveIt stand-in.
+* **Fallback arms.** UFactory Lite 6: the only low-cost candidate with a
+  vendor-maintained plugin
+  ([`xarm_ros2`](https://github.com/xArm-Developer/xarm_ros2), no Kilted
+  branch yet; its gripper is outside `ros2_control`, so it needs its own
+  `GripperInterface`), closed hardware, about twice the reBot's price.
+  SO-101: by far the cheapest, open hardware, a generic Feetech plugin, but
+  five joints, a pivoting jaw that does not self-centre, and ±3–5 mm
+  (estimate). Ruled out: Annin AR4 (60 Hz serial driver, backlash),
+  OpenMANIPULATOR-X (no wrist roll, so no top-down grasps at any yaw), AgileX
+  PiPER, Interbotix and ARX X5 (no usable `ros2_control` driver), and larger
+  vendor-supported arms (two to five times the price for capability a print
+  does not need).
+* **What the arm has to do,** for any replacement: pick parts of tens of
+  grams (the gripper counts against the payload), grasp top-down at any yaw
+  (a wrist roll), work without a force-torque sensor, and stay low-cost and
+  preferably open hardware. Accuracy has no fixed requirement; the gripper's
+  sideways slack and its margin above the bed set it.
 
 ## 7. Unverified Items
 
