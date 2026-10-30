@@ -230,7 +230,7 @@ class WorldUpdateConfigsTest(absltest.TestCase):
 
   def test_app_config_frames_exist_in_cell_scene_updates(self):
     """Every static frame referenced by app_config.yaml must exist in scene.updates.pbtxt."""
-    for cell in ("omts", "lab_bb_01"):
+    for cell in ("omts", "lab_bb_01", "rebot"):
       with self.subTest(cell=cell):
         app_cfg = load_app_config(f"configs/{cell}/app_config.yaml")
         scene_updates = _load_updates_proto(
@@ -242,6 +242,8 @@ class WorldUpdateConfigsTest(absltest.TestCase):
           for update in scene_updates.updates
           if update.HasField("create_frame")
         }
+        # The machine frames are used even without a machine: the load and
+        # unload subtrees still place the part there and pick it up again.
         required_static_frames = [
           app_cfg.frames.view_frame,
           app_cfg.frames.machine_approach_frame,
