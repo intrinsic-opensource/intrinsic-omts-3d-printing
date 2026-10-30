@@ -79,7 +79,8 @@ bazel run //tools/world:apply_scene_updates -- \
 ```
 
 This replaces whatever solution is deployed. The first deploy uploads 4 GB of
-models.
+models. The arm starts folded at `park_left` (its resting pose, turned to the
+left, away from the printer) and the part in the middle of the printer's bed.
 
 Wait for two things before going on; rerun each command until it prints a
 line:
@@ -120,38 +121,7 @@ app uses the first estimate it gets. SAM 3 scores the part about 0.58 from
 `view`. The service caches each estimator's threshold until it restarts, so
 to change it, register under a new id.
 
-### 5. Put the part on the bed
-
-After a reset the part is on the ground behind the robot. Put it in the
-middle of the bed in both worlds:
-
-```bash
-cat > /tmp/part_on_bed.updates.pbtxt <<'EOF'
-updates {
-  reparent_object {
-    object { by_name { object_name: "rebot_printed_part" } }
-    new_parent { reference { by_name { object_name: "root" } } }
-  }
-}
-updates {
-  update_transform {
-    node_a { by_name { object { object_name: "root" } } }
-    node_b { by_name { object { object_name: "rebot_printed_part" } } }
-    node_to_update { by_name { object { object_name: "rebot_printed_part" } } }
-    a_t_b { position { x: 0.46 y: 0 z: 0.1045 } orientation { w: 1 } }
-  }
-}
-EOF
-bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \
-  --files /tmp/part_on_bed.updates.pbtxt $PWD/configs/rebot/scene.updates.pbtxt \
-  --reset_sim
-```
-
-The reset also returns the arm to `park_left`, its folded resting pose. The
-first update reattaches the part to the world, in case a failed run left it
-attached to the arm.
-
-### 6. Run `omts_app`
+### 5. Run `omts_app`
 
 ```bash
 bazel run //src:omts_app -- --address=localhost:17080 \
@@ -171,17 +141,23 @@ repeats until stopped. Each cycle:
 Watch it in the Gazebo GUI (see "Look through the camera" below for how to
 open it against the cluster).
 
-The app does not reset the world before it runs. If a run fails while the
-part is in the gripper, the part stays attached to the arm in the planner's
-world; the next run then fails with collisions or "could not find a path".
-Put the part back on the bed (step 5), which reattaches it to the world
-first.
+Further runs continue from wherever the last one left the part. The app does
+not reset the world, though: if a run fails while the part is in the gripper,
+the part stays attached to the arm in the planner's world, and the next run
+fails with collisions or "could not find a path". Put the part back in the
+middle of the bed, which also reattaches it to the world and folds the arm:
+
+```bash
+bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \
+  --files $PWD/configs/rebot/printed_part.updates.pbtxt \
+  $PWD/configs/rebot/scene.updates.pbtxt --reset_sim
+```
 
 ## Debugging
 
 Optional checks of the camera and the pose estimator on their own, without
 running the app. Both start from a deployed cell with the part on the bed
-(quick start steps 3 to 5).
+(quick start step 3; put the part back as in step 5 if a run moved it).
 
 ### Look through the camera
 
@@ -272,7 +248,7 @@ bazel run -c opt //:omts_solution -- --address=localhost:17080
 | Gazebo shows no camera, or the gripper doesn't move | Gazebo still has the old world; run the reset in quick start step 3. |
 | `rs-nvidia-pose-estimator-service-0` keeps restarting | The models are missing: deploy with `--//:perception_models` and `--repo_env` (quick start step 3). |
 | Pose estimation fails because the estimator is not found | A deploy removed the registration; register again (quick start step 4). |
-| `omts_app` fails with a collision between `rebot_printed_part` and the printer, or "could not find a path" | A failed run left the part attached to the arm; put it back (quick start step 5). |
+| `omts_app` fails with a collision between `rebot_printed_part` and the printer, or "could not find a path" | A failed run left the part attached to the arm; put it back on the bed (end of quick start step 5). |
 | Pose estimation fails with "Failed to create TensorRT execution context" | The GPU ran out of memory. The reBot's service config already uses a smaller FoundationPose batch for a 16 GB GPU; close other GPU programs, or lower `batch_size` further in `configs/rebot/nvidia_pose_estimator_config.textproto`. |
 | `move_to_frame` reports "IK solver couldn't find any solutions" for a frame you edited | The planner gives the same error for an unreachable pose and for one where the arm or camera would collide, for example the camera against a printer post. Move the frame or check clearances. |
 | The image display stays empty | Nothing has captured yet; trigger a capture ("Look through the camera"). Check the GUI is on the cluster's partition (`GZ_PARTITION=intrinsic_sim`). |

@@ -21,10 +21,11 @@ This file records what has been decided and what to do next.
 
 Steps 1a–1d are done in simulation (section 5), which completes milestone 1:
 the reBot picks a printed part with its gripper, carries it in Gazebo, and
-places it, with RViz (the belief world) matching. To deploy and run the demo,
-see [`REBOT_DEMO.md`](REBOT_DEMO.md). Milestone 2 (section 5b) moves the cell
-onto OMTS's own app with a wrist camera; how to run what works so far is in
-[`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md).
+places it, with RViz (the belief world) matching. Milestone 2 (section 5b)
+moves the cell onto OMTS's own app with a wrist camera; to deploy and run it,
+see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md). The milestone 1 demo
+(`//:rebot_demo`, `REBOT_DEMO.md`) was removed on 2026-10-30, once `omts_app`
+did the same round trip with perception; it is in git history (`42fcafc`).
 
 ---
 
@@ -100,7 +101,7 @@ Each is recorded in the study with its reasoning.
 | --- | --- |
 | **Locate the print with an Orbbec camera under the wrist, as OMTS does** | Overrides two study decisions in 3.2: vision replaces the 3MF plate layout as the localization source, and a wrist depth camera replaces the fixed RGB camera. The plate layout stays as a later confidence check. |
 | **Reuse OMTS and Intrinsic Core first; minimize custom code** | Part of the goal is to measure how easy the integration is. Every change to OMTS or a deviation from its design is flagged in the step that needs it. |
-| **Run the reBot cell through `omts_app`** | The pick-and-place `rebot_demo` was custom; the perception milestone moves the cell onto OMTS's own app and tree, with `machine: None` like `lab_bb_01`. |
+| **Run the reBot cell through `omts_app`** | The pick-and-place `rebot_demo` was custom; the perception milestone moves the cell onto OMTS's own app and tree, with `machine: None` like `lab_bb_01`. The demo was removed after step 3c (2026-10-30). |
 | **No force sensing still holds** | OMTS's compliant touchdowns (`move_to_contact`) must become optional (milestone 2, step 3c). |
 
 ---
