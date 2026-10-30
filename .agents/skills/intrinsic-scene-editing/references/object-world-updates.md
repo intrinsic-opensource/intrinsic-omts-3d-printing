@@ -1,6 +1,6 @@
 # ObjectWorldUpdates reference (`*.updates.pbtxt`)
 
-This is a source-verified reference. Proto paths are relative to `/home/berti/gits/`.
+This is a source-verified reference. Proto paths are relative to the directory holding the sibling checkouts (`~/` by default).
 
 - Message definitions: `intrinsic-core/intrinsic_sdk/intrinsic/world/proto/object_world_updates.proto`
 - Reference types: `intrinsic-core/intrinsic_apis/intrinsic/world/proto/object_world_refs.proto`

@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-OMTS (Open Machine Tending Solution) is a reference CNC machine-tending app built on Intrinsic Core and its Solution Building Library (SBL) Python SDK. Everything builds with Bazel (Bzlmod; `@intrinsic-core` and `@intrinsic_apis` are fetched from the same GitHub archive of a pinned intrinsic-core commit via `archive_override` in `MODULE.bazel`, pinned by `INTRINSIC_CORE_COMMIT` + `INTRINSIC_CORE_SHA256`, not by a release tag; `@intrinsic-core` also applies the patches in `bazel/patches/`). Meshes (`*.glb`) are plain files in git; the repository no longer uses Git LFS (#173).
+This repository adapts OMTS (Open Machine Tending Solution), a reference machine-tending app built on Intrinsic Core and its Solution Building Library (SBL) Python SDK, to 3D printer tending. Upstream's default cell tends a CNC machine; here the `omts` cell has a 3D printer where the CNC stood, and the main cell is the reBot (`//:rebot_solution`, run with `omts_app` and `configs/rebot/app_config.yaml`). Everything builds with Bazel (Bzlmod; `@intrinsic-core` and `@intrinsic_apis` are fetched from the same GitHub archive of a pinned intrinsic-core commit via `archive_override` in `MODULE.bazel`, pinned by `INTRINSIC_CORE_COMMIT` + `INTRINSIC_CORE_SHA256`, not by a release tag; `@intrinsic-core` also applies the patches in `bazel/patches/`). Meshes (`*.glb`) are plain files in git; the repository no longer uses Git LFS (#173).
 
 ## Current direction
 
-The `research` branch is adapting OMTS into a 3D-printer-tending solution with a low-cost Seeed reBot Arm. Intrinsic is adding ICON support for the arm and ARM64 (NVIDIA Jetson) support. Work is in simulation, with the arm alone in an empty cell; the target printer is undecided. Plan, decisions and open questions: `research/HANDOFF.md` (milestone plan in §5). Printer-side design (plate-layout localization, grasp planning, camera checks): `research/PRINTER_UNLOADING.md`.
+The `research` branch is adapting OMTS into a 3D-printer-tending solution with a low-cost Seeed reBot Arm. ICON support for the arm is expected from Intrinsic Core, and the hardware target is an NVIDIA Jetson (ARM64). Work is in simulation, with a stand-in printer in the cell; the target printer is undecided. How to run the reBot cell: `research/REBOT_OMTS_APP.md`. Plan, decisions and open questions: `research/HANDOFF.md` (milestone plan in §5). Printer-side design (plate-layout localization, grasp planning, camera checks): `research/PRINTER_UNLOADING.md`.
 
 ## Workflow
 
@@ -34,8 +34,12 @@ bazel test --test_output=errors //tests/unit:test_behaviors   # single target
 bazel run //:omts_solution -c opt -- --address=localhost:17080
 bazel run //:omts_solution -c opt --//:setup=lab_bb_01 -- --address=localhost:17080
 
-# Deploy the reBot printer-tending cell (research branch; sim by default)
+# Deploy the reBot printer-tending cell (sim by default). With the pose
+# estimator's models (needs a local SAM 3 export; research/REBOT_OMTS_APP.md):
 bazel run //:rebot_solution -c opt -- --address=localhost:17080
+bazel run //:rebot_solution -c opt --//:perception_models \
+  --repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR=$HOME/intrinsic-models/nvidia_pose_estimator \
+  -- --address=localhost:17080
 
 # Push configs/<cell>/*.updates.pbtxt to the live world (--reset_sim also syncs Gazebo)
 bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 --reset_sim
@@ -59,7 +63,7 @@ CI runs `bazel build --nobuild //...` (analysis only, since full compile does no
 
 Two separate deliverables:
 
-1. **`//:omts_solution`** (root `BUILD`): an `intrinsic_solution` declaring skills, hardware modules, services (ICON, motion planner, FoundationPose pose estimator, RF-DETR segmentation, Gazebo), scene models from `models/`, and `object_world_updates` from `configs/<cell>/`. The cell is chosen at build time by the `//:setup` string flag (`omts` | `lab_bb_01`), and the BUILD uses `select()` on `:is_lab_bb_01` everywhere. `configs/kr_10/` is a stub that is deliberately not wired in. Some assets are prebuilt bundles downloaded from this repo's GitHub Releases (`bazel/gh_release.bzl`, `imported_asset_bundle`).
+1. **`//:omts_solution`** (root `BUILD`): an `intrinsic_solution` declaring skills, hardware modules, services (ICON, motion planner, NVIDIA pose estimator with FoundationPose and SAM 3, Gazebo), scene models from `models/`, and `object_world_updates` from `configs/<cell>/`. The cell is chosen at build time by the `//:setup` string flag (`omts` | `lab_bb_01`), and the BUILD uses `select()` on `:is_lab_bb_01` everywhere. The `omts` cell's CNC enclosure and Schunk vise were replaced by a printer; its `app_config.yaml` still describes the CNC machine. The root `BUILD` also defines `//:rebot_solution`, the reBot printer-tending cell (`configs/rebot/`), whose pose estimator models are opt-in via `--//:perception_models`. `configs/kr_10/` is a stub that is deliberately not wired in. Some assets are prebuilt bundles downloaded from this repo's GitHub Releases (`bazel/gh_release.bzl`, `imported_asset_bundle`).
 2. **`//src:omts_app`** (`src/main.py`): connects over gRPC, loads `configs/<cell>/app_config.yaml` into frozen dataclasses (`src/core/config.py`, missing keys raise `KeyError`), builds hardware adapters and an infeed strategy, assembles **one** `bt.BehaviorTree`, and submits it with a single `solution.executive.run(tree)`.
 
 Layers in `src/`:

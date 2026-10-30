@@ -6,7 +6,7 @@ This is a personal knowledge base. It is untracked and ignored via `.gitignore`.
 
 <!-- kb-verified: intrinsic-omts=1548c25 intrinsic-core=a3bd446 omts-core-pin=c40e02a -->
 
-## Workspace: three sibling checkouts in `/home/berti/gits/`
+## Workspace: three sibling checkouts in one parent directory (`~/` by default)
 
 | Repo | Role | Verified at |
 |---|---|---|
@@ -14,7 +14,7 @@ This is a personal knowledge base. It is untracked and ignored via `.gitignore`.
 | `intrinsic-core/` (sibling; read for docs and source) | Intrinsic Core: runtime, `inctl`, SDK (`intrinsic_sdk/`), protos (`intrinsic_apis/`), ICON, perception, and tutorials (`developer_resources/`). | checkout a3bd446, which is tag 20261012.0 (tutorials, release `inctl`/runtime). **OMTS builds core at c40e02a** (`MODULE.bazel` `git_override`), 190 commits newer. Read the exact pinned file with `git -C ../intrinsic-core show c40e02a:<path>`. |
 | `sdk-examples/` (sibling) | Flowstate SDK examples (`@ai_intrinsic_sdks`): skills, services, SBL notebooks (`notebooks/003_world.ipynb`, `notebooks/011_scene_object_import.ipynb`, `skills/use_world/`). | main 436163b |
 
-Tutorials assume `~/intrinsic-omts` and `~/intrinsic-core`. Here those are `/home/berti/gits/intrinsic-omts` and `/home/berti/gits/intrinsic-core`.
+Tutorials assume `~/intrinsic-omts` and `~/intrinsic-core`; adjust if the checkouts live elsewhere.
 
 ## Knowledge base (load on demand)
 
