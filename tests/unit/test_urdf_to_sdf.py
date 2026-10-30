@@ -234,7 +234,8 @@ class ConvertTest(absltest.TestCase):
     )
     collisions = model.findall("link[@name='arm']/collision")
     self.assertEqual(
-      [c.get("name") for c in collisions], ["arm_collision_0", "arm_collision_1"]
+      [c.get("name") for c in collisions],
+      ["arm_collision_0", "arm_collision_1"],
     )
     self.assertEqual(collisions[0].find("pose").text, "0 0 0.5 0 0 0")
     self.assertEqual(collisions[0].find("geometry/box/size").text, "0.1 0.2 1")

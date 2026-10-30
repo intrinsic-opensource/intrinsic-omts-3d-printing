@@ -31,8 +31,7 @@ from collections.abc import Sequence
 
 from intrinsic.math.python import data_types
 from intrinsic.solutions import behavior_tree as bt
-from intrinsic.solutions import deployments
-from intrinsic.solutions import worlds
+from intrinsic.solutions import deployments, worlds
 
 from src.core.config import load_app_config
 from src.hardware.gripper import RobotiqGripper
@@ -83,8 +82,15 @@ def main(argv: Sequence[str] | None = None) -> None:
   )
   _set_frame(world, "pp_place", root_t_home * obj_t_grasp)
   _set_frame(world, "pp_pre_place", root_t_home * obj_t_pregrasp)
-  for name in (args.pregrasp_frame, args.grasp_frame, "pp_pre_place", "pp_place"):
-    print(f"root/{name}: {world.get_transform(world.root, getattr(world.root, name))}")
+  for name in (
+    args.pregrasp_frame,
+    args.grasp_frame,
+    "pp_pre_place",
+    "pp_place",
+  ):
+    print(
+      f"root/{name}: {world.get_transform(world.root, getattr(world.root, name))}"
+    )
   if args.plan_only:
     return
 
