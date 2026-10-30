@@ -20,6 +20,30 @@ from typing import Any
 from intrinsic.math.python import data_types
 
 
+def _quat_multiply(
+  a: tuple[float, float, float, float], b: tuple[float, float, float, float]
+) -> tuple[float, float, float, float]:
+  """Hamilton product of (x, y, z, w) quaternions."""
+  ax, ay, az, aw = a
+  bx, by, bz, bw = b
+  return (
+    aw * bx + ax * bw + ay * bz - az * by,
+    aw * by - ax * bz + ay * bw + az * bx,
+    aw * bz + ax * by - ay * bx + az * bw,
+    aw * bw - ax * bx - ay * by - az * bz,
+  )
+
+
+def _quat_rotate(
+  q: tuple[float, float, float, float], v: tuple[float, float, float]
+) -> tuple[float, float, float]:
+  """Rotates vector v by the (x, y, z, w) quaternion q."""
+  rotated = _quat_multiply(
+    _quat_multiply(q, (v[0], v[1], v[2], 0.0)), (-q[0], -q[1], -q[2], q[3])
+  )
+  return rotated[0], rotated[1], rotated[2]
+
+
 def calculate_and_update_dynamic_frames(context: Any, params: Any) -> None:
   """Calculates workpiece grasp frames and injects them into the SBL ObjectWorld.
 
@@ -33,7 +57,14 @@ def calculate_and_update_dynamic_frames(context: Any, params: Any) -> None:
       params: Dynamic parameters protobuf containing detected pose and frame
         names. An optional `publish_grasp_frames` field suppresses the grasp
         frame updates when an external grasp planner owns them; the workpiece
-        pose update and the `min_safe_z` check always run.
+        pose update and the `min_safe_z` check always run. An optional
+        `approach_tilt_degrees` field pitches the grasp about the jaw axis so
+        the approach leans away from the parent frame's origin (the robot
+        base), and the pre-grasp backs off along that approach; 0 or omitted
+        keeps the vertical grasp. An optional `yaw_symmetry_degrees` (180 or
+        90; default 180) says how far the workpiece can turn about the
+        vertical and look the same; with 90 (a square footprint) a tilted
+        grasp may also take the other pair of faces.
   """
   world = context.object_world
   parent_obj = getattr(
@@ -147,11 +178,41 @@ def calculate_and_update_dynamic_frames(context: Any, params: Any) -> None:
   else:
     grasp_ori = c1
 
+  # Tilted approach: pitch about the jaw axis (tool Y). Of the top-down
+  # candidates (a half turn apart about the approach, or a quarter turn for a
+  # square footprint), take the one whose tool X points most directly away
+  # from the parent origin, so the pitch leans the approach outward and tool X
+  # up. With a 180 deg symmetry the lean follows the workpiece's long axis, so
+  # a part lying across the line to the base leans sideways.
+  approach = (0.0, 0.0, -1.0)
+  tilt = math.radians(float(getattr(params, "approach_tilt_degrees", 0.0)))
+  if tilt:
+    radial = (float(target_pos[0]), float(target_pos[1]))
+    tilt_candidates = [c1, c2]
+    if float(getattr(params, "yaw_symmetry_degrees", 180.0)) == 90.0:
+      quarter = (0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5))
+      tilt_candidates += [
+        _quat_multiply(c1, quarter),
+        _quat_multiply(c2, quarter),
+      ]
+    grasp_ori = max(
+      tilt_candidates,
+      key=lambda c: (
+        _quat_rotate(c, (1.0, 0.0, 0.0))[0] * radial[0]
+        + _quat_rotate(c, (1.0, 0.0, 0.0))[1] * radial[1]
+      ),
+    )
+    grasp_ori = _quat_multiply(
+      grasp_ori, (0.0, math.sin(tilt / 2.0), 0.0, math.cos(tilt / 2.0))
+    )
+    approach = _quat_rotate(grasp_ori, (0.0, 0.0, 1.0))
+
   grasp_pos = (float(target_pos[0]), float(target_pos[1]), float(target_pos[2]))
+  offset = float(params.approach_offset_z)
   pregrasp_pos = (
-    float(target_pos[0]),
-    float(target_pos[1]),
-    float(target_pos[2]) + params.approach_offset_z,
+    grasp_pos[0] - offset * approach[0],
+    grasp_pos[1] - offset * approach[1],
+    grasp_pos[2] - offset * approach[2],
   )
 
   frame_poses = {

@@ -21,10 +21,11 @@ This file records what has been decided and what to do next.
 
 Steps 1a–1d are done in simulation (section 5), which completes milestone 1:
 the reBot picks a printed part with its gripper, carries it in Gazebo, and
-places it, with RViz (the belief world) matching. To deploy and run the demo,
-see [`REBOT_DEMO.md`](REBOT_DEMO.md). Milestone 2 (section 5b) moves the cell
-onto OMTS's own app with a wrist camera; how to run what works so far is in
-[`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md).
+places it, with RViz (the belief world) matching. Milestone 2 (section 5b)
+moves the cell onto OMTS's own app with a wrist camera; to deploy and run it,
+see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md). The milestone 1 demo
+(`//:rebot_demo`, `REBOT_DEMO.md`) was removed on 2026-10-30, once `omts_app`
+did the same round trip with perception; it is in git history (`42fcafc`).
 
 ---
 
@@ -59,7 +60,7 @@ This matches the working machine: `origin` is upstream
 
 Perception (milestone 2, step 3b) also needs the NVIDIA pose estimator's
 model assets, including the gated SAM 3 weights, exported once per machine;
-see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md) section 4.1.
+see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md), quick start step 2.
 
 For quick analysis scripts (URDF kinematics, 3MF parsing), install `numpy`. The
 original machine had no system pip; it was installed per-user with
@@ -100,7 +101,7 @@ Each is recorded in the study with its reasoning.
 | --- | --- |
 | **Locate the print with an Orbbec camera under the wrist, as OMTS does** | Overrides two study decisions in 3.2: vision replaces the 3MF plate layout as the localization source, and a wrist depth camera replaces the fixed RGB camera. The plate layout stays as a later confidence check. |
 | **Reuse OMTS and Intrinsic Core first; minimize custom code** | Part of the goal is to measure how easy the integration is. Every change to OMTS or a deviation from its design is flagged in the step that needs it. |
-| **Run the reBot cell through `omts_app`** | The pick-and-place `rebot_demo` was custom; the perception milestone moves the cell onto OMTS's own app and tree, with `machine: None` like `lab_bb_01`. |
+| **Run the reBot cell through `omts_app`** | The pick-and-place `rebot_demo` was custom; the perception milestone moves the cell onto OMTS's own app and tree, with `machine: None` like `lab_bb_01`. The demo was removed after step 3c (2026-10-30). |
 | **No force sensing still holds** | OMTS's compliant touchdowns (`move_to_contact`) must become optional (milestone 2, step 3c). |
 
 ---
@@ -688,7 +689,7 @@ Learned:
 `view`, `run_pose_estimation` finds the part on the bed with score 0.999, 0.5
 mm from its true position and within 0.1° of its orientation (modulo the box's
 quarter turns). How to set up, deploy, register and run it is in
-[`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md) section 4.
+[`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md) (quick start steps 2 to 4, and debugging).
 
 * `rebot_solution` adds `nvidia_pose_estimator_service`, `ioc_train_service`
   (omts_solution's instance) and the `estimate_pose_multi_view` skill. The
@@ -788,38 +789,90 @@ Learned:
   but re-add code current OMTS removed (`git show 29635ca^`); not needed now
   that SAM 3 works.
 
-### Step 3c: `omts_app` picks the part from perception
+### Step 3c: `omts_app` runs the cell from perception
 
-* Add `configs/rebot/app_config.yaml`: `machine` omitted, `pinch` gripper,
-  `perception` infeed, `cuboid_center` grasp planner, the `view` frame. The
-  lab cell's flow then runs: pick from perception, return to the infeed at a
-  random `return_shift`.
-* **Flag: compliant touchdown.** OMTS's pick and return end in
-  `move_to_contact`, which needs force sensing the reBot does not have. Try
-  user settings first: OMTS already wraps the touchdown in a retry and a
-  fallback linear move to the seated pose (`create_seated_approach_tasks`,
-  added for Gazebo timeouts), so adding `move_to_contact` to `rebot_solution`
-  and a short `touchdown_timeout_seconds` may be enough. Unverified: whether
-  the skill fails at run time (the fallback catches it) or when the tree is
-  built (no force-torque part in the reBot's ICON), and every pick and place
-  would log two failed attempts. The clean fix is code: a config switch for a
-  plain linear move. Giving the simulated reBot a force sensor would also work
-  but hides the gap until hardware, so not that.
-* **Flag: top-down grasp only.** The `cuboid_center` frame calculator makes a
-  vertical grasp (it only chooses among four yaws) and has no orientation
-  setting, and the reBot could not reach straight down inside the printer
-  (step 2a). Also check its raw-stock axis assumptions on the printed part.
-  Options, not yet decided:
-  * **Move the arm.** Its placement is free; further back, or at another
-    height, may open up straight-down grasps inside the printer.
-  * **Horizontal grasp.** Never tried. The `moveit` backend can sample side
-    approaches (square to a face), but needs a MoveIt setup for the reBot.
-  * **Code change:** an approach tilt in `cuboid_center`'s config, as in the
-    step 2a frames.
-* `rebot_demo` stays as it is.
-* Demo: `omts_app --config=configs/rebot/app_config.yaml --num_cycles=N`.
-  Each cycle sets the part down at a new random offset, so every pick after
-  the first is located by perception alone.
+**Status: done (2026-10-29).** Run live in local simulation: OMTS's own app
+(`omts_app --config=configs/rebot/app_config.yaml --num_cycles=3`) ran two
+consecutive three-cycle runs successfully, about 50 s per cycle. Each cycle
+finds the part on the bed from `view`, picks it with a 35° tilted grasp, sets
+it down at A and picks it up again, then returns it to the bed at a random
+offset, so every pick after the first is located by perception alone. How to
+run it is the quick start in [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md).
+
+* `configs/rebot/app_config.yaml`: no machine, pinch gripper, perception
+  infeed, `cuboid_center` with the new tilt and symmetry options, the printer
+  as the enclosure, `view` as the transit frame, and a return shift of 4 x 4
+  cm and ±10° around the bed centre.
+* **No machine still means a placement.** OMTS's load and unload subtrees run
+  without a machine too: they set the part down at the "machine" frames and
+  pick it up again, skipping only door, vise and cycle actions (the plan had
+  assumed pick then return). The reBot's machine frames are A, from the step
+  2a grasp, in `configs/rebot/scene.updates.pbtxt`, which turns the cycle into
+  the printer-tending round trip. The frame config test checks them again; it
+  was briefly loosened on the wrong assumption.
+* The pose estimator is registered at confidence 0.5 as
+  `ai.intrinsic.rebot_printed_part_estimator`: the vision adapter uses the
+  first estimate (`estimates[0]`), and at 0.15 the printer's toolhead came
+  back first once.
+
+OMTS changes, all defaulting to the old behaviour (**Flag**):
+
+* **`grasp.approach_tilt_degrees`** (`cuboid_center`): pitches the grasp about
+  the jaw axis so the approach leans away from the robot base, with the
+  pre-grasp backed off along it. Needed because straight down cannot reach the
+  bed at 0.46 m (offline: only the bed's near edge, barely, and no
+  pre-grasp). With it, the computed grasp at the bed centre matched the step
+  2a B frame exactly.
+* **`grasp.yaw_symmetry_degrees`** (180 or 90): with 90, a tilted grasp may
+  take the other pair of faces of a square part. FoundationPose returns any of
+  a cube's equivalent orientations, so the long-axis rule leaned the first
+  tilted grasp sideways, out of reach.
+* **`robot.force_sensing`**: `false` replaces compliant touchdowns with linear
+  moves to the seated pose. OMTS's existing runtime fallback could not help:
+  `move_to_contact` fails while the tree is built, because no robot resource
+  has a force-torque sensor to bind to.
+* **Return placement keeps the pre-grasp offset.** `randomize_placement_frame`
+  put the pre-grasp straight above the grasp; it now shifts the grasp and
+  keeps the pre-grasp's offset, rotated with it (unchanged for vertical
+  grasps).
+* **The pick approach excludes workpiece<->enclosure contact.** Perception
+  puts the part at its estimated pose, a fraction of a millimetre inside the
+  bed, and the planner rejected the starting state.
+* **`cycle.place_press_meters`**: without force sensing, the set-down moves
+  (machine load and infeed return) go this far past the place pose along the
+  approach, pressing the part onto its support before release, as a
+  force-controlled touchdown would. Grasps are unaffected.
+* **`cycle.workpiece_support_objects`**: objects the part rests on besides the
+  enclosure (`rebot_ground` at A); their contact with the part is excluded
+  wherever the enclosure's is, so the press is not a collision.
+
+Learned:
+
+* **A failed run leaves the part attached.** The app does not reset the world;
+  if a run stops between attach and detach, the part stays a child of the arm,
+  and later runs fail with collisions or "no path". Reparenting it to `root`
+  fixes it (`REBOT_OMTS_APP.md`, quick start step 5).
+* **Long swings near the printer need a waypoint.** One three-cycle run failed
+  when a planned trajectory failed validation (link4 against the printer's
+  base). Blending through `view` (`frames.transit_frame`) fixed it in the next
+  two runs.
+* **An unsupported part rides out with a finger.** Released even 1 mm above
+  its support, the part often moved with one finger as the gripper opened:
+  9.7, 30.1, 0.4, 30.1 and 30.1 mm at A in five recorded cycles (30 mm is a
+  finger's full travel), while releases pressed onto the bed stayed put. It
+  is intermittent, which is why the first single-cycle recordings missed it.
+  Pressing the part onto its support before opening fixes it: with
+  `cycle.place_press_meters: 0.003` all ten releases in five recorded cycles
+  moved 0.3 mm or less (pressed 2.3 mm into the ground at A, 1.5 mm into the
+  bed). Pressing in A's place pose itself does not work: the re-grasp there
+  uses the same pose, so the part then sat lower in the gripper and hung
+  above the bed on return (one 28.8 mm drag there). The gripper plugin's
+  "stopped moving and failed to reach the commanded position" warning right
+  after a release is a false alarm; it fires before the fingers move.
+* **Still open:** the tilt follows the part's long axis, so an elongated part
+  lying across the line to the robot would lean sideways (later work); the
+  enclosure setting also excludes gripper<->printer while placing on the bed,
+  broader than the demo's part<->printer.
 
 ### Step 3d: Camera-to-robot calibration in sim (optional)
 

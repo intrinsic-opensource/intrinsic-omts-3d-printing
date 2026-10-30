@@ -79,6 +79,16 @@ class ConfigTest(absltest.TestCase):
     self.assertIsNone(config.frames.transit_frame)
     self.assertEqual(config.robot.enclosure_object_name, "enclosure")
 
+  def test_rebot_cell_lists_supports_and_presses_without_force_sensing(self):
+    config = load_app_config("configs/rebot/app_config.yaml")
+    self.assertFalse(config.robot.force_sensing)
+    self.assertEqual(config.cycle.workpiece_support_objects, ("rebot_ground",))
+    self.assertGreater(config.cycle.place_press_meters, 0.0)
+    omts = load_app_config("configs/omts/app_config.yaml")
+    self.assertTrue(omts.robot.force_sensing)
+    self.assertEqual(omts.cycle.workpiece_support_objects, ())
+    self.assertEqual(omts.cycle.place_press_meters, 0.0)
+
   def test_omitted_grasp_section_defaults_to_cuboid_center(self):
     raw = yaml.safe_load(
       pathlib.Path("configs/omts/app_config.yaml").read_text(encoding="utf-8")
@@ -280,6 +290,21 @@ class GraspConfigTest(absltest.TestCase):
     config = GraspConfig()
     with self.assertRaises(dataclasses.FrozenInstanceError):
       config.planner = "something_else"
+
+  def test_approach_tilt_defaults_to_vertical_and_is_range_checked(self):
+    self.assertEqual(GraspConfig().approach_tilt_degrees, 0.0)
+    tilted = GraspConfig(approach_tilt_degrees=35)
+    self.assertEqual(tilted.approach_tilt_degrees, 35)
+    for bad in (-1.0, 90.0):
+      with self.assertRaisesRegex(ValueError, "approach_tilt_degrees"):
+        GraspConfig(approach_tilt_degrees=bad)
+
+  def test_yaw_symmetry_is_180_or_90(self):
+    self.assertEqual(GraspConfig().yaw_symmetry_degrees, 180.0)
+    square = GraspConfig(yaw_symmetry_degrees=90)
+    self.assertEqual(square.yaw_symmetry_degrees, 90)
+    with self.assertRaisesRegex(ValueError, "yaw_symmetry_degrees"):
+      GraspConfig(yaw_symmetry_degrees=45.0)
 
   def test_empty_moveit_surfaces_means_every_surface(self):
     self.assertEqual(GraspConfig().moveit_surfaces, ())

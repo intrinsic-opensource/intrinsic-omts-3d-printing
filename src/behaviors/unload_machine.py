@@ -85,6 +85,10 @@ def build_unload_machine_subtree(
         (config.robot.tool_object_name, config.robot.enclosure_object_name),
       ]
     )
+  vise_collision_pairs.extend(
+    (support, workpiece_object_name)
+    for support in config.cycle.workpiece_support_objects
+  )
 
   tasks: list[bt.Node] = []
   if machine is not None:

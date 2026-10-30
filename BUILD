@@ -154,17 +154,13 @@ alias(
     actual = "//src:omts_app",
 )
 
-alias(
-    name = "rebot_demo",
-    actual = "//src:rebot_demo",
-)
-
 # Printer-tending cell under development on the research branch
 # (research/HANDOFF.md): a Seeed reBot Arm B601-RS on a ground slab, controlled
-# by ICON in simulation, moving a printed part between the ground behind it and
-# the bed of a 3D printer in front of it with its pinch gripper, with an Orbbec
-# camera under the wrist and OMTS's pose estimator (milestone 2; the camera,
-# driver and train service instances are omts_solution's).
+# by ICON in simulation, with its pinch gripper, an Orbbec camera under the
+# wrist and OMTS's pose estimator, tending a 3D printer in front of it. Run it
+# with omts_app and configs/rebot/app_config.yaml
+# (research/REBOT_OMTS_APP.md). The camera, driver and train service instances
+# are omts_solution's.
 # flowstate_ros_bridge streams /tf and /joint_states to ROS 2 (RViz) over
 # Zenoh. Kept as its own solution so omts_solution and its cells are
 # unaffected.
@@ -224,7 +220,7 @@ intrinsic_solution(
         "//configs:rebot/orbbec_gemini.updates.pbtxt",
         "//configs:rebot/rebot_ground.updates.pbtxt",
         "//configs:rebot/printer.updates.pbtxt",
-        "//configs:rebot/rebot_pick_place.updates.pbtxt",
+        "//configs:rebot/printed_part.updates.pbtxt",
         "//configs:rebot/scene.updates.pbtxt",
     ],
 )

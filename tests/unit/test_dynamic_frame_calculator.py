@@ -55,6 +55,9 @@ def _make_params(**overrides: Any) -> Any:
     "min_safe_z": 0.95,
     "tool_object_name": "gripper",
     "tool_frame_name": "tool_frame",
+    # Set explicitly: a MagicMock attribute would read as float 1.0.
+    "approach_tilt_degrees": 0.0,
+    "yaw_symmetry_degrees": 180.0,
   }
   defaults.update(overrides)
   params = mock.MagicMock()
@@ -325,6 +328,49 @@ class DynamicFrameCalculatorTest(absltest.TestCase):
     self.assertAlmostEqual(float(q_pre.z), float(q_grasp.z), places=6)
     self.assertAlmostEqual(float(q_pre.w), float(q_grasp.w), places=6)
 
+  def test_randomize_placement_frame_keeps_a_tilted_pregrasp_offset(
+    self,
+  ) -> None:
+    """A pre-grasp backed off along a tilted approach stays backed off."""
+    mock_world = mock.MagicMock()
+    mock_root = mock.MagicMock()
+    mock_world.root = mock_root
+    rot = data_types.Rotation3(data_types.Quaternion([0.0, 0.0, 0.0, 1.0]))
+    # Pre-grasp 5 cm back toward the robot and 5 cm up from the grasp.
+    pregrasp_initial = data_types.Pose3(rot, [0.41, 0.0, 0.15])
+    grasp_initial = data_types.Pose3(rot, [0.46, 0.0, 0.10])
+
+    def _get_transform(node_a: Any, node_b: Any) -> data_types.Pose3:
+      del node_a
+      if node_b is mock_root.pre_grasp:
+        return pregrasp_initial
+      return grasp_initial
+
+    mock_world.get_transform.side_effect = _get_transform
+    context = mock.MagicMock()
+    context.object_world = mock_world
+    params = _make_params(
+      parent_object="root",
+      frame_name="pre_grasp",
+      return_center_x=0.46,
+      return_center_y=0.0,
+      return_bounds_x=0.0,
+      return_bounds_y=0.0,
+      return_bounds_rz_degrees=0.0,
+      grasp_frame_name="grasp",
+    )
+    randomize_placement_frame(context, params)
+
+    updated = {
+      call.kwargs["node_b"]: call.kwargs["a_t_b"]
+      for call in mock_world.update_transform.call_args_list
+    }
+    pregrasp, grasp = updated[mock_root.pre_grasp], updated[mock_root.grasp]
+    for i, expected in enumerate((0.46, 0.0, 0.10)):
+      self.assertAlmostEqual(float(grasp.translation[i]), expected, places=6)
+    for i, expected in enumerate((0.41, 0.0, 0.15)):
+      self.assertAlmostEqual(float(pregrasp.translation[i]), expected, places=6)
+
   def test_publish_grasp_frames_false_still_updates_workpiece_pose(
     self,
   ) -> None:
@@ -370,6 +416,110 @@ class DynamicFrameCalculatorTest(absltest.TestCase):
 
     with self.assertRaisesRegex(ValueError, "below "):
       calculate_and_update_dynamic_frames(context, params)
+
+  def _tilted_frames(
+    self,
+    tool_q: tuple[float, ...] | None,
+    part_q: tuple[float, ...] = (0.0, 0.0, 0.0, 1.0),
+    yaw_symmetry_degrees: float = 180.0,
+  ) -> dict[str, Any]:
+    """Runs the calculator for a part at (0.46, 0, 0.1045), tilted 35 deg."""
+    mock_world = mock.MagicMock()
+    mock_root = mock.MagicMock()
+    mock_root.list_frames.return_value = []
+    mock_world.root = mock_root
+    tool_pose = (
+      data_types.Pose3(
+        data_types.Rotation3(data_types.Quaternion(list(tool_q))),
+        [0.2, 0.0, 0.3],
+      )
+      if tool_q is not None
+      else None
+    )
+
+    def _get_transform(node_a: Any, node_b: Any) -> data_types.Pose3 | None:
+      del node_a
+      if node_b is mock_world.gripper.tool_frame:
+        return tool_pose
+      return None
+
+    mock_world.get_transform.side_effect = _get_transform
+    context = mock.MagicMock()
+    context.object_world = mock_world
+    params = _make_params(
+      pos_x=0.46,
+      pos_y=0.0,
+      pos_z=0.1045,
+      min_safe_z=0.0,
+      approach_offset_z=0.06,
+      approach_tilt_degrees=35.0,
+      ori_x=part_q[0],
+      ori_y=part_q[1],
+      ori_z=part_q[2],
+      ori_w=part_q[3],
+      yaw_symmetry_degrees=yaw_symmetry_degrees,
+    )
+    calculate_and_update_dynamic_frames(context, params)
+    return {
+      call.kwargs["frame_name"]: call.kwargs["parent_t_frame"]
+      for call in mock_world.create_frame.call_args_list
+    }
+
+  def test_tilted_approach_leans_away_from_base_with_tool_x_up(self) -> None:
+    """The grasp is pitched 35 deg about the jaw axis, leaning outward."""
+    grasp = self._tilted_frames(tool_q=None)["grasp"]
+    approach = grasp.rotation.rotate_point([0.0, 0.0, 1.0])
+    tool_x = grasp.rotation.rotate_point([1.0, 0.0, 0.0])
+    jaw = grasp.rotation.rotate_point([0.0, 1.0, 0.0])
+    tilt = math.radians(35.0)
+    self.assertAlmostEqual(float(approach[0]), math.sin(tilt), places=5)
+    self.assertAlmostEqual(float(approach[1]), 0.0, places=5)
+    self.assertAlmostEqual(float(approach[2]), -math.cos(tilt), places=5)
+    self.assertGreater(float(tool_x[2]), 0.0)
+    self.assertAlmostEqual(float(jaw[2]), 0.0, places=5)
+    self.assertAlmostEqual(float(grasp.translation[0]), 0.46, places=5)
+
+  def test_tilted_pregrasp_backs_off_along_the_approach(self) -> None:
+    frames = self._tilted_frames(tool_q=None)
+    grasp, pregrasp = frames["grasp"], frames["pre_grasp"]
+    approach = grasp.rotation.rotate_point([0.0, 0.0, 1.0])
+    for i in range(3):
+      self.assertAlmostEqual(
+        float(pregrasp.translation[i]),
+        float(grasp.translation[i]) - 0.06 * float(approach[i]),
+        places=5,
+      )
+    self.assertAlmostEqual(
+      float(pregrasp.rotation.quaternion.w),
+      float(grasp.rotation.quaternion.w),
+      places=6,
+    )
+
+  def test_tilted_candidate_ignores_current_tool_orientation(self) -> None:
+    """The lean direction, not the wrist pose, picks the candidate."""
+    for tool_q in ((1.0, 0.0, 0.0, 0.0), (0.0, -1.0, 0.0, 0.0)):
+      grasp = self._tilted_frames(tool_q=tool_q)["grasp"]
+      approach = grasp.rotation.rotate_point([0.0, 0.0, 1.0])
+      self.assertGreater(float(approach[0]), 0.0)
+
+  def test_square_footprint_lets_a_tilted_grasp_take_the_other_faces(
+    self,
+  ) -> None:
+    """A part turned a quarter turn leans sideways unless it is square."""
+    quarter_turn = (0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5))
+    sideways = self._tilted_frames(tool_q=None, part_q=quarter_turn)["grasp"]
+    approach = sideways.rotation.rotate_point([0.0, 0.0, 1.0])
+    self.assertAlmostEqual(float(approach[0]), 0.0, places=5)
+    square = self._tilted_frames(
+      tool_q=None, part_q=quarter_turn, yaw_symmetry_degrees=90.0
+    )["grasp"]
+    approach = square.rotation.rotate_point([0.0, 0.0, 1.0])
+    self.assertAlmostEqual(
+      float(approach[0]), math.sin(math.radians(35.0)), places=5
+    )
+    self.assertAlmostEqual(float(approach[1]), 0.0, places=5)
+    jaw = square.rotation.rotate_point([0.0, 1.0, 0.0])
+    self.assertAlmostEqual(float(jaw[2]), 0.0, places=5)
 
   def test_omitted_publish_grasp_frames_defaults_to_publishing(self) -> None:
     """Signatures generated before the flag existed must keep working."""

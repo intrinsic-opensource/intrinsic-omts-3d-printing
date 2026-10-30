@@ -215,6 +215,8 @@ class BehaviorsTest(absltest.TestCase):
       tool_object_name="gripper",
       tool_frame_name="tool_frame",
       publish_grasp_frames=True,
+      approach_tilt_degrees=0.0,
+      yaw_symmetry_degrees=180.0,
       name="Perception & Dynamic Grasp Frame Update Pipeline",
     )
     self.robot.build_attach_object_task.assert_called_once_with(
@@ -224,7 +226,10 @@ class BehaviorsTest(absltest.TestCase):
     self.robot.build_move_relative_cartesian_task.assert_called_once_with(
       translation=(0.0, 0.0, -0.015),
       motion_type="LINEAR",
-      excluded_collision_pairs=[("gripper", "raw_stock_2x3x5")],
+      excluded_collision_pairs=[
+        ("gripper", "raw_stock_2x3x5"),
+        ("enclosure", "raw_stock_2x3x5"),
+      ],
       name="Infeed Pick: Linear Retract (1.5 cm, -Z Tool)",
     )
 
@@ -524,6 +529,8 @@ class BehaviorsTest(absltest.TestCase):
       tool_object_name="gripper",
       tool_frame_name="tool_frame",
       publish_grasp_frames=True,
+      approach_tilt_degrees=0.0,
+      yaw_symmetry_degrees=180.0,
       name="Perception & Dynamic Grasp Frame Update Pipeline",
     )
     retract_m = lab_config.cycle.retract_distance_meters
@@ -543,6 +550,54 @@ class BehaviorsTest(absltest.TestCase):
     self.machine.build_close_vise_task.assert_not_called()
     self.machine.build_trigger_cycle_task.assert_not_called()
     self.machine.build_wait_cycle_complete_task.assert_not_called()
+
+  def test_rebot_cell_without_force_sensing_builds_no_contact_moves(self):
+    """The reBot has no force-torque sensor; touchdowns become linear seats."""
+    rebot_config = load_app_config("configs/rebot/app_config.yaml")
+    self.assertFalse(rebot_config.robot.force_sensing)
+    tree = build_machine_tending_behavior_tree(
+      robot=self.robot,
+      gripper=self.gripper,
+      machine=None,
+      vision=self.vision,
+      infeed_strategy=self.infeed_strategy,
+      config=rebot_config,
+      num_cycles_override=1,
+    )
+    self.assertIsNotNone(tree)
+    self.robot.build_move_to_contact_task.assert_not_called()
+    perception_call = self.vision.build_perception_and_spawn_task.call_args
+    self.assertEqual(perception_call.kwargs["approach_tilt_degrees"], 35.0)
+
+    # Setting the part down presses it onto its support; grasping does not.
+    seats = {
+      call.kwargs["name"]: call.kwargs
+      for call in self.robot.build_move_cartesian_task.call_args_list
+      if "Linear Seat" in call.kwargs["name"]
+    }
+    press = rebot_config.cycle.place_press_meters
+    self.assertGreater(press, 0.0)
+    load = seats["Load Vise: Linear Seat (root/place_vise)"]
+    self.assertAlmostEqual(load["target_frame_offset"][0][2], press)
+    self.assertIn(
+      ("rebot_ground", "rebot_printed_part"), load["excluded_collision_pairs"]
+    )
+    return_fallback = -(
+      rebot_config.return_touchdown.standoff_m
+      - rebot_config.cycle.standoff_distance_meters
+    )
+    self.assertAlmostEqual(
+      seats["Return Infeed: Linear Seat (root/grasp)"]["target_frame_offset"][
+        0
+      ][2],
+      return_fallback + press,
+    )
+    self.assertIsNone(
+      seats["Infeed Pick: Linear Seat (root/grasp)"]["target_frame_offset"]
+    )
+    self.assertIsNone(
+      seats["Unload Vise: Linear Seat (root/place_vise)"]["target_frame_offset"]
+    )
 
   def test_all_subtrees_have_unique_child_names_and_no_legacy_prefixes(self):
     tree = self._build_master_tree(num_cycles=1)
