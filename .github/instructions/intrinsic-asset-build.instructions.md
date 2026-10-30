@@ -10,7 +10,7 @@ Full reference: `.agents/skills/intrinsic-hardware-assets/references/bazel-asset
 
 These are valid at intrinsic-core 20261012.0 **and** at the OMTS core pin c40e02a, and they match the OMTS `BUILD` and `models/*/BUILD` files. Use the `@intrinsic-core` prefix outside the core repo.
 
-```python
+```starlark
 load("@intrinsic-core//intrinsic/scene/build_defs:sdf_scene_object.bzl", "sdf_scene_object")   # or //intrinsic_sdk/intrinsic/scene/build_defs:...
 load("@intrinsic-core//intrinsic_sdk/intrinsic/assets/scene_objects/build_defs:scene_object.bzl", "intrinsic_scene_object")
 load("@intrinsic-core//intrinsic_sdk/intrinsic/assets/hardware_devices/build_defs:hardware_device.bzl", "intrinsic_hardware_device")
