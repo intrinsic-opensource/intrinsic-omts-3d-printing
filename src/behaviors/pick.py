@@ -127,6 +127,8 @@ def build_pick_from_infeed_subtree(
           tool_object_name=config.robot.tool_object_name,
           tool_frame_name=config.robot.tool_frame_name,
           publish_grasp_frames=grasp_planner is None,
+          approach_tilt_degrees=config.grasp.approach_tilt_degrees,
+          yaw_symmetry_degrees=config.grasp.yaw_symmetry_degrees,
           name="Perception & Dynamic Grasp Frame Update Pipeline",
         ),
       ]
@@ -156,7 +158,14 @@ def build_pick_from_infeed_subtree(
   approach_collision_pairs = [tool_to_workpiece_collision_pair]
   post_attach_collision_pairs = [tool_to_workpiece_collision_pair]
   if config.robot.enclosure_object_name:
+    # Perception moves the workpiece onto its support at the estimated pose,
+    # which can sit a fraction of a millimetre inside it; that contact is not
+    # a collision the approach has to avoid.
+    approach_collision_pairs.append(enclosure_to_workpiece_collision_pair)
     post_attach_collision_pairs.append(enclosure_to_workpiece_collision_pair)
+  for support in config.cycle.workpiece_support_objects:
+    approach_collision_pairs.append((support, workpiece_object_name))
+    post_attach_collision_pairs.append((support, workpiece_object_name))
 
   tasks.append(
     create_move_to_frame_task(
@@ -164,6 +173,7 @@ def build_pick_from_infeed_subtree(
       frame_name=pregrasp_frame_name,
       parent_object=parent_object,
       motion_type="ANY",
+      excluded_collision_pairs=approach_collision_pairs,
       task_name=(
         f"Move to Dynamic Pre-Grasp ({parent_object}/{pregrasp_frame_name})"
       ),

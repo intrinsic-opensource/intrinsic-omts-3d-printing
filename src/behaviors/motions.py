@@ -262,11 +262,13 @@ def create_seated_approach_tasks(
   excluded_collision_pairs: Sequence[tuple[str, str]] | None = None,
   retract_excluded_collision_pairs: Sequence[tuple[str, str]] | None = None,
   touchdown_max_tries: int = 2,
+  press_m: float = 0.0,
 ) -> list[bt.Node]:
   """Builds a standoff approach, resilient compliant touchdown, and optional lift.
 
   Wraps the compliant `move_to_contact` touchdown in a `bt.Fallback` +
-  `bt.Retry` structure:
+  `bt.Retry` structure (when `config.robot.force_sensing` is False, only the
+  linear seat move of step 2 is built):
   1. Primary branch (`bt.Retry`, `max_tries=touchdown_max_tries`): Executes
      `move_to_contact` along `+Z` tool. If an attempt fails (such as Gazebo's
      `STABILIZE` timeout `"Stabilize action timed out without making contact."`),
@@ -297,6 +299,9 @@ def create_seated_approach_tasks(
         exclude during the retract segment (e.g. when grasped).
       touchdown_max_tries: Number of `move_to_contact` attempts before falling
         back to the linear seat task.
+      press_m: Without force sensing, how far past the seated pose (along tool
+        +Z) the linear seat goes, so a workpiece being set down is pressed onto
+        its support before release instead of hanging just above it.
 
   Returns:
       Ordered list of SBL Behavior Tree nodes.
@@ -339,16 +344,6 @@ def create_seated_approach_tasks(
       ),
     )
 
-  reapproach_standoff_task = create_move_to_frame_task(
-    robot=robot,
-    frame_name=frame_name,
-    parent_object=parent,
-    motion_type="LINEAR",
-    target_frame_offset=standoff_offset,
-    excluded_collision_pairs=excluded_collision_pairs,
-    task_name=f"{label}: Re-approach Standoff ({parent}/{frame_name})",
-  )
-
   fallback_z_offset = 0.0
   if touchdown.retract_after_m == 0.0 and config is not None:
     fallback_z_offset = round(
@@ -363,27 +358,49 @@ def create_seated_approach_tasks(
     if abs(fallback_z_offset) > 1e-9
     else None
   )
-  fallback_seat_task = create_move_to_frame_task(
-    robot=robot,
-    frame_name=frame_name,
-    parent_object=parent,
-    motion_type="LINEAR",
-    target_frame_offset=fallback_offset,
-    excluded_collision_pairs=excluded_collision_pairs,
-    task_name=f"{label}: Fallback Linear Seat ({parent}/{frame_name})",
-  )
 
-  tasks = [
-    approach_task,
-    create_compliant_touchdown_task(
+  if config is not None and not config.robot.force_sensing:
+    seat_z = fallback_z_offset + float(press_m)
+    seat_offset = (
+      ((0.0, 0.0, seat_z), (0.0, 0.0, 0.0, 1.0)) if abs(seat_z) > 1e-9 else None
+    )
+    seat_task: bt.Node = create_move_to_frame_task(
+      robot=robot,
+      frame_name=frame_name,
+      parent_object=parent,
+      motion_type="LINEAR",
+      target_frame_offset=seat_offset,
+      excluded_collision_pairs=excluded_collision_pairs,
+      task_name=f"{label}: Linear Seat ({parent}/{frame_name})",
+    )
+  else:
+    reapproach_standoff_task = create_move_to_frame_task(
+      robot=robot,
+      frame_name=frame_name,
+      parent_object=parent,
+      motion_type="LINEAR",
+      target_frame_offset=standoff_offset,
+      excluded_collision_pairs=excluded_collision_pairs,
+      task_name=f"{label}: Re-approach Standoff ({parent}/{frame_name})",
+    )
+    fallback_seat_task = create_move_to_frame_task(
+      robot=robot,
+      frame_name=frame_name,
+      parent_object=parent,
+      motion_type="LINEAR",
+      target_frame_offset=fallback_offset,
+      excluded_collision_pairs=excluded_collision_pairs,
+      task_name=f"{label}: Fallback Linear Seat ({parent}/{frame_name})",
+    )
+    seat_task = create_compliant_touchdown_task(
       robot=robot,
       touchdown=touchdown,
       task_name=f"{label}: Compliant Touchdown (+Z Tool)",
       max_tries=touchdown_max_tries,
       recovery_task=reapproach_standoff_task,
       fallback_task=fallback_seat_task,
-    ),
-  ]
+    )
+  tasks = [approach_task, seat_task]
   if touchdown.retract_after_m > 0.0:
     tasks.append(
       create_relative_retract_task(

@@ -1,0 +1,93 @@
+# omts_app config for the reBot printer-tending cell (research branch,
+# milestone 2 in research/HANDOFF.md). No machine, like lab_bb_01: each cycle
+# finds the printed part on the printer's bed from `view` and picks it with a
+# tilted grasp, sets it down at A on the ground behind the robot (the
+# "machine" frames in scene.updates.pbtxt) and picks it up again, then returns
+# it to the bed at a random offset, so the next cycle has to find it again.
+
+cell_name: "rebot"
+
+robot:
+  arm_part_name: "rebot"
+  tool_object_name: "gripper"
+  tool_frame_name: "tool_frame"
+  # The part rests on the printer's bed; excludes part<->printer contact once
+  # the part is attached, and gripper<->printer while placing it.
+  enclosure_object_name: "printer"
+  # No force-torque sensor: touchdowns become linear moves to the grasp and
+  # place poses.
+  force_sensing: false
+
+gripper:
+  type: "pinch"
+  resource_name: "gripper"
+
+vision:
+  camera_name: "orbbec_camera"
+  perception_service_name: "nvidia_pose_estimator_service"
+  # Registered with confidence_threshold 0.5 (research/REBOT_OMTS_APP.md, quick start step 4):
+  # the vision adapter uses the first estimate, and at OMTS's 0.15 weak false
+  # positives (such as the printer's toolhead) come back too.
+  pose_estimator_id: "ai.intrinsic.rebot_printed_part_estimator"
+  scene_object_id: "ai.intrinsic.rebot_printed_part"
+  sensor_ids: [1, 4]
+  min_num_instances: 1
+  infeed_mode: "perception"
+  # The bed's top is at z = 0.0895 and the part's centre 15 mm above it.
+  min_safe_z: 0.08
+
+frames:
+  parent_object: "root"
+  view_frame: "view"
+  pregrasp_frame: "pre_grasp"
+  grasp_frame: "grasp"
+  # A, on the ground behind the robot (configs/rebot/scene.updates.pbtxt):
+  # without a machine, the load and unload subtrees set the part down here and
+  # pick it up again.
+  machine_approach_frame: "machine_approach"
+  preplace_vise_frame: "pre_place_vise"
+  place_vise_frame: "place_vise"
+  # Blend through view, high in front of the printer, on the way to A and back
+  # to the bed, so long swings stay clear of the printer's base.
+  transit_frame: "view"
+
+grasp:
+  planner: "cuboid_center"
+  # The reBot cannot reach straight down into the printer (step 3c); pitch the
+  # grasp 35 deg like the step 2a demo frames.
+  approach_tilt_degrees: 35.0
+  # The 40 x 40 mm part looks the same turned a quarter turn, so the grasp
+  # may take whichever pair of faces leans away from the robot.
+  yaw_symmetry_degrees: 90.0
+
+cycle:
+  num_cycles: 1
+  workpiece_id: "rebot_printed_part"
+  # Pre-grasp distance back along the tilted approach, below the printer's top.
+  approach_offset_z: 0.06
+  standoff_distance_meters: 0.03
+  # Lift after a touchdown; without force sensing the arm moves straight to the
+  # grasp pose, so there is no contact to lift from.
+  retract_distance_meters: 0.0
+  # Unused without force sensing (robot.force_sensing: false).
+  pick_touchdown_force_newtons: 5.0
+  load_seat_force_newtons: 5.0
+  unload_touchdown_force_newtons: 5.0
+  return_touchdown_force_newtons: 5.0
+  touchdown_timeout_seconds: 2.0
+  machining_timeout_seconds: 30.0
+  # Without force sensing, press the part 3 mm along the approach onto its
+  # support (the ground at A, the bed on return) before opening: released even
+  # 1 mm above it, the part often rode out with a finger (step 3c).
+  place_press_meters: 0.003
+  # The part rests on the ground at A; exclude that contact like the printer's
+  # so the press is not a collision.
+  workpiece_support_objects: ["rebot_ground"]
+  # Set the part back down within 4 x 4 cm of the bed centre, turned up to
+  # +-10 deg, so the next cycle has to find it again.
+  return_shift:
+    center_x: 0.46
+    center_y: 0.0
+    bounds_x: 0.04
+    bounds_y: 0.04
+    bounds_rz_degrees: 20.0

@@ -875,12 +875,21 @@ class HardwareAdaptersTest(absltest.TestCase):
     # max_tries=1 returns bt.Sequence directly without bt.Retry wrapper
     self.assertIsInstance(seq_task, bt.Sequence)
     self.assertIsNotNone(real_pb.last_parameters)
-    self.assertLen(real_pb.last_parameters.fields, 17)
-    publish_field = real_pb.last_parameters.fields[-1]
+    self.assertLen(real_pb.last_parameters.fields, 19)
+    publish_field = real_pb.last_parameters.fields[-3]
     self.assertEqual(publish_field.name, "publish_grasp_frames")
     self.assertEqual(publish_field.number, 17)
     self.assertEqual(publish_field.type, "bool")
     self.assertTrue(publish_field.arg)
+    tilt_field = real_pb.last_parameters.fields[-2]
+    self.assertEqual(tilt_field.name, "approach_tilt_degrees")
+    self.assertEqual(tilt_field.number, 18)
+    self.assertEqual(tilt_field.type, "float")
+    self.assertEqual(tilt_field.arg, 0.0)
+    symmetry_field = real_pb.last_parameters.fields[-1]
+    self.assertEqual(symmetry_field.name, "yaw_symmetry_degrees")
+    self.assertEqual(symmetry_field.number, 19)
+    self.assertEqual(symmetry_field.arg, 180.0)
 
     # Missing resources raise ValueError
     mock_solution.resources = {}
