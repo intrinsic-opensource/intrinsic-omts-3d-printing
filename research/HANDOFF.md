@@ -32,8 +32,7 @@ did the same round trip with perception; it is in git history (`42fcafc`).
 ## 2. Setting Up the New Machine
 
 ```bash
-# Upstream OMTS as origin (Git LFS is required for *.glb meshes)
-git lfs install
+# Upstream OMTS as origin (meshes are plain files; no Git LFS since #173)
 git clone https://github.com/intrinsic-ai/intrinsic-omts.git
 cd intrinsic-omts
 
