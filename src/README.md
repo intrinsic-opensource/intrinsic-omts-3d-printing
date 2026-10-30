@@ -18,7 +18,13 @@ the machine tending cycle via `solution.executive.run(tree)`.
 ## Running the Application
 
 ```bash
-# Run with default OMTS cell configuration (UR5e + CNC enclosure + vise)
+# Run with the reBot printer-tending cell (see research/REBOT_OMTS_APP.md)
+bazel run //src:omts_app -- \
+  --address=localhost:17080 \
+  --config=configs/rebot/app_config.yaml
+
+# Run with default OMTS cell configuration (UR5e + 3D printer; the config still
+# describes upstream's CNC machine and vise)
 bazel run //src:omts_app -- \
   --address=localhost:17080 \
   --config=configs/omts/app_config.yaml
