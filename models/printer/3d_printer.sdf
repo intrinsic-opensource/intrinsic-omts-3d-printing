@@ -1,52 +1,170 @@
 <?xml version="1.0" ?>
-<sdf version="1.9" xmlns:intrinsic="https://intrinsic.ai/">
-  <model name="printer">
+<sdf version="1.8">
+  <model name="3d_printer">
     <static>true</static>
     <link name="base_link">
       <visual name="visual">
-        <!-- GLB is Y-up; rotate +90 deg about X so the printer stands upright (Z-up). -->
-        <pose>0 0 0 1.5708 0 0</pose>
-        <geometry><mesh><uri>3d_printer.glb</uri></mesh></geometry>
+        <geometry>
+          <mesh>
+            <uri>frame.obj</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.35 0.28 0.2 1.0</ambient>
+          <diffuse>0.54 0.45 0.33 1.0</diffuse>
+          <specular>0.1 0.1 0.1 1.0</specular>
+        </material>
       </visual>
-      <!-- Body is hollow so parts can sit on the bed (top at z=0.0895).
-           Footprint x[-0.236,0.26] y[-0.215,0.284], height 0.701. -->
-      <collision name="base_collision">
-        <pose>0.0120 0.0345 0.0447 0 0 0</pose>
-        <geometry><box><size>0.4960 0.4990 0.0895</size></box></geometry>
-      </collision>
-      <collision name="top_collision">
-        <pose>0.0120 0.0345 0.5755 0 0 0</pose>
-        <geometry><box><size>0.4960 0.4990 0.2510</size></box></geometry>
-      </collision>
-      <collision name="post_a_collision">
-        <pose>-0.2210 -0.2000 0.2698 0 0 0</pose>
-        <geometry><box><size>0.0300 0.0300 0.3605</size></box></geometry>
-      </collision>
-      <collision name="post_b_collision">
-        <pose>0.2450 -0.2000 0.2698 0 0 0</pose>
-        <geometry><box><size>0.0300 0.0300 0.3605</size></box></geometry>
-      </collision>
-      <collision name="post_c_collision">
-        <pose>-0.2210 0.2690 0.2698 0 0 0</pose>
-        <geometry><box><size>0.0300 0.0300 0.3605</size></box></geometry>
-      </collision>
-      <collision name="post_d_collision">
-        <pose>0.2450 0.2690 0.2698 0 0 0</pose>
-        <geometry><box><size>0.0300 0.0300 0.3605</size></box></geometry>
-      </collision>
-      <!-- Spool stack: x[-0.444,-0.226] y[0.022,0.237] z[0,0.220] -->
-      <collision name="spool_stack_collision">
-        <pose>-0.335 0.1295 0.11 0 0 0</pose>
-        <geometry><box><size>0.218 0.215 0.22</size></box></geometry>
+  <collision name="col_bottom_base">
+    <pose>0.0 0.0 0.069 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.376 0.384 0.138</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_front_dial">
+    <pose>0.0 0.235 0.035 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.160 0.055 0.060</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_left_wall">
+    <pose>-0.198 0.0 0.277 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.020 0.416 0.554</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_right_wall">
+    <pose>0.198 0.0 0.277 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.020 0.416 0.554</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_back_wall">
+    <pose>0.0 -0.202 0.277 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.376 0.020 0.554</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_front_left_bezel">
+    <pose>-0.180 0.198 0.275 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.036 0.020 0.440</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_front_right_bezel">
+    <pose>0.180 0.198 0.275 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.036 0.020 0.440</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_top_front_header">
+    <pose>0.0 0.198 0.525 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.376 0.020 0.058</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_front_mid_rail">
+    <pose>0.0 0.188 0.386 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.340 0.032 0.030</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_internal_right_tower">
+    <pose>-0.162 -0.030 0.260 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.085 0.336 0.240</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_internal_left_tower">
+    <pose>0.162 -0.030 0.260 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.070 0.336 0.240</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_x_axis_rail">
+    <pose>0.0 0.010 0.420 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.340 0.055 0.040</size>
+      </box>
+    </geometry>
+  </collision>
+
+  <collision name="col_hotend_assembly">
+    <pose>0.0 0.039 0.445 0 0 0</pose>
+    <geometry>
+      <box>
+        <size>0.130 0.080 0.145</size>
+      </box>
+    </geometry>
+  </collision>
+    </link>
+
+    <link name="heatbed_link">
+      <pose relative_to="base_link">0 0 0.0 0 0 0</pose>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>heatbed.obj</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.02 0.12 0.03 1.0</ambient>
+          <diffuse>0.08 0.35 0.12 1.0</diffuse>
+          <specular>0.1 0.1 0.1 1.0</specular>
+        </material>
+      </visual>
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <uri>heatbed.obj</uri>
+          </mesh>
+        </geometry>
       </collision>
     </link>
-    <!-- Center of the print bed surface; spawn parts relative to this frame. -->
-    <frame name="bed_frame" attached_to="base_link" intrinsic:create_entity="true">
-      <pose>0.006 -0.001 0.0895 0 0 0</pose>
-    </frame>
-    <!-- Top-center of the printer, useful as an approach/view target. -->
-    <frame name="top_frame" attached_to="base_link" intrinsic:create_entity="true">
-      <pose>0.012 0.0345 0.701 0 0 0</pose>
-    </frame>
+    <joint name="bed_joint" type="prismatic">
+      <parent>base_link</parent>
+      <child>heatbed_link</child>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>0.0</lower>
+          <upper>0.22</upper>
+        </limit>
+      </axis>
+    </joint>
   </model>
 </sdf>
