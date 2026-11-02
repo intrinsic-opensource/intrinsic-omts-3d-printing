@@ -567,7 +567,11 @@ class BehaviorsTest(absltest.TestCase):
     self.assertIsNotNone(tree)
     self.robot.build_move_to_contact_task.assert_not_called()
     perception_call = self.vision.build_perception_and_spawn_task.call_args
-    self.assertEqual(perception_call.kwargs["approach_tilt_degrees"], 35.0)
+    self.assertGreater(rebot_config.grasp.approach_tilt_degrees, 0.0)
+    self.assertEqual(
+      perception_call.kwargs["approach_tilt_degrees"],
+      rebot_config.grasp.approach_tilt_degrees,
+    )
 
     # Setting the part down presses it onto its support; grasping does not.
     seats = {

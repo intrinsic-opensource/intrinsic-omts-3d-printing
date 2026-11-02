@@ -135,7 +135,7 @@ It prints `Execution successful`; a cycle takes about 50 s. `--num_cycles=0`
 repeats until stopped. Each cycle:
 
 1. moves to `view`, finds the part on the bed and picks it with a grasp
-   tilted 35° (the reBot cannot reach straight down into the printer);
+   tilted 60° (the reBot cannot reach straight down into the printer);
 2. sets it down at A on the ground behind the robot and picks it up again
    (OMTS's load and unload steps, at A instead of a machine);
 3. puts it back on the bed within 4 x 4 cm of the centre, turned up to ±10°,
@@ -170,7 +170,7 @@ Move the arm to `view`:
 bazel run //tools/jogging:move_to_frame -- --frame=view --arm_part_name=rebot
 ```
 
-The camera, which hangs below the gripper, then sees the whole bed from just
+The camera, which sits above the gripper, then sees the whole bed from just
 outside the printer's front, about 0.38 m from the bed centre.
 
 To see an image:
@@ -225,7 +225,7 @@ bazel run -c opt \
 
 It prints detections in the camera frame, best first. With the part in the
 middle of the bed, the only one scores about 1.0 and sits about 0.38 m
-straight ahead (`[0.000, 0.000, 0.381]`).
+straight ahead.
 
 ## Deploy without perception
 

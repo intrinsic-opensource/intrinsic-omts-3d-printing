@@ -54,8 +54,11 @@ frames:
 grasp:
   planner: "cuboid_center"
   # The reBot cannot reach straight down into the printer (step 3c); pitch the
-  # grasp 35 deg like the step 2a demo frames.
-  approach_tilt_degrees: 35.0
+  # grasp 60 deg from vertical, which reaches the whole bed with the printer at
+  # x = 0.56 and leaves room under the printer's top. The camera sits above the
+  # gripper, so the flatter grasp keeps it clear of the bed. A's frames in
+  # scene.updates.pbtxt use the same tilt.
+  approach_tilt_degrees: 60.0
   # The 40 x 40 mm part looks the same turned a quarter turn, so the grasp
   # may take whichever pair of faces leans away from the robot.
   yaw_symmetry_degrees: 90.0
@@ -86,7 +89,7 @@ cycle:
   # Set the part back down within 4 x 4 cm of the bed centre, turned up to
   # +-10 deg, so the next cycle has to find it again.
   return_shift:
-    center_x: 0.46
+    center_x: 0.56
     center_y: 0.0
     bounds_x: 0.04
     bounds_y: 0.04

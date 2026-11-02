@@ -601,11 +601,12 @@ the step 2a demo still runs two cycles with the camera mounted.
   `orbbec_gemini_driver` instances unchanged, plus the `capture_images` skill.
   In sim the camera service proxies to Gazebo's camera plugin, so nothing else
   is needed.
-* `configs/rebot/orbbec_gemini.updates.pbtxt` mounts the camera under the
+* `configs/rebot/orbbec_gemini.updates.pbtxt` mounts the camera on the
   wrist, on the flange like `configs/omts/`: 7.6 cm out along the flange axis
-  (OMTS: 7.8 cm), 7 cm off it on the gripper's -x side, which is below the
-  gripper in the tilted grasps and at `view`. It looks parallel to the tool
-  axis (no tilt), with its baseline along the jaw axis.
+  (OMTS: 7.8 cm), 7 cm off it, looking parallel to the tool axis (no tilt),
+  with its baseline along the jaw axis. This step put it on the gripper's -x
+  side, below the gripper in the tilted grasps and at `view`; step 3c moved
+  it to the +x side, above, for the 60° grasp.
 * **The mount pose is our guess, not a reBot part.** Only the `flange`
   frame comes from Seeed's model. No bracket exists for it, and the wrist's
   mounting points and cable routing are unchecked. Revisit when there is a
@@ -808,6 +809,20 @@ run it is the quick start in [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md).
   `ai.intrinsic.rebot_printed_part_estimator`: the vision adapter uses the
   first estimate (`estimates[0]`), and at 0.15 the printer's toolhead came
   back first once.
+
+* **Printer moved 10 cm further out, grasp tilted 60°, camera on top
+  (2026-10-30).** For more clearance reaching into the printer, the bed
+  centre is now at x = 0.56. At 35° the bed's far edge is out of reach there,
+  so the grasp tilts 60° from vertical (`grasp.approach_tilt_degrees`). With
+  the camera below the gripper, anything past about 50° put it into the bed
+  (offline: 6 mm clear at 50°, 15 mm into the bed at 60°), and rolling the
+  tool to lift it needs the wrist roll past ±180°. So the camera moved to the
+  gripper's upper side (same offsets, `x: 0.07`): about 10 cm clear of the
+  bed at the grasps. `view` moved to 0.38 m from the bed centre with the
+  camera above the gripper, and A to 0.45 m at 130° with its frames
+  recomputed for 60° (joints at least 0.21 rad from their limits at the
+  pre-place pose; at 0.30 m there is no IK). Three cycles ran successfully in
+  simulation.
 
 OMTS changes, all defaulting to the old behaviour (**Flag**):
 
