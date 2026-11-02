@@ -17,3 +17,20 @@ py_binary(
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:worlds",
     ],
 )
+
+py_library(
+    name = "control_door_lib",
+    srcs = ["control_door.py"],
+    deps = [
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
+    ],
+)
+
+py_binary(
+    name = "control_door",
+    srcs = ["control_door.py"],
+    main = "control_door.py",
+    deps = [
+        ":control_door_lib",
+    ],
+)

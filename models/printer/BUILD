@@ -9,6 +9,7 @@ sdf_scene_object(
     sdf_assets = [
         "frame.obj",
         "heatbed.obj",
+        "door.obj",
     ],
 )
 
