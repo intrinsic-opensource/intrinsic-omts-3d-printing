@@ -130,6 +130,14 @@ Each is recorded in the study with its reasoning.
    the CPU, would not fit it as built; an Orin AGX (32/64 GB) or Thor would.
    Ask whether the service will expose FoundationPose's hypothesis count and
    FP16 precision, which the library already supports.
+8. **New (2026-10-30): carry mimic joints into simulation**, drafted in
+   [`feature_requests/mimic_joints.md`](feature_requests/mimic_joints.md).
+   The reBot's fingers share one actuator, but Intrinsic's scene object
+   conversion drops `<mimic>` (Gazebo itself supports it), and the gripper
+   plugin drives each finger separately. In sim the fingers then come apart
+   under contact: they drift while a grasp rests on the bed, and at release
+   one finger can stay on the part or drag it. The cell presses the part
+   onto its support before opening as a workaround.
 
 ### 4.2 Open project questions
 
