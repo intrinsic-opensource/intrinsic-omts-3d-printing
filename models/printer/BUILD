@@ -8,7 +8,7 @@ sdf_scene_object(
     src = "3d_printer.sdf",
     sdf_assets = [
         "frame.obj",
-        "heatbed.obj"
+        "heatbed.obj",
     ],
 )
 
