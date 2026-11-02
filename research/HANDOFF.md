@@ -891,6 +891,68 @@ Learned:
   enclosure setting also excludes gripper<->printer while placing on the bed,
   broader than the demo's part<->printer.
 
+### Step 3c-2: The Prusa Core One replaces the stand-in printer
+
+**Status: done (2026-10-30).** Three `omts_app` cycles pass in simulation
+with the Prusa Core One model (`models/printer`, from `feat/printer-sdf`).
+
+* **Printer** (`configs/rebot/printer.updates.pbtxt`): turned yaw +90° so its
+  front faces the arm, bed centre at x = 0.56. The bed top is at z = 0.1434,
+  so the part (z = 0.1584), `view` and `vision.min_safe_z` (0.13) moved with
+  it.
+* **Grasp tilted 75°** (`grasp.approach_tilt_degrees`). At 60° the top of the
+  wrist (link4) hits the Prusa's front rail (z 0.37–0.40) at the pre-grasp.
+  At 75° the arm and camera clear the printer by at least 3.4 cm over the
+  return area, with joints at least 0.61 rad from their limits.
+* **`view`** has the camera 0.36 m from the bed centre at 60° elevation; it
+  sees all four bed corners, and the pose estimator finds the part there
+  (score 0.999, 0.36 m straight ahead).
+* **A** moved out to 0.55 m at 130°, with its frames recomputed for 75°. At
+  0.45 m the pre-place pose has no IK at this tilt; from 0.50 m it does, and
+  at 0.55 m the joints stay at least 0.37 rad from their limits.
+* **Press 6 mm** (`cycle.place_press_meters`). The press runs along the
+  tilted approach, so its downward part is the press times cos(tilt): the
+  3 mm that worked at 60° (1.5 mm down) is only 0.8 mm at 75°, and the part
+  rode out with a finger again.
+* **Return shift ±1 cm and ±5°** (was ±2 cm and ±10°). The gripper box is
+  18 cm across the jaws, and the Prusa's internal towers leave about 25 cm.
+  Offline, the gripper clears them by 0.7 cm at ±1 cm and ±5°, and hits one
+  at ±2 cm and ±10° (one run failed that way).
+
+Learned:
+
+* **Check every arm link, not just the tool, against a new printer.** The
+  first offline check covered the gripper and camera and passed; the run then
+  failed on link4. `links_vs_prusa.py` and `tilt_sweep.py` in the offline
+  tools sample each link's collision mesh against the printer's boxes.
+* **The fingers are two independent actuators in simulation.** Seeed's URDF,
+  and so our SDF, has two prismatic finger joints with no coupling, while the
+  real gripper drives both from one actuator. Intrinsic's scene object
+  conversion drops `<mimic>` (Gazebo and Bullet support it), and the gripper
+  plugin runs one PD controller per finger joint. Under contact the fingers
+  come apart: they drift while a grasp rests on the bed and snap back when
+  the arm lifts, and at release one finger can stay on the part or drag it.
+  This is the likely cause of the release drag found in step 3c; the press
+  remains the workaround. Feature request: question 4.1.8.
+* **Weaker fingers don't fix the release.** The plugin derives its gains from
+  finger mass (about 0.3 N of squeeze). With the finger mass quartered (an
+  uncommitted experiment, about 0.08 N), part drift at release fell from
+  0.7–2.8 mm to 0.2–0.9 mm over six releases without the press, but one
+  finger then stayed on the part for 0.8–1.8 s in four of them. Whichever is
+  lighter, part or finger, gets dragged. Reverted.
+* **Finger speed and force are fixed in simulation.** The plugin counts a
+  grasp as done, and welds, on the first 1 ms step where the first finger
+  moves less than 0.01 mm. From rest that needs about 10 m/s², which today's
+  closing force (0.85 N on 75 g) barely gives, so a lower joint effort or a
+  slower controller would end grasps before the fingers close. The response
+  rate is a constant in Intrinsic's code (15 rad/s), and the SDF velocity
+  limit is not enforced on these force-driven joints (the fingers reach
+  0.3 m/s against 0.243).
+* **Prusa model notes:** its `bed_joint` is prismatic along Y, while a Core
+  One's bed moves along Z (nothing moves it yet). `frame.obj` is a 29 MB
+  plain file. The same merge moved the `omts` cell's printer (z 1.02 to 1.0,
+  yaw +90° to −90°), which these checks did not cover.
+
 ### Step 3d: Camera-to-robot calibration in sim (optional)
 
 * Run OMTS's hand-eye calibration tools (Charuco board, calibration skills,

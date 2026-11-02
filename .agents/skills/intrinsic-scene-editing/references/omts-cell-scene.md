@@ -1,9 +1,8 @@
 # OMTS cell scene map (intrinsic-omts @ 1548c25, core pin c40e02a)
 
-> **Change in this repository (`0715f4e`, 2026-10-23):** the `omts` cell no longer has `cnc_enclosure` or `schunk_egp_64nnb`. They were replaced by `printer` (`models/printer/`, asset `ai.intrinsic.printer`, placed by `configs/omts/printer.updates.pbtxt` at enclosure (−0.57, −0.10, 1.02), yaw +90°). The `cnc_enclosure` and `schunk` updates files were deleted.
-> - The printer has `bed_frame`, the bed surface center at (0.006, −0.001, 0.0895) in printer coords, ≈ root (−0.569, −0.094, 1.109). It also has `top_frame`.
-> - Its GLB is Y-up, so the SDF visual has a roll of +90°.
-> - Its collisions are hollow (base slab, top block, 4 posts, spool stack) so parts can rest on the bed.
+> **Change in this repository (`0715f4e`, 2026-10-23):** the `omts` cell no longer has `cnc_enclosure` or `schunk_egp_64nnb`. They were replaced by `printer` (`models/printer/`, asset `ai.intrinsic.printer`, placed by `configs/omts/printer.updates.pbtxt` at enclosure (−0.57, −0.10, 1.0), yaw −90°). The `cnc_enclosure` and `schunk` updates files were deleted.
+> - The printer is a Prusa Core One model (OBJ meshes, Z-up). It has no named frames; the heatbed is a separate link (`heatbed_link`) whose top is at z = 0.1434 in printer coords.
+> - Its collisions are boxes (base, walls, front bezels and rail, internal towers, X-axis rail, hotend) plus the heatbed mesh, so parts can rest on the bed.
 > - `app_config.yaml` `machine:` still names the CNC and vise. The door and vise world updates are skipped because the objects are missing, but the vise-based place frames and collision exclusions are unchanged.
 > - The tables below describe upstream.
 

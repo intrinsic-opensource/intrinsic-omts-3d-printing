@@ -8,7 +8,7 @@ This repository adapts OMTS (Open Machine Tending Solution), a reference machine
 
 ## Current direction
 
-The `research` branch is adapting OMTS into a 3D-printer-tending solution with a low-cost Seeed reBot Arm. ICON support for the arm is expected from Intrinsic Core, and the hardware target is an NVIDIA Jetson (ARM64). Work is in simulation, with a stand-in printer in the cell; the target printer is undecided. How to run the reBot cell: `research/REBOT_OMTS_APP.md`. Plan, decisions and open questions: `research/HANDOFF.md` (milestone plan in §5). Printer-side design (plate-layout localization, grasp planning, camera checks): `research/PRINTER_UNLOADING.md`.
+The `research` branch is adapting OMTS into a 3D-printer-tending solution with a low-cost Seeed reBot Arm. ICON support for the arm is expected from Intrinsic Core, and the hardware target is an NVIDIA Jetson (ARM64). Work is in simulation, with a Prusa Core One model in the cell; the target printer is undecided. How to run the reBot cell: `research/REBOT_OMTS_APP.md`. Plan, decisions and open questions: `research/HANDOFF.md` (milestone plan in §5). Printer-side design (plate-layout localization, grasp planning, camera checks): `research/PRINTER_UNLOADING.md`.
 
 ## Workflow
 

@@ -11,7 +11,7 @@ and Intrinsic Scene Object manifests (`.textproto`) bundled into
 | [`camera_mount/`](camera_mount/) | `ai.intrinsic.camera_mount` | Wrist bracket mounting the Orbbec Gemini 3D camera to the robot flange. |
 | [`cnc_enclosure/`](cnc_enclosure/) | `ai.intrinsic.cnc_enclosure` | CNC machine tool enclosure with actuated sliding safety door joint. Not used by any cell since the printer replaced it in `omts`. |
 | [`omts_enclosure/`](omts_enclosure/) | `ai.intrinsic.omts_enclosure` | Main robot cell safety enclosure and worktable geometry. |
-| [`printer/`](printer/) | `ai.intrinsic.printer` | Stand-in 3D printer with a bed (`bed_frame`) and hollow box collisions so parts can rest on the bed; in the `omts` cell (where the CNC stood) and the reBot cell. |
+| [`printer/`](printer/) | `ai.intrinsic.printer` | Prusa Core One printer: frame meshes with box collisions for its walls, front bezels and rail, internal towers, X-axis rail and hotend, and a separate heatbed link (bed top at z = 0.1434). In the `omts` cell (where the CNC stood) and the reBot cell. |
 | [`raw_stock_2x3x5/`](raw_stock_2x3x5/) | `ai.intrinsic.raw_stock_2x3x5` | 2" × 3" × 5" raw stock billet used for pose estimation and manipulation. |
 | [`rebot_b601_rs/`](rebot_b601_rs/) | `ai.intrinsic.rebot_b601_rs` | Seeed reBot Arm B601-RS (6 DoF, no gripper) as a simulation-only ICON hardware device, generated from Seeed's URDF by `//tools/models:urdf_to_sdf`; used by `//:rebot_solution`. |
 | [`rebot_b601_rs_gripper/`](rebot_b601_rs_gripper/) | `ai.intrinsic.rebot_b601_rs_gripper` | The reBot B601-RS two-finger gripper, mounted on the arm's flange by `configs/rebot/`. |
