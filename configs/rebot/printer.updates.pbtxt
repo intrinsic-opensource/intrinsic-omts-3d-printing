@@ -1,14 +1,13 @@
 # proto-file: intrinsic/world/public/proto/object_world_updates.proto
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
 
-# 3D printer on the ground in front of the reBot, its open front (printer -Y)
-# facing the robot (yaw -90 deg about Z), so the spool stack is on the robot's
-# left (+Y). The bed centre (printer/bed_frame) lands at x=0.56, y=0,
-# z=0.0895; the printer's front edge is at x=0.346. It stood at x=0.36 until
-# step 3a, when it moved out 10 cm so the wrist camera sees the whole bed with
-# depth, and 10 cm more afterwards for clearance reaching in, which needs a
-# flatter grasp (60 deg, configs/rebot/app_config.yaml): at 35 deg the bed's
-# far edge is out of reach this far out (offline check).
+# The Prusa Core One (models/printer) on the ground in front of the reBot,
+# its front (printer +Y: bezels, dial) facing the robot (yaw +90 deg about Z).
+# The bed's top centre (heatbed.obj, printer (0.006, 0.030, 0.143)) lands at
+# x=0.56, y=0, z=0.1434; the front bezels are at x=0.38. At this distance the
+# 60 deg grasp (configs/rebot/app_config.yaml) reaches the bed's near and far
+# edges, and from about 3 cm to either side the gripper meets the towers that
+# flank the bed (offline check, step 3c).
 updates {
   update_transform {
     node_a {
@@ -34,14 +33,14 @@ updates {
     }
     a_t_b {
       position {
-        x: 0.561
-        y: 0.006
+        x: 0.5895
+        y: -0.0064
         z: 0
       }
       orientation {
         x: 0
         y: 0
-        z: -0.70710678
+        z: 0.70710678
         w: 0.70710678
       }
     }

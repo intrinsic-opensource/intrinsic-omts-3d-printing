@@ -33,8 +33,8 @@ vision:
   sensor_ids: [1, 4]
   min_num_instances: 1
   infeed_mode: "perception"
-  # The bed's top is at z = 0.0895 and the part's centre 15 mm above it.
-  min_safe_z: 0.08
+  # The Prusa's bed top is at z = 0.1434 and the part's centre 15 mm above it.
+  min_safe_z: 0.13
 
 frames:
   parent_object: "root"
@@ -54,11 +54,11 @@ frames:
 grasp:
   planner: "cuboid_center"
   # The reBot cannot reach straight down into the printer (step 3c); pitch the
-  # grasp 60 deg from vertical, which reaches the whole bed with the printer at
-  # x = 0.56 and leaves room under the printer's top. The camera sits above the
-  # gripper, so the flatter grasp keeps it clear of the bed. A's frames in
+  # grasp 75 deg from vertical. At 60 deg the top of the wrist (link4) hits the
+  # Prusa's front rail above the bed opening; at 75 deg the arm and camera clear
+  # the printer by 3.4 cm or more over the return area. A's frames in
   # scene.updates.pbtxt use the same tilt.
-  approach_tilt_degrees: 60.0
+  approach_tilt_degrees: 75.0
   # The 40 x 40 mm part looks the same turned a quarter turn, so the grasp
   # may take whichever pair of faces leans away from the robot.
   yaw_symmetry_degrees: 90.0
@@ -79,18 +79,22 @@ cycle:
   return_touchdown_force_newtons: 5.0
   touchdown_timeout_seconds: 2.0
   machining_timeout_seconds: 30.0
-  # Without force sensing, press the part 3 mm along the approach onto its
-  # support (the ground at A, the bed on return) before opening: released even
-  # 1 mm above it, the part often rode out with a finger (step 3c).
-  place_press_meters: 0.003
+  # Without force sensing, press the part along the approach onto its support
+  # (the ground at A, the bed on return) before opening: released even 1 mm
+  # above it, the part often rode out with a finger (step 3c). The press is
+  # along the tilted approach, so 6 mm at 75 deg presses about 1.5 mm down,
+  # as 3 mm did at 60 deg.
+  place_press_meters: 0.006
   # The part rests on the ground at A; exclude that contact like the printer's
   # so the press is not a collision.
   workpiece_support_objects: ["rebot_ground"]
-  # Set the part back down within 4 x 4 cm of the bed centre, turned up to
-  # +-10 deg, so the next cycle has to find it again.
+  # Set the part back down within 4 x 2 cm of the bed centre, turned up to
+  # +-5 deg, so the next cycle has to find it again. The gripper spans most of
+  # the bed between the Prusa's towers: at +-1 cm and +-5 deg it clears them by
+  # 0.7 cm or more; at +-2 cm and +-10 deg it can hit one.
   return_shift:
     center_x: 0.56
     center_y: 0.0
     bounds_x: 0.04
-    bounds_y: 0.04
-    bounds_rz_degrees: 20.0
+    bounds_y: 0.02
+    bounds_rz_degrees: 10.0
