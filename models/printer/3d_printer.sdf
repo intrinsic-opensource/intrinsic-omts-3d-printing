@@ -3,6 +3,17 @@
   <model name="3d_printer">
   <self_collide>false</self_collide>
     <link name="base_link">
+    <inertial>
+         <mass>25.0</mass>
+        <inertia>
+          <ixx>1.20</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>1.10</iyy>
+          <iyz>0.0</iyz>
+          <izz>1.30</izz>
+        </inertia>
+      </inertial>
       <visual name="visual">
         <geometry>
           <mesh>
@@ -135,6 +146,15 @@
 
     <link name="heatbed_link">
       <pose relative_to="base_link">0 0 0.0 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0.18 0 0 0</pose> 
+        <mass>1.0</mass>
+        <inertia>
+          <ixx>0.01</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>0.01</iyy><iyz>0</iyz>
+          <izz>0.02</izz>
+        </inertia>
+      </inertial>
       <visual name="visual">
         <geometry>
           <mesh>
@@ -162,7 +182,7 @@
     </joint>
 
     <link name="door_link">
-  <pose relative_to="base_link">0.174 0.185 0.279 0 0 0</pose>
+  <pose relative_to="base_link">0.174 0.205 0.279 0 0 -3.14159</pose>
 
   <inertial>
     <pose>-0.174 0.0235 0.018 0 0 0</pose>
@@ -175,7 +195,7 @@
   </inertial>
 
   <visual name="door_visual">
-    <pose>-0.174 -0.185 -0.214 0 0 0</pose>
+    <pose>-0.174 -0.205 -0.214 0 0 0</pose>
     <geometry>
       <mesh><uri>door.obj</uri></mesh>
     </geometry>
@@ -187,12 +207,12 @@
   </visual>
 
   <collision name="door_pane_col">
-    <pose>-0.174 0.0235 0.018 0 0 0</pose>
+    <pose>-0.174 0.005 0.02 0 0 0</pose>
     <geometry><box><size>0.360 0.005 0.460</size></box></geometry>
   </collision>
 
   <collision name="col_handle_rod">
-    <pose>-0.348 0.033 0.018 0 0 0.707</pose>
+    <pose>-0.348 0.013 0.013 0 0 0.707118281</pose>
     <geometry><box><size>0.030 0.005 0.410</size></box></geometry>
   </collision>
 </link>
@@ -203,8 +223,8 @@
   <axis>
     <xyz>0 0 1</xyz>
     <limit>
-      <lower>-1.74</lower>
-      <upper>0.0</upper>
+      <lower>0.0</lower>
+      <upper>3.14159</upper>
       <effort>5.0</effort>
       <velocity>2.0</velocity>
     </limit>
