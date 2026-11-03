@@ -981,9 +981,9 @@ Found during milestone 2, not yet planned:
   positives out today, but a bed with several parts, or a part next to a
   look-alike, needs a choice (nearest, most confident, or matched to the
   plate layout).
-* **Elongated parts.** The tilted grasp follows the part's long axis, so a
-  long part lying across the line to the robot would make it lean sideways
-  (step 3c).
+* **Elongated parts.** Studied in step 4a: with `yaw_symmetry_degrees: 90`
+  a long part lying across the line to the robot is gripped by its ends, not
+  leaned sideways, while its length fits the jaws.
 * **Drop the press before release** once the fingers are coupled in
   simulation (question 4.1.8). The press is a simulation workaround, and on
   hardware it may not be wanted.
@@ -998,9 +998,84 @@ Found during milestone 2, not yet planned:
 * **A real camera bracket.** The mount pose is a guess (step 3a), and `view`
   and the tilt limits depend on it; check them again against a real bracket
   and its cable routing.
-* **Offline checks don't model the ground or self-collision**
-  ([`tools/README.md`](tools/README.md)); A's frames are near the ground, so
-  confirm changes there in simulation.
+* **Offline checks don't model self-collision**, and only `cuboid_sweep`
+  checks the ground at A ([`tools/README.md`](tools/README.md)); confirm
+  changes near the ground in simulation.
+
+## 5c. Milestone 3: More Graspable Geometries
+
+Goal: know which printed parts the cell can pick, and widen the set. Starting
+with cuboids under 100 mm a side, brute force: sweep sizes offline, then
+confirm the boundaries in simulation.
+
+### Step 4a: Which cuboids are graspable
+
+**Status: done (2026-11-03).** Offline sweep of cuboids standing as printed
+on the Prusa's bed, and trials in simulation with six test parts.
+
+* **`research/tools/cuboid_sweep`** replays the grasp `omts_app` publishes
+  for a cuboid at the bed centre and checks: fit between the open jaws (5 mm
+  per side); the open fingers and gripper body against the part and printer
+  on the approach; the closed fingers and body at the grasp and through the
+  press back onto the bed; the same at A on the ground; and reach. It also
+  reports the finger pad area on the gripped face.
+* **Trials:** `models/test_cuboids/` holds five test cuboids, deployed with
+  `//:rebot_solution` only under `--//:test_cuboids` and parked out of
+  reach. `research/tools/cuboid_trial` puts one on the bed and writes A's
+  frames at its height and an `app_config` naming it. Register each part
+  with the prompt "cube": "box" found nothing.
+
+Results (75° tilt, yaw symmetry 90):
+
+| Limit | Boundary | What sets it |
+| --- | --- | --- |
+| Height | at least 25 mm | The gripper body reaches the bed (or the ground at A) when the part is pressed down before release; 22 mm failed at A in simulation. |
+| Width between the jaws | 90 mm with 5 mm per side; 95 mm worked in simulation | 100 mm maximum opening. |
+| Turn on the bed | within ±14° of a grasp direction, any size | The gripper body or the open fingers hit the internal towers; 12° passed and 16° failed in simulation. |
+| Reach | not limiting at the bed centre | |
+
+| Part (mm) | Yaw | Simulation |
+| --- | --- | --- |
+| 40×40×22, 40×40×20 | 0° | Picked; then the gripper body hit the ground at A during the press. |
+| 80×20×40, 95×20×40 | 90° | Picked by their ends and returned. |
+| 40×40×40 | 12° / 16° | Passed / gripper body hit a tower. |
+
+Learned:
+
+* **Elongated parts don't lean sideways with yaw symmetry 90.** The grasp
+  turns a quarter and grips the ends instead, as long as the length fits the
+  jaws. With symmetry 180 the lean goes sideways and the open fingers hit a
+  tower, as step 3c warned.
+* **Thin parts are held by the fingertips only.** `cuboid_center` puts the
+  fingertips at the part's centre, so a part thin along the approach (the
+  20 mm ends of the long parts) only meets the tapered tips, which narrow to
+  about 3 × 2 mm. The weld in simulation holds anyway, so a pass there does
+  not mean a real grip.
+* **Deeper grasps raise the contact area.** Pushing the grasp 30 mm past
+  the centre, horizontally along the approach, raised the smallest pad
+  contact over the sweep from 93 to 365 mm² (median 207 to 777), and the
+  long parts, the 40 mm cube and the default part passed in simulation that
+  way. Pushing along the tilted approach instead lowers the gripper onto the
+  bed. The limit is the gripper body, 73 mm behind the tips, reaching the
+  part's near face: at 30 mm, 89 of 125 sizes still fit. **Stashed:** the
+  option (`grasp.grasp_depth_meters`, a change to OMTS's config, vision
+  adapter, pick and frame calculator) is in `git stash` on
+  `rebot-grasp-target`. A's frames must include the same push
+  (`a_frames --depth`).
+* **The offline checks needed two fixes.** The gripper body's bounding box
+  made them too strict (now its collision mesh), and they did not check A
+  or the press before release (now both). Even so, the 20 mm part's pick
+  passed in simulation where the sweep puts the body 1–2 mm into the bed, so
+  treat the height limit as ±3 mm.
+
+Next:
+
+* Decide on the grasp depth: restore the stashed option and pick a default
+  per part, or derive it from the part's size (the calculator does not know
+  the size today).
+* Make the yaw symmetry a per-part choice: 90 suits square parts and lets
+  long ones be gripped by their ends; 180 keeps long parts gripped across.
+* Other shapes: cylinders, L-shapes, parts lying on another face.
 
 ---
 

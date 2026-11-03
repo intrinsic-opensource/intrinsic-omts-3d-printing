@@ -72,3 +72,36 @@ py_binary(
     srcs = ["release_drift.py"],
     main = "release_drift.py",
 )
+
+py_binary(
+    name = "cuboid_sweep",
+    srcs = ["cuboid_sweep.py"],
+    main = "cuboid_sweep.py",
+    deps = [
+        ":a_frames_lib",
+        ":cell",
+        ":kin",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+    ],
+)
+
+py_library(
+    name = "a_frames_lib",
+    srcs = ["a_frames.py"],
+    deps = [
+        ":cell",
+        ":kin",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+    ],
+)
+
+py_binary(
+    name = "cuboid_trial",
+    srcs = ["cuboid_trial.py"],
+    main = "cuboid_trial.py",
+    deps = [
+        ":a_frames_lib",
+        ":cell",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+    ],
+)

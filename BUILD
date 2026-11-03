@@ -45,6 +45,29 @@ config_setting(
     },
 )
 
+# Whether rebot_solution also carries the test cuboids (models/test_cuboids)
+# for the graspability trials (research/tools/README.md). Off by default; they
+# are parked on the ground out of the arm's reach until a trial places one.
+bool_flag(
+    name = "test_cuboids",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "with_test_cuboids",
+    flag_values = {
+        ":test_cuboids": "True",
+    },
+)
+
+_TEST_CUBOIDS = [
+    "test_cuboid_40x40x20",
+    "test_cuboid_40x40x22",
+    "test_cuboid_40x40x40",
+    "test_cuboid_80x20x40",
+    "test_cuboid_95x20x40",
+]
+
 _OMTS_SKILL_ASSETS = [
     ":hand_e_gripper_cmd_skill_asset",
     ":moveit_plan_grasp_skill_asset",
@@ -198,6 +221,9 @@ intrinsic_solution(
             "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator:sam3_model_data_asset",
         ],
         "//conditions:default": [],
+    }) + select({
+        ":with_test_cuboids": ["//models/test_cuboids:" + c for c in _TEST_CUBOIDS],
+        "//conditions:default": [],
     }),
     default_operation_mode = "sim",
     instances = [
@@ -214,7 +240,10 @@ intrinsic_solution(
         ":rebot_ground",
         ":rebot_printed_part",
         ":train_service",
-    ],
+    ] + select({
+        ":with_test_cuboids": [":" + c for c in _TEST_CUBOIDS],
+        "//conditions:default": [],
+    }),
     object_world_updates = [
         "//configs:rebot/rebot.attachments.updates.pbtxt",
         "//configs:rebot/orbbec_gemini.updates.pbtxt",
@@ -222,7 +251,10 @@ intrinsic_solution(
         "//configs:rebot/printer.updates.pbtxt",
         "//configs:rebot/printed_part.updates.pbtxt",
         "//configs:rebot/scene.updates.pbtxt",
-    ],
+    ] + select({
+        ":with_test_cuboids": ["//configs:rebot/test_cuboids.updates.pbtxt"],
+        "//conditions:default": [],
+    }),
 )
 
 intrinsic_asset_instance(
@@ -243,6 +275,15 @@ intrinsic_asset_instance(
     asset = "ai.intrinsic.rebot_printed_part",
     instance_name = "rebot_printed_part",
 )
+
+[
+    intrinsic_asset_instance(
+        name = c,
+        asset = "ai.intrinsic." + c,
+        instance_name = c,
+    )
+    for c in _TEST_CUBOIDS
+]
 
 intrinsic_asset_instance(
     name = "rebot_ground",

@@ -40,6 +40,8 @@ Run them with `bazel run`, which also provides numpy and scipy.
 | `config_clearance` | Each body's distance to the printer at joint configurations, in the format of the planner's collision report (`Config: [...] in deg`). Use it to see what a failed plan hit. |
 | `a_frames` | A's three frames (place, pre-place, approach) for a tilt, distance and bearing, with the joint margin at each. Prints positions and quaternions for `configs/rebot/scene.updates.pbtxt`. |
 | `view_search` | Candidate `view` poses that reach, clear the printer, have a clear line of sight to the part, and see all four bed corners with depth. Also checks the committed `view`. |
+| `cuboid_sweep` | Which cuboids the cell can grasp from the bed: sweeps sizes (z up, as printed) and yaws, replays the grasp `omts_app` publishes, and checks jaw width, fingers and palm against the part and printer on the approach and at the grasp, and reach. The grasp rule is reimplemented from `src/utils/dynamic_frame_calculator.py`; keep them in step. |
+| `cuboid_trial` | Sets up a graspability trial in simulation with one test cuboid: its placement on the bed, A's frames at its height, and an `app_config` naming it (see below). |
 | `release_drift` | From a Gazebo pose recording: how far the part moved at each release, and how long each finger took to open. |
 
 Examples, all from the repository root:
@@ -57,6 +59,9 @@ bazel run //research/tools:a_frames -- --radius 0.45 0.50 0.55
 
 # View candidates, and a check of the committed view
 bazel run //research/tools:view_search
+
+# Graspable cuboids: sizes in mm, yaws in degrees
+bazel run //research/tools:cuboid_sweep -- --sizes 20 40 60 80 95 --yaws 0 10 20 45 90
 ```
 
 ## Recording poses in Gazebo
@@ -76,3 +81,31 @@ bazel run //research/tools:release_drift -- /tmp/poses.jsonl
 
 The recording holds every model and link pose in the world, so other motion,
 such as the fingers during a grasp, can be read from the same file.
+
+## Graspability trials in simulation
+
+`cuboid_sweep` predicts which cuboids are graspable; trials confirm it with
+the real app. Deploy the cell with the test cuboids
+([`models/test_cuboids/`](../../models/test_cuboids/)), which start parked on
+the ground out of reach:
+
+```bash
+bazel run -c opt --//:perception_models --//:test_cuboids \
+  --repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR=$HOME/intrinsic-models/nvidia_pose_estimator \
+  //:rebot_solution -- --address=localhost:17080
+bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \
+  --files --reset_sim
+```
+
+Then, per trial, write its files and run the commands the tool prints: apply
+the world (the chosen cuboid on the bed and A's frames at its height),
+register the cuboid with the pose estimator (once per cuboid and deploy), and
+run one cycle:
+
+```bash
+bazel run //research/tools:cuboid_trial -- \
+  --part test_cuboid_80x20x40 --yaw 90 --out /tmp/trial
+```
+
+Afterwards, `apply_scene_updates --files --reset_sim` puts the default part
+back on the bed and parks the cuboids again.

@@ -18,3 +18,4 @@ and Intrinsic Scene Object manifests (`.textproto`) bundled into
 | [`rebot_ground/`](rebot_ground/) | `ai.intrinsic.rebot_ground` | Ground slab the reBot cell stands on; also the drop-off surface behind the robot. |
 | [`rebot_printed_part/`](rebot_printed_part/) | `ai.intrinsic.rebot_printed_part` | 40 × 40 × 30 mm printed part the reBot cell finds and unloads from the printer's bed. |
 | [`schunk_egp_64nnb/`](schunk_egp_64nnb/) | `ai.intrinsic.schunk_egp_64nnb` | Schunk EGP 64 pneumatic 2-finger parallel vise with articulated jaw joints (`jaw_l`, `jaw_r`). Not used by any cell since the printer replaced the CNC in `omts`. |
+| [`test_cuboids/`](test_cuboids/) | `ai.intrinsic.test_cuboid_<x>x<y>x<z>` | Five box-shaped parts (sizes in mm) for the reBot graspability trials (`research/tools/README.md`); in `//:rebot_solution` only with `--//:test_cuboids`. |

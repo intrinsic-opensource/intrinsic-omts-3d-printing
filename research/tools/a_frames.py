@@ -37,12 +37,21 @@ PRE_PLACE_BACK = 0.08
 APPROACH_UP = 0.10
 
 
-def frames(tilt: float, radius: float, bearing: float):
+def frames(
+  tilt: float,
+  radius: float,
+  bearing: float,
+  half_height: float = cell.PART_HALF_HEIGHT,
+  depth: float = 0.0,
+):
+  """A's frames for a part whose centre rests half_height above the ground,
+  gripped `depth` past its centre horizontally (grasp.grasp_depth_meters)."""
   b = math.radians(bearing)
   grasp = cell.grasp_pose(
-    radius * math.cos(b), radius * math.sin(b), cell.PART_HALF_HEIGHT, tilt
+    radius * math.cos(b), radius * math.sin(b), half_height, tilt
   )
   grasp[:3, :3] = cell.rot_z(b) @ grasp[:3, :3]
+  grasp[:3, 3] += depth * np.array([math.cos(b), math.sin(b), 0.0])
   pre = grasp.copy()
   pre[:3, 3] -= PRE_PLACE_BACK * grasp[:3, 2]
   approach = pre.copy()
@@ -59,14 +68,21 @@ def main() -> None:
   parser.add_argument("--tilt", type=float, default=None)
   parser.add_argument("--radius", type=float, nargs="+", default=[0.55])
   parser.add_argument("--bearing", type=float, nargs="+", default=[130.0])
+  parser.add_argument("--depth", type=float, default=None)
   parser.add_argument("--seeds", type=int, default=30)
   args = parser.parse_args()
   tilt = args.tilt or cell.app_setting("approach_tilt_degrees")
+  depth = args.depth
+  if depth is None:
+    try:
+      depth = cell.app_setting("grasp_depth_meters")
+    except KeyError:
+      depth = 0.0
   rng = np.random.default_rng(5)
   for radius in args.radius:
     for bearing in args.bearing:
       print(f"tilt {tilt:.0f}, radius {radius}, bearing {bearing}")
-      for name, goal in frames(tilt, radius, bearing).items():
+      for name, goal in frames(tilt, radius, bearing, depth=depth).items():
         sols = kin.ik(goal, args.seeds, rng)
         if sols:
           q = max(sols, key=kin.limit_margin)
