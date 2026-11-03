@@ -6,20 +6,18 @@
 
 # view: the tool pose from which the wrist camera sees the bed (step 3a).
 # The tool points 60 deg down into the printer with its usual roll, so the
-# camera hangs below the gripper, outside the printer's front at (0.131, 0,
-# 0.295), 0.38 m from the bed centre and looking straight in. The whole bed
-# is beyond the depth sensor's near clip (0.25 m). The printer's closed top
-# rules out looking straight down; most other camera poses are out of reach,
-# need the wrist rolled over, or put the camera into a post (checked offline,
-# step 3a).
+# camera sits above the gripper, outside the Prusa's front at (0.248, 0,
+# 0.338), 0.36 m from the bed centre and looking straight in under the front
+# rail; all four bed corners are in view and beyond the depth sensor's near
+# clip (0.25 m) (checked offline, step 3c).
 updates {
   create_frame {
     new_frame_name: "view"
     parent_t_new_frame {
       position {
-        x: 0.2439
+        x: 0.2912
         y: -0.024
-        z: 0.3106
+        z: 0.2328
       }
       orientation {
         x: 0.866025
@@ -40,10 +38,13 @@ updates {
 
 # omts_app's "machine" frames (configs/rebot/app_config.yaml, step 3c). With
 # no machine, OMTS's load and unload subtrees still set the part down here and
-# pick it up again, so they are A, on the ground behind the robot: the tool
-# poses of the step 2a A grasp (tilted 35 deg, the part's x axis yawed 145
-# deg), which set the part down flat. place_vise holds the part at its resting
-# height (z = 0.015); the app config presses it 2 mm further when setting it
+# pick it up again, so they are A, on the ground behind the robot, 0.55 m out
+# at 130 deg from the printer's direction. The tool is tilted 75 deg about the
+# jaw axis, leaning away from the robot along the part's x axis, which is the
+# grasp cuboid_center makes on the bed (grasp.approach_tilt_degrees), so the
+# part is set down flat. Closer in than 0.50 m, a joint runs into its
+# limit at this tilt (offline check). place_vise holds the part at its resting
+# height (z = 0.015); the app config presses it 3 mm further when setting it
 # down (cycle.place_press_meters) and lists rebot_ground as a support, so the
 # re-grasp here closes at the part's centre.
 # pre_place_vise backs off 8 cm along the approach;
@@ -53,15 +54,15 @@ updates {
     new_frame_name: "place_vise"
     parent_t_new_frame {
       position {
-        x: -0.245
-        y: 0.17
+        x: -0.3535
+        y: 0.4213
         z: 0.015
       }
       orientation {
-        x: -0.2867882
-        y: -0.909576
-        z: -0.090424
-        w: 0.2867882
+        x: -0.335286
+        y: -0.719022
+        z: -0.257274
+        w: 0.551725
       }
     }
     parent_object_with_filter {
@@ -79,15 +80,15 @@ updates {
     new_frame_name: "pre_place_vise"
     parent_t_new_frame {
       position {
-        x: -0.2074
-        y: 0.1437
-        z: 0.0855
+        x: -0.3039
+        y: 0.3621
+        z: 0.0357
       }
       orientation {
-        x: -0.2867882
-        y: -0.909576
-        z: -0.090424
-        w: 0.2867882
+        x: -0.335286
+        y: -0.719022
+        z: -0.257274
+        w: 0.551725
       }
     }
     parent_object_with_filter {
@@ -105,15 +106,15 @@ updates {
     new_frame_name: "machine_approach"
     parent_t_new_frame {
       position {
-        x: -0.2074
-        y: 0.1437
-        z: 0.1855
+        x: -0.3039
+        y: 0.3621
+        z: 0.1357
       }
       orientation {
-        x: -0.2867882
-        y: -0.909576
-        z: -0.090424
-        w: 0.2867882
+        x: -0.335286
+        y: -0.719022
+        z: -0.257274
+        w: 0.551725
       }
     }
     parent_object_with_filter {

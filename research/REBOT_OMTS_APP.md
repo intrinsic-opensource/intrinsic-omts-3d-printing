@@ -6,8 +6,8 @@ How to deploy the reBot printer-tending cell and run OMTS's own app
 runs on this machine: Bazel and the local cluster at `localhost:17080` work.
 
 The cell is a Seeed reBot Arm B601-RS with its pinch gripper and an Orbbec
-Gemini 335Le under its wrist, a stand-in 3D printer in front of it
-(`models/printer`; the target printer is undecided), and a printed part.
+Gemini 335Le on its wrist, a Prusa Core One printer model in front of it,
+facing the arm (`models/printer`), and a printed part.
 Each cycle, the arm looks at the printer's bed from a `view` pose, the pose
 estimator finds the part, and the arm picks it, sets it down at A on the
 ground behind the robot, picks it up again and puts it back on the bed at a
@@ -135,10 +135,11 @@ It prints `Execution successful`; a cycle takes about 50 s. `--num_cycles=0`
 repeats until stopped. Each cycle:
 
 1. moves to `view`, finds the part on the bed and picks it with a grasp
-   tilted 35° (the reBot cannot reach straight down into the printer);
+   tilted 75° (the reBot cannot reach straight down into the printer, and
+   a steeper grasp brings its wrist into the printer's front rail);
 2. sets it down at A on the ground behind the robot and picks it up again
    (OMTS's load and unload steps, at A instead of a machine);
-3. puts it back on the bed within 4 x 4 cm of the centre, turned up to ±10°,
+3. puts it back on the bed within 4 x 2 cm of the centre, turned up to ±5°,
    so the next cycle has to find it again.
 
 Watch it in the Gazebo GUI (see "Look through the camera" below for how to
@@ -170,8 +171,8 @@ Move the arm to `view`:
 bazel run //tools/jogging:move_to_frame -- --frame=view --arm_part_name=rebot
 ```
 
-The camera, which hangs below the gripper, then sees the whole bed from just
-outside the printer's front, about 0.38 m from the bed centre.
+The camera, which sits above the gripper, then sees the whole bed from just
+outside the printer's front, about 0.36 m from the bed centre.
 
 To see an image:
 
@@ -204,10 +205,11 @@ To see an image:
 
 What to expect in the image:
 
-* The bed fills the middle with the part on it, and the printer's posts and
-  toolhead around it.
-* The whole bed has depth; only nearby parts of the printer, such as its
-  display, are closer than the depth sensor's 0.25 m minimum.
+* The bed fills the middle with the part on it, and the printer's frame,
+  towers and toolhead around it.
+* The whole bed has depth: its near edge is about 0.27 m from the camera,
+  past the depth sensor's 0.25 m minimum. Parts of the printer's front that
+  are closer have none.
 * The gripper is out of view.
 
 ### Estimate the part's pose
@@ -224,8 +226,8 @@ bazel run -c opt \
 ```
 
 It prints detections in the camera frame, best first. With the part in the
-middle of the bed, the only one scores about 1.0 and sits about 0.38 m
-straight ahead (`[0.000, 0.000, 0.381]`).
+middle of the bed, the only one scores about 1.0 and sits about 0.36 m
+straight ahead.
 
 ## Deploy without perception
 
@@ -253,5 +255,6 @@ bazel run -c opt //:omts_solution -- --address=localhost:17080
 | Pose estimation fails because the estimator is not found | A deploy removed the registration; register again (quick start step 4). |
 | `omts_app` fails with a collision between `rebot_printed_part` and the printer, or "could not find a path" | A failed run left the part attached to the arm; put it back on the bed (end of quick start step 5). |
 | Pose estimation fails with "Failed to create TensorRT execution context" | The GPU ran out of memory. The reBot's service config already uses a smaller FoundationPose batch for a 16 GB GPU; close other GPU programs, or lower `batch_size` further in `configs/rebot/nvidia_pose_estimator_config.textproto`. |
-| `move_to_frame` reports "IK solver couldn't find any solutions" for a frame you edited | The planner gives the same error for an unreachable pose and for one where the arm or camera would collide, for example the camera against a printer post. Move the frame or check clearances. |
+| `move_to_frame` reports "IK solver couldn't find any solutions" for a frame you edited | The planner gives the same error for an unreachable pose and for one where the arm or camera would collide, for example the wrist against the printer's front rail or the gripper
+against one of its towers. Move the frame or check clearances. |
 | The image display stays empty | Nothing has captured yet; trigger a capture ("Look through the camera"). Check the GUI is on the cluster's partition (`GZ_PARTITION=intrinsic_sim`). |
