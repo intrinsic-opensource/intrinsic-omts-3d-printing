@@ -21,7 +21,7 @@ The solution and app configuration are chosen per cell:
 
 | Cell | Deploy | Hardware | What runs |
 | :--- | :--- | :--- | :--- |
-| **`rebot`** | `//:rebot_solution` (simulation) | Seeed reBot Arm B601-RS, its pinch gripper, an Orbbec Gemini 335Le under the wrist, a stand-in 3D printer | `omts_app` with [`configs/rebot/app_config.yaml`](configs/rebot/app_config.yaml): finds the printed part on the bed with the wrist camera, takes it to a drop-off and back, and returns it at a random offset. **Start here:** [`research/REBOT_OMTS_APP.md`](research/REBOT_OMTS_APP.md). |
+| **`rebot`** | `//:rebot_solution` (simulation) | Seeed reBot Arm B601-RS, its pinch gripper, an Orbbec Gemini 335Le on the wrist, a Prusa Core One printer model | `omts_app` with [`configs/rebot/app_config.yaml`](configs/rebot/app_config.yaml): finds the printed part on the bed with the wrist camera, takes it to a drop-off and back, and returns it at a random offset. **Start here:** [`research/REBOT_OMTS_APP.md`](research/REBOT_OMTS_APP.md). |
 | `omts` | `//:omts_solution` (default `--//:setup=omts`) | UR5e, Robotiq Hand-E, Orbbec Gemini 335Le, cell enclosure, and a 3D printer where upstream's CNC machine stood | The CNC enclosure and Schunk vise were removed from this cell. Its [`app_config.yaml`](configs/omts/app_config.yaml) still describes the CNC machine and vise frames and has not been updated for the printer. |
 | `lab_bb_01` | `//:omts_solution --//:setup=lab_bb_01` | UR3e, Robotiq Hand-E, Orbbec Gemini 335Le, CAW enclosure, no machine | `omts_app` with [`configs/lab_bb_01/app_config.yaml`](configs/lab_bb_01/app_config.yaml), as upstream. |
 

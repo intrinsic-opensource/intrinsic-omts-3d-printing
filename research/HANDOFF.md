@@ -16,13 +16,15 @@ This file records what has been decided and what to do next.
 | Arm comparison (decided) | Summarized in section 6.3; the full comparison (`ARM_SELECTION_REQUEST.md`) is in git history at `b5b4eee` |
 | SO-101 URDF | `research/so101_new_calib.urdf`, from the earlier SO-101 evaluation; superseded by the reBot decision |
 | reBot URDFs | Base for the sim model: [Seeed-Projects/reBot-Isaacsim](https://github.com/Seeed-Projects/reBot-Isaacsim) `urdf/00-arm-rs_asm-v3/urdf/00-arm-rs_asm-v3.urdf` (MIT), which fixes the gripper limits (section 6.2). Originals: [Seeed-Projects/reBot-DevArm](https://github.com/Seeed-Projects/reBot-DevArm) `Rebot_Arm_description/` (Apache-2.0 / CERN-OHL-W-2.0). |
-| Reference source | `intrinsic-core` checked out at the commit OMTS pins: `INTRINSIC_CORE_COMMIT` in `MODULE.bazel` (`c40e02aa` since #161), not a release tag. The `20261012.0` tag predates it and lacks `nvidia_pose_estimator`. Check behavior against the pinned commit when it matters. |
+| Reference source | `intrinsic-core` checked out at the commit OMTS pins: `INTRINSIC_CORE_COMMIT` in `MODULE.bazel`: `50927e35`, the `20261022.0` release, since #169 (#161 had pinned the untagged commit `c40e02aa`). Check behavior against the pinned commit when it matters. |
 
 Steps 1a–1d are done in simulation (section 5), which completes milestone 1:
 the reBot picks a printed part with its gripper, carries it in Gazebo, and
-places it, with RViz (the belief world) matching. Milestone 2 (section 5b)
-moves the cell onto OMTS's own app with a wrist camera; to deploy and run it,
-see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md). The milestone 1 demo
+places it, with RViz (the belief world) matching. Steps 3a–3c-2 are done
+too, which completes milestone 2 (section 5b; step 3d is optional): OMTS's own
+app runs the cell from the wrist camera, finding the part on a Prusa Core One's
+bed, taking it to a drop-off and back. To deploy and run it, see
+[`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md). The milestone 1 demo
 (`//:rebot_demo`, `REBOT_DEMO.md`) was removed on 2026-10-30, once `omts_app`
 did the same round trip with perception; it is in git history (`42fcafc`).
 
@@ -59,9 +61,11 @@ Perception (milestone 2, step 3b) also needs the NVIDIA pose estimator's
 model assets, including the gated SAM 3 weights, exported once per machine;
 see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md), quick start step 2.
 
-For quick analysis scripts (URDF kinematics, 3MF parsing), install `numpy`. The
-original machine had no system pip; it was installed per-user with
-`get-pip.py --user`, then `python3 -m pip install --user numpy`.
+The offline reach and clearance checks run through Bazel, which provides
+numpy and scipy (`research/tools/README.md`). For other quick scripts (URDF
+kinematics, 3MF parsing), install `numpy`. The original machine had no system
+pip; it was installed per-user with `get-pip.py --user`, then
+`python3 -m pip install --user numpy`.
 
 ---
 
@@ -75,7 +79,7 @@ original machine had no system pip; it was installed per-user with
 | **ICON support for the reBot is expected from Intrinsic Core** | Hardware only, likely for the B601-RS. This project does not write or validate a driver; the community-driver risks (section 6.3) apply only if that changes. The simulation model is ours to build. |
 | **Target compute: NVIDIA Jetson (Orin or Thor)** | ARM64 support is expected. Seeed sells reBot kits bundled with Jetson Orin or Thor. |
 | **Simulation first** | Hardware waits for ICON support for the arm. All milestone 1 work runs in Gazebo (`--operation_mode=sim`). |
-| **No printer yet** | The target printer stays undecided. The arm first works on its own in an empty cell, with no obstacles. |
+| **No target printer yet** | The target printer stays undecided. Milestone 1 started in an empty cell; a stand-in printer joined in step 2a, and a Prusa Core One model replaced it in step 3c-2 as the cell's printer for now. |
 | **Spiral workflow** | Start simple and add complexity in small steps, with something to demo at every step (section 5, and `CLAUDE.md`). |
 
 ### 3.2 From the study
@@ -95,7 +99,7 @@ Each is recorded in the study with its reasoning.
 
 | Decision | Consequence |
 | --- | --- |
-| **Locate the print with an Orbbec camera under the wrist, as OMTS does** | Overrides two study decisions in 3.2: vision replaces the 3MF plate layout as the localization source, and a wrist depth camera replaces the fixed RGB camera. The plate layout stays as a later confidence check. |
+| **Locate the print with an Orbbec camera on the wrist, as OMTS does** | Overrides two study decisions in 3.2: vision replaces the 3MF plate layout as the localization source, and a wrist depth camera replaces the fixed RGB camera. The plate layout stays as a later confidence check. |
 | **Reuse OMTS and Intrinsic Core first; minimize custom code** | Part of the goal is to measure how easy the integration is. Every change to OMTS or a deviation from its design is flagged in the step that needs it. |
 | **Run the reBot cell through `omts_app`** | The pick-and-place `rebot_demo` was custom; the perception milestone moves the cell onto OMTS's own app and tree, with `machine: None` like `lab_bb_01`. The demo was removed after step 3c (2026-10-30). |
 | **No force sensing still holds** | OMTS's compliant touchdowns (`move_to_contact`) must become optional (milestone 2, step 3c). |
@@ -142,7 +146,9 @@ Each is recorded in the study with its reasoning.
 ### 4.2 Open project questions
 
 1. **Target printer and firmware.** Deferred: decides the status API, camera
-   source and 3MF variant. Needed before the printer enters the cell.
+   source and 3MF variant. The cell uses a Prusa Core One model for its
+   geometry (step 3c-2); whether the Prusa is the target is undecided. Needed
+   before the printer adapter and per-job cycle (after milestone 2).
 2. **Sheet swap or direct part grasping.** The study assumes direct grasping
    as the harder case.
 3. **Is the uncovered "collapsed or short print" case acceptable?**
@@ -923,8 +929,9 @@ Learned:
 
 * **Check every arm link, not just the tool, against a new printer.** The
   first offline check covered the gripper and camera and passed; the run then
-  failed on link4. `links_vs_prusa.py` and `tilt_sweep.py` in the offline
-  tools sample each link's collision mesh against the printer's boxes.
+  failed on link4. [`research/tools/`](tools/) has the offline checks used
+  here: `grasp_clearance` and `config_clearance` sample each link's collision
+  mesh against the printer's boxes.
 * **The fingers are two independent actuators in simulation.** Seeed's URDF,
   and so our SDF, has two prismatic finger joints with no coupling, while the
   real gripper drives both from one actuator. Intrinsic's scene object
@@ -966,6 +973,34 @@ Learned:
 * Try the MoveIt grasp planner backend for non-cuboid parts.
 * Move to hardware on a Jetson once ICON support for the arm is available.
 * Printer adapter and per-job cycle.
+
+Found during milestone 2, not yet planned:
+
+* **Pick one part among several detections.** The vision adapter takes the
+  first estimate (`estimates[0]`); the 0.5 confidence threshold keeps false
+  positives out today, but a bed with several parts, or a part next to a
+  look-alike, needs a choice (nearest, most confident, or matched to the
+  plate layout).
+* **Elongated parts.** The tilted grasp follows the part's long axis, so a
+  long part lying across the line to the robot would make it lean sideways
+  (step 3c).
+* **Drop the press before release** once the fingers are coupled in
+  simulation (question 4.1.8). The press is a simulation workaround, and on
+  hardware it may not be wanted.
+* **Fix the Prusa model's `bed_joint`:** prismatic along Y, while a Core
+  One's bed moves along Z (step 3c-2). Nothing moves it yet; needed before
+  the cell drives the bed.
+* **Tight clearances in the Prusa.** The gripper spans most of the bed
+  between the internal towers, so the return area is ±1 cm sideways and
+  ±5°, and parts printed off-centre may be out of reach. Options: a narrower
+  gripper; a horizontal grasp (approach along the bed, never tried); or
+  moving the arm, whose placement is free.
+* **A real camera bracket.** The mount pose is a guess (step 3a), and `view`
+  and the tilt limits depend on it; check them again against a real bracket
+  and its cable routing.
+* **Offline checks don't model the ground or self-collision**
+  ([`tools/README.md`](tools/README.md)); A's frames are near the ground, so
+  confirm changes there in simulation.
 
 ---
 
@@ -1077,22 +1112,27 @@ again if ICON support for the reBot does not materialize or another arm is consi
 
 Check these before building on them.
 
-* **Host-side image capture through Intrinsic** was never exercised in this
-  repo (`tools/calibration/sample_calibration_poses.py` sets `camera = None`).
-  The study avoids it by reading the printer's camera directly.
+* **Getting images back to the host through Intrinsic.** Triggering a
+  capture from a host script works (the `capture_images` skill, and pose
+  estimation; `REBOT_OMTS_APP.md`, Debugging), but the images were viewed on
+  Gazebo's camera topics, never returned to the host through Intrinsic
+  (`tools/calibration/sample_calibration_poses.py` still sets
+  `camera = None`). The study avoids it by reading the printer's camera
+  directly.
 
 ---
 
 ## 8. Housekeeping
 
 * **Local fixes for `20261012.0`:** written when OMTS pinned that release;
-  it now pins commit `c40e02aa` (#161), so recheck both against it. At the
-  time both were still needed with the pinned release. `b7cc503` (no camera args to `estimate_pose_multi_view`) stays
-  needed on intrinsic-core `main` too. `c98d44a` (attach and detach via the
-  robot) works around `attach_object_to_robot` parenting to the reference's
-  final entity. intrinsic-core `main` (`3d137157`) attaches to a gripper's
-  base entity again, so `c98d44a` becomes optional, though still correct,
-  once OMTS pins a release that includes that change.
+  it now pins `20261022.0` (`50927e35`, #169). `b7cc503` (no camera args to
+  `estimate_pose_multi_view`) is no longer a local fix: upstream made the same
+  change in #157. `c98d44a` (attach and detach via the robot, on this branch
+  as `828bbf3`) works around `attach_object_to_robot` parenting to the
+  reference's final entity. The pinned release includes `3d137157`, which
+  attaches to a gripper's base entity again, so the workaround is now
+  optional, though still correct; going back to attaching via the gripper is
+  untested.
 * **Upstream gap, still open at `48be90d`:** the solution does not declare
   `dio_wait_for_input`, so `DioCncMachine.build_wait_cycle_complete_task`
   sleeps and never checks the input (study section 1).
