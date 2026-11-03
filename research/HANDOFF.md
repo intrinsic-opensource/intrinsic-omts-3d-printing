@@ -1101,6 +1101,68 @@ Learned:
   with repeated `set_pose` calls did not stop it; a 1 mm flat along its
   underside, as a part printed lying down has, did (5 of 5).
 
+### Steps 4c–4g: Plan grasps with MoveIt, on to a Benchy (planned 2026-11-04)
+
+Goal: grasp a real print, a 3DBenchy, with OMTS's MoveIt grasp planner
+(`grasp.planner: moveit`) instead of `cuboid_center`.
+
+What OMTS's MoveIt support is, and what it is not:
+
+* OMTS ships the client side: `grasp.planner: moveit` runs Intrinsic's
+  `moveit_plan_grasp_skill` after perception, and the skill writes
+  `root/grasp` and `root/pre_grasp`, which the rest of the pick reads
+  unchanged (`third_party/intrinsic_moveit/README.md`).
+  `moveit_plan_grasp_and_move --plan_only` plans without running the cycle.
+* The skill calls a separate ROS 2 service, `moveit_planning_service` from
+  [intrinsic-moveit](https://github.com/intrinsic-ai/intrinsic-moveit),
+  built in a colcon workspace. Its launch file loads a MoveIt package named
+  `robot_hardware_moveit_config`, which is the UR5e with a Hand-E, and its
+  `flowstate_ros_bridge` settings name the UR's joints.
+* **Grasp candidates come from the part's bounding box**
+  (`generate_box_grasp_poses`): on chosen faces of the box, at a few turns
+  about each face normal, approaching along the normal. Gripper-to-part
+  collision is allowed, and candidates are ranked by motion cost. So MoveIt
+  checks reach and collisions with the cell, not where the fingers meet the
+  part's real shape. It does use the box's centre, not the mesh origin.
+* **Approaches are straight down or horizontal**, never in between. Straight
+  down cannot reach into the Prusa (step 3c). Offline (`cuboid_sweep --tilt
+  90`), a horizontal grasp puts the gripper body, 82 mm tall, into the bed or
+  the printer's base unless the part is about 80 mm tall or more; a 95 mm
+  part passes, a Benchy (48 mm) and a 40 mm cube do not.
+
+Decisions: the Benchy mesh is downloaded at build time and committed (its
+license allows it); the reBot's MoveIt packages are an overlay named
+`robot_hardware_moveit_config` in the colcon workspace; horizontal grasps on
+tall parts come first, tilted grasps after.
+
+* **4c. A Benchy in the cell, located with "boat".** Add a Benchy test part
+  at its real size (60 × 31 × 48 mm) to `--//:test_parts`, register it with
+  the prompt "boat", estimate its pose from `view` at three yaws and compare
+  with Gazebo. Demo: the estimate matches the true pose.
+* **4d. MoveIt's planning service for the reBot, offline.** Build the
+  intrinsic-moveit workspace (ROS 2 Lyrical). Write a reBot description from
+  the URDF behind `models/rebot_b601_rs`, with the gripper and camera, and a
+  MoveIt config with an arm group, a "hand" end-effector group and
+  `tool_frame`, as the `robot_hardware_moveit_config` overlay. Demo: a grasp
+  planned on a box in RViz with mock hardware.
+* **4e. Horizontal grasps on a tall part, connected.** Configure the reBot
+  cell's bridge (base frame, joint names), sync the scene into MoveIt, and
+  plan on a 95 mm tall part (`test_cuboid_95x20x40` stood on end with
+  `part_trial --lying`) with `--plan_only`, side faces only; then run one
+  `omts_app` cycle with `planner: moveit` (add the skill to
+  `//:rebot_solution`, and pre-create `grasp` and `pre_grasp`). Demo: a
+  horizontal pick in simulation. A's frames assume the 75° grasp, so A may
+  need its own frames for a horizontal one.
+* **4f. Tilted grasps by tilting the box frame from OMTS.** Pass the box
+  frame (`obj_t_obj_center`) and dimensions with the box pitched 75° about
+  the jaw axis, so that a "face" approach comes in tilted, using parameters
+  OMTS already passes to the skill. Demo: a tilted MoveIt grasp on a 40 mm
+  part. If the service rejects it, file a feature request with
+  intrinsic-moveit for sampled approach angles.
+* **4g. The Benchy with MoveIt.** Run the cycle on the Benchy with the
+  tilted box frame. Demo: a pick and return in simulation, and a look at
+  where the fingers land on the hull.
+
 Next:
 
 * Decide on the grasp depth: restore the stashed option and pick a default
