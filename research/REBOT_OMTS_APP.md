@@ -102,8 +102,9 @@ no new line appears; drop `--since=2m` to see the earlier one.
 ### 4. Register the part (after every deploy)
 
 The registration tells the pose estimator which object to look for: the
-part's model and a text prompt. It is stored on the cluster as an asset,
-which a deploy removes, so register again after each deploy (about a minute):
+part's model, a text prompt and a confidence threshold. It is stored on the
+cluster as an asset, which a deploy removes, so register again after each
+deploy (about a minute):
 
 ```bash
 bazel run -c opt \
@@ -111,18 +112,22 @@ bazel run -c opt \
   @intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_train_service/tools:register_using_ioc_train_service -- \
   --address="localhost:17080" \
   --scene_object_id="ai.intrinsic.rebot_printed_part" \
-  --pose_estimator_id="ai.intrinsic.rebot_printed_part_estimator" \
-  --refinement_iters=5 --confidence_threshold=0.5 --visibility_threshold=0.15 \
-  --text_prompt="cube"
+  --pose_estimator_id="ai.intrinsic.rebot_printed_part_object" \
+  --refinement_iters=5 --confidence_threshold=0.1 --visibility_threshold=0.15 \
+  --text_prompt="object"
 ```
 
-It ends with `Complete! Pose estimator ai.intrinsic.rebot_printed_part_estimator saved.`
+It ends with `Complete! Pose estimator ai.intrinsic.rebot_printed_part_object saved.`
 
-The threshold is 0.5, not the 0.15 OMTS uses for the raw stock: at 0.15,
-weak false positives such as the printer's toolhead come back too, and the
-app uses the first estimate it gets. SAM 3 scores the part about 0.58 from
-`view`. The service caches each estimator's threshold until it restarts, so
-to change it, register under a new id.
+The prompt is deliberately generic, so the same registration works for any
+printed part: SAM 3 proposes every region it takes for an object (a few on
+the bed and around the printer), FoundationPose fits the part's mesh to each,
+and the estimator returns them best fit first, which is the estimate the app
+uses. Each region costs a pose search of about 2.6 s, so finding the part
+takes 8 to 18 s instead of about a second with a part-specific prompt
+(`HANDOFF.md` step 4c-2). The service caches each estimator's prompt,
+threshold and model until it restarts, so to change them, register under a
+new id.
 
 ### 5. Run `omts_app`
 
@@ -131,7 +136,7 @@ bazel run //src:omts_app -- --address=localhost:17080 \
   --config=configs/rebot/app_config.yaml --num_cycles=3
 ```
 
-It prints `Execution successful`; a cycle takes about 50 s. `--num_cycles=0`
+It prints `Execution successful`; a cycle takes about 60 s, about 10 s of it finding the part. `--num_cycles=0`
 repeats until stopped. Each cycle:
 
 1. moves to `view`, finds the part on the bed and picks it with a grasp
@@ -222,12 +227,12 @@ bazel run -c opt \
   @intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator:run_pose_estimation -- \
   --address=localhost:17080 --service_name=nvidia_pose_estimator_service \
   --camera_name=orbbec_camera \
-  --pose_estimator_id=ai.intrinsic.rebot_printed_part_estimator
+  --pose_estimator_id=ai.intrinsic.rebot_printed_part_object
 ```
 
 It prints detections in the camera frame, best first. With the part in the
-middle of the bed, the only one scores about 1.0 and sits about 0.36 m
-straight ahead.
+middle of the bed, the first scores about 1.0 and sits about 0.36 m straight
+ahead; the others, poor fits on other regions, score 0.05 or less.
 
 ## Deploy without perception
 

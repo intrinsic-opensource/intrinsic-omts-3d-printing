@@ -1135,10 +1135,65 @@ license allows it); the reBot's MoveIt packages are an overlay named
 `robot_hardware_moveit_config` in the colcon workspace; horizontal grasps on
 tall parts come first, tilted grasps after.
 
-* **4c. A Benchy in the cell, located with "boat".** Add a Benchy test part
-  at its real size (60 × 31 × 48 mm) to `--//:test_parts`, register it with
-  the prompt "boat", estimate its pose from `view` at three yaws and compare
-  with Gazebo. Demo: the estimate matches the true pose.
+* **4c. A Benchy in the cell, located with "boat".** **Done (2026-11-03).**
+  `models/test_benchy/` is a 900-triangle low-poly Benchy (60 × 31 × 48 mm)
+  in `--//:test_parts`. From `view`, registered with "toy boat", the pose
+  estimate is within 0.4 mm and 0.3° of Gazebo's at yaws 0°, 45° and 90°.
+  Learned:
+  * **"boat" only works broadside.** Its first segmentation pass scores the
+    Benchy 0.25 end-on and 0.42 at 45°, below the 0.5 threshold, and 0.67 to
+    0.9 broadside. "toy boat" scores 0.78 or more at all three yaws, so it
+    keeps the threshold; "boat" at 0.2 also works but invites false
+    positives.
+  * **The official mesh is too detailed for FoundationPose here.** Its
+    225,706 triangles ran the 16 GB GPU out of memory (the service holds
+    11 GB idle). Only the shape matters, so the low-poly model replaced it.
+    3DBenchy is CC0 since 2025.
+  * **Registration ignores the visual's pose.** The exported model (in the
+    estimator pod's `/tmp/cad_models/`) is the mesh scaled to metres but
+    without the SDF `<pose>`, so a mesh centred by an SDF offset is
+    estimated at the mesh's own origin, here 12 cm off. A part's mesh must
+    have its origin at the part's frame.
+  * **The service caches exported models by estimator id**, in the pod,
+    across deploys. After changing a part's mesh, restart
+    `rs-nvidia-pose-estimator-service-0` or register under a new id.
+* **4c-2. One prompt for any part, geometry picks.** **Done (2026-11-03).**
+  Registered with the service's own fallback prompt, "object", at a
+  confidence threshold of 0.1, the pose estimator found every part tried, with
+  no part-specific wording:
+
+  | Scene | Masks | Kept | FoundationPose | Best / next score |
+  | --- | --- | --- | --- | --- |
+  | Benchy alone, yaws 0°, 45°, 90° | 5 | 2 | 13 s | 0.999 / 0.011 |
+  | Default 40×40×30 part | 4 | 2 | 10 s | 0.999 / 0.051 |
+  | Cylinder, lying | 5 | 2 | 13 s | 0.994 / 0.010 |
+  | 80×20×40 cuboid | 3 | 1 | 8 s | 0.999 / – |
+  | Benchy and default part together, each estimator | 7 | 3 | 18 s | 0.997 / 0.050 |
+
+  Every best estimate was the right part, within 0.5 mm of Gazebo's pose
+  (the box sometimes upside down, which is equivalent for it). How it works:
+  SAM 3 proposes every region it calls an object; FoundationPose fits the
+  part's mesh to each; the service drops poor fits (`selection` in its
+  config) and returns the rest sorted by FoundationPose's fit, so the app's
+  first estimate is the region the mesh fits best. Learned:
+  * **No prompt-free mode, but a broad prompt works.** The service always
+    prompts SAM 3 (`nvidia_service_config.proto`); "object" with a low
+    threshold hands the choice to the geometry. No code change: only the
+    registration's prompt and threshold.
+  * **The cost is time.** Every mask above the threshold gets its own pose
+    search, about 2.6 s each on this GPU, with no cap: 8 to 18 s per
+    estimate against about 1.2 s for one mask. GPU memory held with up to
+    7 masks.
+  * **Not yet tested:** real camera images, many parts on the bed, look-alike
+    parts (geometry cannot tell two copies of one model apart), and whether
+    the runner-up margin holds on real prints.
+  * **Now the cell's default.** `app_config.yaml` uses
+    `ai.intrinsic.rebot_printed_part_object`, registered with "object" at
+    0.1 (`REBOT_OMTS_APP.md`, quick start step 4); two cycles passed, about
+    61 s each against about 50 s with "cube" at 0.5.
+  * **`apply_scene_updates --files` with no file names applies nothing**; it
+    only resets Gazebo to the current world. Restore the cell with
+    `--setup rebot`, which applies every `configs/rebot/*.updates.pbtxt`.
 * **4d. MoveIt's planning service for the reBot, offline.** Build the
   intrinsic-moveit workspace (ROS 2 Lyrical). Write a reBot description from
   the URDF behind `models/rebot_b601_rs`, with the gripper and camera, and a

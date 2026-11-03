@@ -32,8 +32,7 @@ the parked placements, the file the deploy starts from
   bazel run //research/tools:part_trial -- \
     --part test_cuboid_80x20x40 --yaw 90 --out /tmp/trial
   bazel run //research/tools:part_trial -- \
-    --part test_cylinder_30x60 --lying --yaw 90 --text_prompt cylinder \
-    --out /tmp/trial
+    --part test_cylinder_30x60 --lying --yaw 90 --out /tmp/trial
 """
 
 import argparse
@@ -46,7 +45,8 @@ import numpy as np
 from research.tools import a_frames, cell
 
 # Name -> model extents along x, y, z (m): the test parts in
-# models/test_cuboids and models/test_cylinders, and the default part.
+# models/test_cuboids, models/test_cylinders and models/test_benchy (its
+# bounding box), and the default part.
 PARTS = {
   "rebot_printed_part": (0.04, 0.04, 0.03),
   "test_cuboid_40x40x20": (0.04, 0.04, 0.02),
@@ -55,6 +55,7 @@ PARTS = {
   "test_cuboid_80x20x40": (0.08, 0.02, 0.04),
   "test_cuboid_95x20x40": (0.095, 0.02, 0.04),
   "test_cylinder_30x60": (0.03, 0.03, 0.06),
+  "test_benchy": (0.0595, 0.031, 0.048),
 }
 # Parking spots on the ground, about 1 m from the base (reach 0.78 m).
 PARKING_X = -0.85
@@ -139,8 +140,14 @@ def main() -> None:
   )
   parser.add_argument(
     "--text_prompt",
-    default="cube",
-    help="SAM 3 prompt; 'box' found nothing in the first trials",
+    default="object",
+    help="SAM 3 prompt; the generic 'object' works for any part",
+  )
+  parser.add_argument(
+    "--confidence_threshold",
+    type=float,
+    default=0.1,
+    help="SAM 3 threshold; low, so the mesh fit picks the part",
   )
   args = parser.parse_args()
 
@@ -229,7 +236,8 @@ bazel run -c opt \\
   @intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_train_service/tools:register_using_ioc_train_service -- \\
   --address=localhost:17080 --scene_object_id=ai.intrinsic.{args.part} \\
   --pose_estimator_id={estimator} --refinement_iters=5 \\
-  --confidence_threshold=0.5 --visibility_threshold=0.15 --text_prompt="{args.text_prompt}"
+  --confidence_threshold={args.confidence_threshold} --visibility_threshold=0.15 \\
+  --text_prompt="{args.text_prompt}"
 bazel run //src:omts_app -- --address=localhost:17080 \\
   --config={out}/app_config.yaml --num_cycles=1""")
 

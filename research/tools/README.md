@@ -100,14 +100,15 @@ bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \
 
 Then, per trial, write its files and run the commands the tool prints: apply
 the world (the chosen cuboid on the bed and A's frames at its height),
-register the part with the pose estimator (once per part and deploy; the
-prompt "cube" works for the cuboids, "cylinder" for the cylinder), and run
-one cycle:
+register the part with the pose estimator (once per part and deploy, with
+the generic prompt "object" at threshold 0.1, which works for every part,
+`research/HANDOFF.md` step 4c-2), and run one cycle:
 
 ```bash
 bazel run //research/tools:part_trial -- \
   --part test_cuboid_80x20x40 --yaw 90 --out /tmp/trial
 ```
 
-Afterwards, `apply_scene_updates --files --reset_sim` puts the default part
-back on the bed and parks the test parts again.
+Afterwards, `apply_scene_updates --setup rebot --reset_sim` puts the default
+part back on the bed and parks the test parts again. (`--files` with no file
+names applies nothing; it only resets Gazebo to the current world.)
