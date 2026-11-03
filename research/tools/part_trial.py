@@ -12,23 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Sets up a graspability trial with one test cuboid in the reBot cell.
+"""Sets up a graspability trial with one test part in the reBot cell.
 
-For a cell deployed with --//:test_cuboids, writes to --out:
+For a cell deployed with --//:test_parts, writes to --out:
 
-* trial.updates.pbtxt: the chosen part on the bed centre, turned by --yaw;
-  the other test cuboids and rebot_printed_part parked on the ground out of
-  the arm's reach; and A's frames at the chosen part's height.
+* trial.updates.pbtxt: the chosen part on the bed centre, standing as
+  modelled (model z up) or with --lying on its side (model z along the
+  world x axis, toward and away from the robot), then turned by --yaw; the
+  other test parts and rebot_printed_part parked on the ground out of the
+  arm's reach; and A's frames at the chosen part's height.
 * app_config.yaml: configs/rebot/app_config.yaml with the chosen part as the
   workpiece and its own pose estimator id.
 
 and prints the commands to apply the world, register the part and run a cycle
 (research/tools/README.md, "Graspability trials"). With --parking, writes only
 the parked placements, the file the deploy starts from
-(configs/rebot/test_cuboids.updates.pbtxt).
+(configs/rebot/test_parts.updates.pbtxt).
 
-  bazel run //research/tools:cuboid_trial -- \
+  bazel run //research/tools:part_trial -- \
     --part test_cuboid_80x20x40 --yaw 90 --out /tmp/trial
+  bazel run //research/tools:part_trial -- \
+    --part test_cylinder_30x60 --lying --yaw 90 --text_prompt cylinder \
+    --out /tmp/trial
 """
 
 import argparse
@@ -40,7 +45,8 @@ import numpy as np
 
 from research.tools import a_frames, cell
 
-# Name -> size (m): the cuboids in models/test_cuboids, and the default part.
+# Name -> model extents along x, y, z (m): the test parts in
+# models/test_cuboids and models/test_cylinders, and the default part.
 PARTS = {
   "rebot_printed_part": (0.04, 0.04, 0.03),
   "test_cuboid_40x40x20": (0.04, 0.04, 0.02),
@@ -48,6 +54,7 @@ PARTS = {
   "test_cuboid_40x40x40": (0.04, 0.04, 0.04),
   "test_cuboid_80x20x40": (0.08, 0.02, 0.04),
   "test_cuboid_95x20x40": (0.095, 0.02, 0.04),
+  "test_cylinder_30x60": (0.03, 0.03, 0.06),
 }
 # Parking spots on the ground, about 1 m from the base (reach 0.78 m).
 PARKING_X = -0.85
@@ -114,6 +121,11 @@ def main() -> None:
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
   parser.add_argument("--part", choices=sorted(PARTS), default=None)
   parser.add_argument("--yaw", type=float, default=0.0, help="deg")
+  parser.add_argument(
+    "--lying",
+    action="store_true",
+    help="lay the part on its side, model z along the world x axis",
+  )
   parser.add_argument("--out", type=Path, default=None)
   parser.add_argument("--parking", type=Path, default=None)
   parser.add_argument(
@@ -132,15 +144,15 @@ def main() -> None:
   )
   args = parser.parse_args()
 
-  cuboids = [n for n in PARTS if n != "rebot_printed_part"]
+  test_parts = [n for n in PARTS if n != "rebot_printed_part"]
   if args.parking:
     args.parking.write_text(
       HEADER
-      + "\n# Test cuboids parked on the ground, out of the reBot's reach, for"
+      + "\n# Test parts parked on the ground, out of the reBot's reach, for"
       + "\n# the graspability trials (research/tools/README.md). Loaded by"
-      + "\n# //:rebot_solution only with --//:test_cuboids. Written by"
-      + "\n# //research/tools:cuboid_trial --parking.\n\n"
-      + parked(cuboids)
+      + "\n# //:rebot_solution only with --//:test_parts. Written by"
+      + "\n# //research/tools:part_trial --parking.\n\n"
+      + parked(test_parts)
     )
     print(f"wrote {args.parking}")
     return
@@ -149,16 +161,24 @@ def main() -> None:
 
   args.out.mkdir(parents=True, exist_ok=True)
   sx, sy, sz = PARTS[args.part]
+  rest = np.eye(3)
+  height = sz
+  if args.lying:
+    # A quarter turn about y: model z to world x, model x straight down.
+    rest = np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]])
+    height = sx
   on_bed = np.eye(4)
-  on_bed[:3, :3] = cell.rot_z(math.radians(args.yaw))
-  on_bed[:3, 3] = cell.bed_centre() + [0, 0, sz / 2]
+  on_bed[:3, :3] = cell.rot_z(math.radians(args.yaw)) @ rest
+  on_bed[:3, 3] = cell.bed_centre() + [0, 0, height / 2]
   tilt = cell.app_setting("approach_tilt_degrees")
   frames = a_frames.frames(
-    tilt, A_RADIUS, A_BEARING, half_height=sz / 2, depth=args.depth
+    tilt, A_RADIUS, A_BEARING, half_height=height / 2, depth=args.depth
   )
   updates = (
     HEADER
-    + f"\n# Graspability trial: {args.part} on the bed, yaw {args.yaw:g} deg.\n\n"
+    + f"\n# Graspability trial: {args.part} on the bed"
+    + (", lying" if args.lying else "")
+    + f", yaw {args.yaw:g} deg.\n\n"
     + _place(args.part, on_bed)
     + parked([n for n in PARTS if n != args.part])
     + "".join(_frame(name, t) for name, t in frames.items())

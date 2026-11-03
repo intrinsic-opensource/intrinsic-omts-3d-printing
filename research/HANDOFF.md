@@ -1020,8 +1020,8 @@ on the Prusa's bed, and trials in simulation with six test parts.
   press back onto the bed; the same at A on the ground; and reach. It also
   reports the finger pad area on the gripped face.
 * **Trials:** `models/test_cuboids/` holds five test cuboids, deployed with
-  `//:rebot_solution` only under `--//:test_cuboids` and parked out of
-  reach. `research/tools/cuboid_trial` puts one on the bed and writes A's
+  `//:rebot_solution` only under `--//:test_parts` and parked out of
+  reach. `research/tools/part_trial` puts one on the bed and writes A's
   frames at its height and an `app_config` naming it. Register each part
   with the prompt "cube": "box" found nothing.
 
@@ -1068,6 +1068,39 @@ Learned:
   passed in simulation where the sweep puts the body 1–2 mm into the bed, so
   treat the height limit as ±3 mm.
 
+### Step 4b: A cylinder, with `cuboid_center`
+
+**Status: done (2026-11-03).** A 30 mm × 60 mm cylinder
+(`models/test_cylinders/`) in three orientations, with the grasp planner
+unchanged. `research/tools/part_trial` (renamed from `cuboid_trial`) lays a
+part on its side with `--lying`; the flag is now `--//:test_parts`. Register
+with the prompt "cylinder".
+
+| Orientation | Simulation | Grasp |
+| --- | --- | --- |
+| Lying, axis toward the robot | Passed | Across the diameter, leaning along the axis. |
+| Lying, axis across | Passed | By the flat ends (60 mm between the jaws), like the long cuboids. |
+| Standing | Failed: link4 against the printer | Turned 32°, past the ±14° limit. |
+
+Learned:
+
+* **A lying cylinder works with `cuboid_center`.** The calculator takes the
+  model z axis (the cylinder's axis) as the long axis when model x points
+  down, so the grasp is across the diameter or on the ends, chosen by the
+  yaw symmetry as for cuboids.
+* **A standing cylinder needs another rule.** It looks the same at any roll
+  about its axis, so the pose estimate's x axis, and the grasp's direction
+  with it, is arbitrary: up to ±45° off with yaw symmetry 90, against a ±14°
+  limit in the Prusa. A round part should lean straight toward the robot,
+  whatever its estimated roll.
+* **Round parts roll in simulation before Gazebo welds them.** Intrinsic's
+  simulator welds a free part to its support (`ObjectInteractionModerator`)
+  only after 2 s at rest, a value set in the simulator asset's arguments
+  that the solution cannot override, and a cylinder on its side rolls to the
+  printer's wall first (3 of 5 resets). Dropping it from 5 mm or holding it
+  with repeated `set_pose` calls did not stop it; a 1 mm flat along its
+  underside, as a part printed lying down has, did (5 of 5).
+
 Next:
 
 * Decide on the grasp depth: restore the stashed option and pick a default
@@ -1075,7 +1108,9 @@ Next:
   the size today).
 * Make the yaw symmetry a per-part choice: 90 suits square parts and lets
   long ones be gripped by their ends; 180 keeps long parts gripped across.
-* Other shapes: cylinders, L-shapes, parts lying on another face.
+* A rule for round parts (standing cylinders): lean toward the robot
+  regardless of the estimated roll.
+* Other shapes: L-shapes, parts lying on another face.
 
 ---
 

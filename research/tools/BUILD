@@ -96,9 +96,9 @@ py_library(
 )
 
 py_binary(
-    name = "cuboid_trial",
-    srcs = ["cuboid_trial.py"],
-    main = "cuboid_trial.py",
+    name = "part_trial",
+    srcs = ["part_trial.py"],
+    main = "part_trial.py",
     deps = [
         ":a_frames_lib",
         ":cell",

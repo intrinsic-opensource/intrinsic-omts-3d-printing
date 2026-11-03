@@ -1,10 +1,10 @@
 # proto-file: intrinsic/world/public/proto/object_world_updates.proto
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
 
-# Test cuboids parked on the ground, out of the reBot's reach, for
+# Test parts parked on the ground, out of the reBot's reach, for
 # the graspability trials (research/tools/README.md). Loaded by
-# //:rebot_solution only with --//:test_cuboids. Written by
-# //research/tools:cuboid_trial --parking.
+# //:rebot_solution only with --//:test_parts. Written by
+# //research/tools:part_trial --parking.
 
 updates {
   reparent_object {
@@ -87,6 +87,23 @@ updates {
     node_to_update { by_name { object { object_name: "test_cuboid_95x20x40" } } }
     a_t_b {
       position { x: -0.8500 y: 0.2500 z: 0.0200 }
+      orientation { x: 0.000000 y: 0.000000 z: 0.000000 w: 1.000000 }
+    }
+  }
+}
+updates {
+  reparent_object {
+    object { by_name { object_name: "test_cylinder_30x60" } }
+    new_parent { reference { by_name { object_name: "root" } } }
+  }
+}
+updates {
+  update_transform {
+    node_a { by_name { object { object_name: "root" } } }
+    node_b { by_name { object { object_name: "test_cylinder_30x60" } } }
+    node_to_update { by_name { object { object_name: "test_cylinder_30x60" } } }
+    a_t_b {
+      position { x: -0.8500 y: 0.5000 z: 0.0300 }
       orientation { x: 0.000000 y: 0.000000 z: 0.000000 w: 1.000000 }
     }
   }

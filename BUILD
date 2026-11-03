@@ -45,28 +45,31 @@ config_setting(
     },
 )
 
-# Whether rebot_solution also carries the test cuboids (models/test_cuboids)
-# for the graspability trials (research/tools/README.md). Off by default; they
-# are parked on the ground out of the arm's reach until a trial places one.
+# Whether rebot_solution also carries the test parts (models/test_cuboids,
+# models/test_cylinders) for the graspability trials
+# (research/tools/README.md). Off by default; they are parked on the ground out
+# of the arm's reach until a trial places one.
 bool_flag(
-    name = "test_cuboids",
+    name = "test_parts",
     build_setting_default = False,
 )
 
 config_setting(
-    name = "with_test_cuboids",
+    name = "with_test_parts",
     flag_values = {
-        ":test_cuboids": "True",
+        ":test_parts": "True",
     },
 )
 
-_TEST_CUBOIDS = [
-    "test_cuboid_40x40x20",
-    "test_cuboid_40x40x22",
-    "test_cuboid_40x40x40",
-    "test_cuboid_80x20x40",
-    "test_cuboid_95x20x40",
-]
+# Test part asset -> its package.
+_TEST_PARTS = {
+    "test_cuboid_40x40x20": "//models/test_cuboids",
+    "test_cuboid_40x40x22": "//models/test_cuboids",
+    "test_cuboid_40x40x40": "//models/test_cuboids",
+    "test_cuboid_80x20x40": "//models/test_cuboids",
+    "test_cuboid_95x20x40": "//models/test_cuboids",
+    "test_cylinder_30x60": "//models/test_cylinders",
+}
 
 _OMTS_SKILL_ASSETS = [
     ":hand_e_gripper_cmd_skill_asset",
@@ -222,7 +225,7 @@ intrinsic_solution(
         ],
         "//conditions:default": [],
     }) + select({
-        ":with_test_cuboids": ["//models/test_cuboids:" + c for c in _TEST_CUBOIDS],
+        ":with_test_parts": [pkg + ":" + p for p, pkg in _TEST_PARTS.items()],
         "//conditions:default": [],
     }),
     default_operation_mode = "sim",
@@ -241,7 +244,7 @@ intrinsic_solution(
         ":rebot_printed_part",
         ":train_service",
     ] + select({
-        ":with_test_cuboids": [":" + c for c in _TEST_CUBOIDS],
+        ":with_test_parts": [":" + p for p in _TEST_PARTS],
         "//conditions:default": [],
     }),
     object_world_updates = [
@@ -252,7 +255,7 @@ intrinsic_solution(
         "//configs:rebot/printed_part.updates.pbtxt",
         "//configs:rebot/scene.updates.pbtxt",
     ] + select({
-        ":with_test_cuboids": ["//configs:rebot/test_cuboids.updates.pbtxt"],
+        ":with_test_parts": ["//configs:rebot/test_parts.updates.pbtxt"],
         "//conditions:default": [],
     }),
 )
@@ -282,7 +285,7 @@ intrinsic_asset_instance(
         asset = "ai.intrinsic." + c,
         instance_name = c,
     )
-    for c in _TEST_CUBOIDS
+    for c in _TEST_PARTS
 ]
 
 intrinsic_asset_instance(

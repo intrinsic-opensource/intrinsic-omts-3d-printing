@@ -4,7 +4,7 @@ load("@intrinsic-core//intrinsic_sdk/intrinsic/assets/scene_objects/build_defs:s
 package(default_visibility = ["//visibility:public"])
 
 # Test cuboids for the graspability trials (research/tools/README.md),
-# deployed with //:rebot_solution only under --//:test_cuboids.
+# deployed with //:rebot_solution only under --//:test_parts.
 # Generated: a box mesh (OBJ) and a box collision per size.
 
 sdf_scene_object(
