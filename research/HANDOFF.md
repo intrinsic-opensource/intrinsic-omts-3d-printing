@@ -1191,6 +1191,42 @@ tall parts come first, tilted grasps after.
     `ai.intrinsic.rebot_printed_part_object`, registered with "object" at
     0.1 (`REBOT_OMTS_APP.md`, quick start step 4); two cycles passed, about
     61 s each against about 50 s with "cube" at 0.5.
+  * **A higher threshold cannot cap the masks.** "object" always ranks the
+    part first, but its score depends on the shape: the Benchy 0.57–0.69,
+    the lying cylinder 0.36, the default box 0.31, the 80×20×40 cuboid 0.20,
+    against 0.10–0.28 for the next region. At 0.5 only the Benchy was
+    found; keeping every part needs a threshold under 0.2. The rank is what
+    is stable, so a cap should keep the top N regions by score. The
+    estimator has no such option: SAM 3's 200 queries are the only limit,
+    and the survivors keep the decoder's order, unsorted.
+  * **Other generic prompts are worse.** Scores of the best and next region
+    in the first pass, with the part on the bed (Benchy end-on):
+
+    | Part | "object" | "shape" | "stock" | "3D printed part" |
+    | --- | --- | --- | --- | --- |
+    | Benchy | 0.57 / 0.20 | 0.03 / 0.02 | 0.001 | 0.36 / 0.28 |
+    | Default box | 0.31 / 0.14 | 0.05 / 0.02 | 0.001 | 0.49 / 0.33 |
+    | Cylinder, lying | 0.36 / 0.15 | 0.02 / 0.01 | 0.001 | 0.74 / 0.35 |
+    | 80×20×40 cuboid | 0.20 / 0.10 | 0.04 / 0.02 | 0.001 | 0.58 / 0.34 |
+    | Regions over 0.1 | 3–5 | 0 | 0 | 13–16 |
+
+    "shape" and "stock" find nothing: abstract words score near zero, while
+    concrete shape names score high on their own shape ("cube" 0.93–0.98
+    on the 40 mm cube, "cylinder" 0.98). SAM 3 ships no list of learned
+    concepts; `bpe_simple_vocab_16e6.txt.gz` in the export is the text
+    tokenizer's merge table. "3D printed part" scores the simple shapes higher
+    than "object" does, but it also scores pieces of the printer at 0.28 to
+    0.35, so it passes three to five times as many regions (more pose
+    searches) with a thinner margin; the right part still won every time.
+    "object" stays the default. Estimator ids must be lowercase ("3D" in an
+    id is rejected).
+  * **A dense grid did not flood the segmentation.** With
+    `models/test_grid` (a 100 mm plate of 10 × 10 cubes, `part_trial
+    --grid`) beside the part, the first pass still proposed 7 regions:
+    SAM 3 takes the grid as one object. The right part won (0.997 / 0.021
+    and 0.999 / 0.059), at about 20 s per estimate, peaking at 15.3 GB of
+    the GPU's 16.4 GB, as without the grid. Separate, larger prints spread
+    over the bed may behave differently; untested.
   * **`apply_scene_updates --files` with no file names applies nothing**; it
     only resets Gazebo to the current world. Restore the cell with
     `--setup rebot`, which applies every `configs/rebot/*.updates.pbtxt`.

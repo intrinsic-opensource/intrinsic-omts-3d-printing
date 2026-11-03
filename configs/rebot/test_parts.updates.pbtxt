@@ -125,3 +125,20 @@ updates {
     }
   }
 }
+updates {
+  reparent_object {
+    object { by_name { object_name: "test_grid" } }
+    new_parent { reference { by_name { object_name: "root" } } }
+  }
+}
+updates {
+  update_transform {
+    node_a { by_name { object { object_name: "root" } } }
+    node_b { by_name { object { object_name: "test_grid" } } }
+    node_to_update { by_name { object { object_name: "test_grid" } } }
+    a_t_b {
+      position { x: -0.6500 y: 1.0000 z: 0.0000 }
+      orientation { x: 0.000000 y: 0.000000 z: 0.000000 w: 1.000000 }
+    }
+  }
+}

@@ -16,7 +16,8 @@
 
 For a cell deployed with --//:test_parts, writes to --out:
 
-* trial.updates.pbtxt: the chosen part on the bed centre, standing as
+* trial.updates.pbtxt: the chosen part on the bed centre (and with --grid,
+  the dense test grid beside it), standing as
   modelled (model z up) or with --lying on its side (model z along the
   world x axis, toward and away from the robot), then turned by --yaw; the
   other test parts and rebot_printed_part parked on the ground out of the
@@ -57,6 +58,10 @@ PARTS = {
   "test_cylinder_30x60": (0.03, 0.03, 0.06),
   "test_benchy": (0.0595, 0.031, 0.048),
 }
+# The dense grid (models/test_grid): extents, and its origin's height above
+# what it rests on (it sits on its plate's underside).
+GRID = "test_grid"
+GRID_SIZE = (0.1, 0.1, 0.008)
 # Parking spots on the ground, about 1 m from the base (reach 0.78 m).
 PARKING_X = -0.85
 PARKING_Y0, PARKING_DY = -0.75, 0.25
@@ -113,7 +118,11 @@ def parked(names) -> str:
   out = []
   for i, name in enumerate(names):
     t = np.eye(4)
-    t[:3, 3] = (PARKING_X, PARKING_Y0 + i * PARKING_DY, PARTS[name][2] / 2)
+    if name == GRID:
+      # Static, origin at its base: park it flat on the ground.
+      t[:3, 3] = (PARKING_X + 0.2, PARKING_Y0 + i * PARKING_DY, 0.0)
+    else:
+      t[:3, 3] = (PARKING_X, PARKING_Y0 + i * PARKING_DY, PARTS[name][2] / 2)
     out.append(_place(name, t))
   return "".join(out)
 
@@ -129,6 +138,13 @@ def main() -> None:
   )
   parser.add_argument("--out", type=Path, default=None)
   parser.add_argument("--parking", type=Path, default=None)
+  parser.add_argument(
+    "--grid",
+    type=float,
+    default=None,
+    metavar="Y",
+    help="also put the dense test grid on the bed, centred Y m to the side",
+  )
   parser.add_argument(
     "--depth",
     type=float,
@@ -151,7 +167,7 @@ def main() -> None:
   )
   args = parser.parse_args()
 
-  test_parts = [n for n in PARTS if n != "rebot_printed_part"]
+  test_parts = [n for n in PARTS if n != "rebot_printed_part"] + [GRID]
   if args.parking:
     args.parking.write_text(
       HEADER
@@ -187,9 +203,13 @@ def main() -> None:
     + (", lying" if args.lying else "")
     + f", yaw {args.yaw:g} deg.\n\n"
     + _place(args.part, on_bed)
-    + parked([n for n in PARTS if n != args.part])
+    + parked([n for n in PARTS if n != args.part] + [GRID])
     + "".join(_frame(name, t) for name, t in frames.items())
   )
+  if args.grid is not None:
+    grid = np.eye(4)
+    grid[:3, 3] = cell.bed_centre() + [0, args.grid, 0]
+    updates += "\n# The dense test grid on the bed.\n" + _place(GRID, grid)
   (args.out / "trial.updates.pbtxt").write_text(updates)
 
   # The service caches an estimator's settings by id, so the id names the

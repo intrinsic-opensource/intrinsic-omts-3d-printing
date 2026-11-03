@@ -46,7 +46,8 @@ config_setting(
 )
 
 # Whether rebot_solution also carries the test parts (models/test_cuboids,
-# models/test_cylinders, models/test_benchy) for the graspability trials
+# models/test_cylinders, models/test_benchy, models/test_grid) for the
+# graspability trials
 # (research/tools/README.md). Off by default; they are parked on the ground out
 # of the arm's reach until a trial places one.
 bool_flag(
@@ -70,6 +71,7 @@ _TEST_PARTS = {
     "test_cuboid_95x20x40": "//models/test_cuboids",
     "test_benchy": "//models/test_benchy",
     "test_cylinder_30x60": "//models/test_cylinders",
+    "test_grid": "//models/test_grid",
 }
 
 _OMTS_SKILL_ASSETS = [
