@@ -34,12 +34,16 @@ class RobotConfig:
       tool_object_name: Name of the end-effector object in `solution.world`.
       tool_frame_name: Name of the TCP frame on `tool_object_name`.
       enclosure_object_name: Name of the cell enclosure object, if applicable.
+      force_sensing: Whether the arm can sense contact forces. Without it,
+        `move_to_contact` has no robot to bind to, so compliant touchdowns are
+        replaced by linear moves to the seated pose.
   """
 
   arm_part_name: str
   tool_object_name: str
   tool_frame_name: str
   enclosure_object_name: str | None = None
+  force_sensing: bool = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,7 +51,7 @@ class GripperConfig:
   """Configuration for the end-effector gripper adapter.
 
   Attributes:
-      type: Gripper adapter type (`'robotiq'` or `'dio'`).
+      type: Gripper adapter type (`'robotiq'`, `'dio'` or `'pinch'`).
       joint_name: Finger joint name for `RobotiqGripper`.
       open_position: Open stroke position in meters for `RobotiqGripper`.
       close_position: Closed stroke position in meters for `RobotiqGripper`.
@@ -56,6 +60,12 @@ class GripperConfig:
       dio_close_pin: Digital output index to close `DioGripper`.
       dio_device_name: Optional ADIO device resource name for `DioGripper`.
       dio_output_block_name: Digital output block name for `DioGripper`.
+      resource_name: Gripper hardware device instance commanded by
+        `PinchGripper` through `ai.intrinsic.control_pinch_gripper`.
+      settle_seconds: Dwell after each `PinchGripper` grasp or release.
+        `control_pinch_gripper` returns once the command is sent, before the
+        fingers stop, so the arm would otherwise move while they are still
+        closing or opening. Defaults to `PinchGripper.DEFAULT_SETTLE_SECONDS`.
   """
 
   type: str
@@ -67,12 +77,16 @@ class GripperConfig:
   dio_close_pin: int | None = None
   dio_device_name: str | None = None
   dio_output_block_name: str | None = None
+  resource_name: str | None = None
+  settle_seconds: float | None = None
 
   def __post_init__(self) -> None:
     if self.type == "robotiq":
       required = ("joint_name", "open_position", "close_position")
     elif self.type == "dio":
       required = ("dio_open_pin", "dio_close_pin", "dio_output_block_name")
+    elif self.type == "pinch":
+      required = ("resource_name",)
     else:
       return
     missing = [name for name in required if getattr(self, name) is None]
@@ -193,6 +207,14 @@ class CycleConfig:
       return_shift: Optional configuration for applying a randomized positional
         shift when returning the workpiece. If None, the object is placed at
         the exact view frame location.
+      place_press_meters: Without force sensing (`robot.force_sensing` False),
+        how far past the place pose, along the approach, to move when setting
+        the workpiece down (machine load and infeed return), so it is pressed
+        onto its support before release. Grasps are unaffected.
+      workpiece_support_objects: World objects the workpiece rests on besides
+        the enclosure (e.g. the ground at a drop-off). Their contact with the
+        workpiece is excluded from collision checks wherever the enclosure's
+        is, so the workpiece can be set down touching them.
   """
 
   num_cycles: int
@@ -207,6 +229,8 @@ class CycleConfig:
   touchdown_timeout_seconds: float
   machining_timeout_seconds: float
   return_shift: "ReturnShiftConfig | None" = None
+  place_press_meters: float = 0.0
+  workpiece_support_objects: tuple[str, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -224,12 +248,21 @@ class ReturnShiftConfig:
 class GraspConfig:
   """Selects and tunes the grasp planning backend used during the infeed pick.
 
-  Only `planner` is meaningful for the built-in `'cuboid_center'` backend; the
-  `moveit_*` fields are forwarded to the `intrinsic-moveit` integration and are
-  ignored otherwise.
+  Only `planner` and `approach_tilt_degrees` are meaningful for the built-in
+  `'cuboid_center'` backend; the `moveit_*` fields are forwarded to the
+  `intrinsic-moveit` integration and are ignored otherwise.
 
   Attributes:
       planner: Grasp planner backend (`'cuboid_center'` or `'moveit'`).
+      approach_tilt_degrees: `cuboid_center` only. Pitches the grasp about the
+        jaw axis so the approach leans this far from vertical, away from the
+        robot base, for arms that cannot reach straight down (the reBot inside
+        a printer). The pre-grasp backs off along the tilted approach. 0 keeps
+        the vertical grasp.
+      yaw_symmetry_degrees: `cuboid_center` only. How far the workpiece can
+        turn about the vertical and look the same: 180 for a rectangular
+        footprint, 90 for a square one, which lets a tilted grasp take
+        whichever pair of faces leans away from the robot.
       moveit_tool_frame_name: MoveIt robot model link used as the grasp TCP.
         This is an SRDF link name, not an Object World frame.
       moveit_group_name: MoveIt planning group for the arm.
@@ -246,6 +279,8 @@ class GraspConfig:
   """
 
   planner: str = GraspPlannerType.CUBOID_CENTER.value
+  approach_tilt_degrees: float = 0.0
+  yaw_symmetry_degrees: float = 180.0
   moveit_tool_frame_name: str = "hande_tcp"
   moveit_group_name: str = "ur_manipulator"
   moveit_end_effector_group: str = "hand"
@@ -261,6 +296,16 @@ class GraspConfig:
       raise ValueError(
         f"Unsupported grasp planner '{self.planner}' in section 'grasp'. "
         f"Expected one of {valid}."
+      )
+    if not 0.0 <= self.approach_tilt_degrees < 90.0:
+      raise ValueError(
+        f"approach_tilt_degrees must be in [0, 90), got "
+        f"{self.approach_tilt_degrees}."
+      )
+    if self.yaw_symmetry_degrees not in (90.0, 180.0):
+      raise ValueError(
+        f"yaw_symmetry_degrees must be 90 or 180, got "
+        f"{self.yaw_symmetry_degrees}."
       )
     if any(not 0 <= surface <= 5 for surface in self.moveit_surfaces):
       raise ValueError(
@@ -394,6 +439,8 @@ def _construct_section(
         "dio_close_pin",
         "dio_output_block_name",
       }
+    elif gripper_type == "pinch":
+      required_fields = {"type", "resource_name"}
     else:
       required_fields = {"type"}
   else:
@@ -417,10 +464,15 @@ def _construct_section(
     section_dict["sensor_ids"] = tuple(
       int(x) for x in section_dict["sensor_ids"]
     )
-  elif section_name == "cycle" and section_dict.get("return_shift") is not None:
-    section_dict["return_shift"] = ReturnShiftConfig(
-      **section_dict["return_shift"]
-    )
+  elif section_name == "cycle":
+    if section_dict.get("return_shift") is not None:
+      section_dict["return_shift"] = ReturnShiftConfig(
+        **section_dict["return_shift"]
+      )
+    if isinstance(section_dict.get("workpiece_support_objects"), list):
+      section_dict["workpiece_support_objects"] = tuple(
+        str(x) for x in section_dict["workpiece_support_objects"]
+      )
   elif section_name == "machine":
     for joint_key in (
       "door_open_joints",

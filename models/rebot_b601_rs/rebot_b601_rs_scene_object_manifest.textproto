@@ -1,0 +1,16 @@
+# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
+# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+
+metadata {
+  id {
+    name: "rebot_b601_rs_scene_object"
+    package: "ai.intrinsic"
+  }
+  vendor {
+    display_name: "intrinsic"
+  }
+  display_name: "reBot Arm B601-RS geometry"
+  documentation {
+    description: "Geometry and kinematics of the Seeed Studio reBot Arm B601-RS, without its gripper."
+  }
+}

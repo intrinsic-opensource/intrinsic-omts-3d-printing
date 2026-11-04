@@ -76,6 +76,10 @@ def build_return_to_infeed_subtree(
         (config.robot.tool_object_name, config.robot.enclosure_object_name),
       ]
     )
+  detach_collision_pairs.extend(
+    (support, workpiece_object_name)
+    for support in config.cycle.workpiece_support_objects
+  )
 
   tasks: list[bt.Node] = []
 
@@ -186,6 +190,7 @@ def build_return_to_infeed_subtree(
       config=config,
       label="Return Infeed",
       excluded_collision_pairs=detach_collision_pairs,
+      press_m=config.cycle.place_press_meters,
     )
   )
 

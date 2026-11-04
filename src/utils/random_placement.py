@@ -20,6 +20,9 @@ from typing import Any
 def randomize_placement_frame(context: Any, params: Any) -> None:
   """Shifts the return frame to a random position within a bounding box centered at a fixed position.
 
+  With a grasp frame, the grasp is placed at the shifted position and the
+  return (pre-grasp) frame keeps its offset from it, rotated by the same yaw.
+
   Args:
       context: SBL BT PythonScript execution context providing `object_world`.
       params: Dynamic parameters protobuf containing shift configuration.
@@ -74,15 +77,36 @@ def randomize_placement_frame(context: Any, params: Any) -> None:
   )
 
   new_rot = shift_rotation * rot
-  new_pose = data_types.Pose3(new_rot, [new_x, new_y, new_z])
-  world.update_transform(node_a=parent_obj, node_b=frame_node, a_t_b=new_pose)
 
-  if grasp_frame_name and grasp_frame_name != frame_name:
-    grasp_node = getattr(parent_obj, grasp_frame_name, None)
-    if grasp_node is not None:
-      parent_t_grasp = world.get_transform(parent_obj, grasp_node)
-      grasp_z = float(parent_t_grasp.translation[2])
-      grasp_pose = data_types.Pose3(new_rot, [new_x, new_y, grasp_z])
-      world.update_transform(
-        node_a=parent_obj, node_b=grasp_node, a_t_b=grasp_pose
-      )
+  grasp_node = (
+    getattr(parent_obj, grasp_frame_name, None)
+    if grasp_frame_name and grasp_frame_name != frame_name
+    else None
+  )
+  if grasp_node is None:
+    new_pose = data_types.Pose3(new_rot, [new_x, new_y, new_z])
+    world.update_transform(node_a=parent_obj, node_b=frame_node, a_t_b=new_pose)
+    return
+
+  # The grasp lands on the shifted position; the pre-grasp keeps its offset
+  # from the grasp, turned by the same rotation, so a tilted approach stays
+  # tilted (a vertical one is unchanged).
+  parent_t_grasp = world.get_transform(parent_obj, grasp_node)
+  grasp_pos = parent_t_grasp.translation
+  offset = shift_rotation.rotate_point(
+    [float(pos[i]) - float(grasp_pos[i]) for i in range(3)]
+  )
+  grasp_z = float(grasp_pos[2])
+  pregrasp_pose = data_types.Pose3(
+    new_rot,
+    [
+      new_x + float(offset[0]),
+      new_y + float(offset[1]),
+      grasp_z + float(offset[2]),
+    ],
+  )
+  world.update_transform(
+    node_a=parent_obj, node_b=frame_node, a_t_b=pregrasp_pose
+  )
+  grasp_pose = data_types.Pose3(new_rot, [new_x, new_y, grasp_z])
+  world.update_transform(node_a=parent_obj, node_b=grasp_node, a_t_b=grasp_pose)

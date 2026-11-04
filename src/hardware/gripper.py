@@ -17,10 +17,12 @@
 import abc
 from typing import Any
 
+from intrinsic.hardware.gripper.eoat import eoat_service_pb2
 from intrinsic.solutions import behavior_tree as bt
 
 from src.core.config import GripperConfig
 from src.utils.math_utils import resolve_adio_resource
+from src.utils.script_utils import create_dwell_task
 
 
 class GripperInterface(abc.ABC):
@@ -181,3 +183,79 @@ class RobotiqGripper(GripperInterface):
       kwargs["action_name"] = self._action_name
     action = self._gripper_cmd_skill(**kwargs)
     return bt.Task(action=action, name=task_name)
+
+
+class PinchGripper(GripperInterface):
+  """Discrete pinch gripper commanded by `ai.intrinsic.control_pinch_gripper`.
+
+  The gripper is a hardware device whose service implements
+  `intrinsic_proto.eoat.PinchGripper` (for example Intrinsic's pinch gripper
+  realtime control service). The skill actuates the real or simulated gripper
+  and moves the gripper's finger joints in the belief world to their closed or
+  open limit.
+
+  The skill returns as soon as the command is sent, so each grasp or release
+  is followed by a dwell that lets the fingers finish moving. In Gazebo, a full
+  stroke takes about 0.45 s and the grasped part is welded to the finger 0.5 s
+  after contact.
+  """
+
+  DEFAULT_SETTLE_SECONDS = 1.5
+
+  def __init__(
+    self,
+    solution: Any,
+    config: GripperConfig,
+  ) -> None:
+    """Initializes the pinch gripper adapter from GripperConfig.
+
+    Args:
+        solution: Connected SBL deployment instance.
+        config: Scoped GripperConfig naming the gripper hardware device.
+
+    Raises:
+        ValueError: If `resource_name` is missing from `config`.
+    """
+    if config.resource_name is None:
+      raise ValueError("PinchGripper requires resource_name in GripperConfig.")
+    self._solution = solution
+    self._resource_name: str = config.resource_name
+    self._settle_seconds: float = (
+      self.DEFAULT_SETTLE_SECONDS
+      if config.settle_seconds is None
+      else config.settle_seconds
+    )
+    self._control_skill = solution.skills.ai.intrinsic.control_pinch_gripper
+
+  def _build_task(self, command: dict[str, Any], task_name: str) -> bt.Node:
+    action = self._control_skill(
+      pinch_gripper=self._solution.resources[self._resource_name],
+      **command,
+    )
+    task = bt.Task(action=action, name=task_name)
+    if self._settle_seconds <= 0.0:
+      return task
+    return bt.Sequence(
+      name=task_name,
+      children=[
+        task,
+        create_dwell_task(
+          self._settle_seconds,
+          task_name=f"{task_name}: settle ({self._settle_seconds:g} s)",
+        ),
+      ],
+    )
+
+  def build_open_task(self, name: str | None = None) -> bt.Node:
+    """Builds a behavior tree task to open (release) the pinch gripper."""
+    return self._build_task(
+      {"release": eoat_service_pb2.ReleaseRequest()},
+      name or "Open Pinch Gripper",
+    )
+
+  def build_close_task(self, name: str | None = None) -> bt.Node:
+    """Builds a behavior tree task to close (grasp) with the pinch gripper."""
+    return self._build_task(
+      {"grasp": eoat_service_pb2.GraspRequest()},
+      name or "Close Pinch Gripper",
+    )

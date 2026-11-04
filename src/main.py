@@ -27,7 +27,12 @@ from src.core.infeed import (
 )
 from src.core.types import GraspPlannerType, SimulationMode
 from src.hardware.grasp_planners import create_grasp_planner
-from src.hardware.gripper import DioGripper, GripperInterface, RobotiqGripper
+from src.hardware.gripper import (
+  DioGripper,
+  GripperInterface,
+  PinchGripper,
+  RobotiqGripper,
+)
 from src.hardware.machine import DioCncMachine
 from src.hardware.robot import Robot
 from src.hardware.vision import OrbbecVision
@@ -91,6 +96,11 @@ def run_machine_tending_pipeline(
   gripper: GripperInterface
   if config.gripper.type == "dio":
     gripper = DioGripper(
+      solution=solution,
+      config=config.gripper,
+    )
+  elif config.gripper.type == "pinch":
+    gripper = PinchGripper(
       solution=solution,
       config=config.gripper,
     )

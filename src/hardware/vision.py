@@ -80,6 +80,8 @@ class VisionInterface(abc.ABC):
     tool_object_name: str,
     tool_frame_name: str,
     publish_grasp_frames: bool = True,
+    approach_tilt_degrees: float = 0.0,
+    yaw_symmetry_degrees: float = 180.0,
     max_tries: int = 3,
     retry_delay_sec: float = 1.0,
     name: str | None = None,
@@ -139,6 +141,8 @@ class OrbbecVision(VisionInterface):
     tool_object_name: str,
     tool_frame_name: str,
     publish_grasp_frames: bool = True,
+    approach_tilt_degrees: float = 0.0,
+    yaw_symmetry_degrees: float = 180.0,
     max_tries: int = 3,
     retry_delay_sec: float = 1.0,
     name: str | None = None,
@@ -157,6 +161,10 @@ class OrbbecVision(VisionInterface):
           grasp and pre-grasp frames. Set to False when an external grasp
           planner owns them; the workpiece pose update and the `min_safe_z`
           check still run, since both are localization concerns.
+        approach_tilt_degrees: Pitch of the published grasp from vertical,
+          leaning away from the robot base; see `GraspConfig`.
+        yaw_symmetry_degrees: Workpiece footprint symmetry for the tilted
+          grasp (180 or 90); see `GraspConfig`.
         max_tries: Attempts before the pipeline gives up.
         retry_delay_sec: Dwell between attempts.
         name: Optional custom behavior tree task name.
@@ -217,6 +225,8 @@ class OrbbecVision(VisionInterface):
       tool_object_name=tool_object_name,
       tool_frame_name=tool_frame_name,
       publish_grasp_frames=publish_grasp_frames,
+      approach_tilt_degrees=approach_tilt_degrees,
+      yaw_symmetry_degrees=yaw_symmetry_degrees,
     )
 
     acquisition_and_calc_seq = bt.Sequence(
@@ -251,6 +261,8 @@ class OrbbecVision(VisionInterface):
     tool_object_name: str,
     tool_frame_name: str,
     publish_grasp_frames: bool = True,
+    approach_tilt_degrees: float = 0.0,
+    yaw_symmetry_degrees: float = 180.0,
   ) -> bt.Task:
     """Builds the bt.PythonScript task for dynamic frame calculation and world updates."""
     first_est = estimate_action.result.estimates[0].root_t_target
@@ -361,6 +373,18 @@ class OrbbecVision(VisionInterface):
               name="publish_grasp_frames",
               number=17,
               arg=publish_grasp_frames,
+            ),
+            pb.FieldSpec(
+              type="float",
+              name="approach_tilt_degrees",
+              number=18,
+              arg=approach_tilt_degrees,
+            ),
+            pb.FieldSpec(
+              type="float",
+              name="yaw_symmetry_degrees",
+              number=19,
+              arg=yaw_symmetry_degrees,
             ),
           ]
         ),

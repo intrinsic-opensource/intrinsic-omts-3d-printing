@@ -1,0 +1,63 @@
+# proto-file: intrinsic/world/public/proto/object_world_updates.proto
+# proto-message: intrinsic_proto.world.ObjectWorldUpdates
+
+# The 40 x 40 x 30 mm printed part starts in the middle of the printer's bed
+# (the bed's top at x = 0.56, z = 0.1434, placed by
+# printer.updates.pbtxt), where omts_app's cycle picks it up
+# (configs/rebot/app_config.yaml). Reapplying this file puts the part back
+# there; the first update reattaches it to the world in case a failed run left
+# it attached to the arm.
+updates {
+  reparent_object {
+    object {
+      by_name {
+        object_name: "rebot_printed_part"
+      }
+    }
+    new_parent {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+updates {
+  update_transform {
+    node_a {
+      by_name {
+        object {
+          object_name: "root"
+        }
+      }
+    }
+    node_b {
+      by_name {
+        object {
+          object_name: "rebot_printed_part"
+        }
+      }
+    }
+    node_to_update {
+      by_name {
+        object {
+          object_name: "rebot_printed_part"
+        }
+      }
+    }
+    a_t_b {
+      position {
+        x: 0.56
+        y: 0
+        z: 0.1584
+      }
+      orientation {
+        x: 0
+        y: 0
+        z: 0
+        w: 1
+      }
+    }
+  }
+}

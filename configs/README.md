@@ -8,7 +8,8 @@ and hardware/service configuration manifests (`.textproto`).
 | Directory | Cell / Scope | Description |
 | :--- | :--- | :--- |
 | [`common/`](common/) | Shared across cells | Asset manifests and service configs shared by all cells (`flowstate_ros_bridge`, `hande_gripper_service`, `orbbec_gemini_driver`). |
-| [`omts/`](omts/) | Production OMTS Cell | UR5e arm, Robotiq Hand-E gripper, Orbbec Gemini 335Le camera, CNC enclosure, and Schunk EGP 64 pneumatic vise. Selected by default (`--//:setup=omts`). |
+| [`omts/`](omts/) | Production OMTS Cell | UR5e arm, Robotiq Hand-E gripper, Orbbec Gemini 335Le camera, and a 3D printer (`printer.updates.pbtxt`) where upstream's CNC enclosure and Schunk vise stood; those were removed from this cell. `app_config.yaml` still describes the CNC machine and vise frames. Selected by default (`--//:setup=omts`). |
+| [`rebot/`](rebot/) | reBot printer-tending cell | Seeed reBot Arm B601-RS, its pinch gripper, an Orbbec Gemini 335Le on the wrist, and a Prusa Core One printer model, deployed by `//:rebot_solution` (simulation). `app_config.yaml` runs it with `omts_app`; see [`research/REBOT_OMTS_APP.md`](../research/REBOT_OMTS_APP.md). |
 | [`lab_bb_01/`](lab_bb_01/) | Lab BB-01 Cell | UR3e arm, Robotiq Hand-E gripper, Orbbec Gemini 335Le camera, CAW enclosure, without CNC machine/vise hardware. Selected via `--//:setup=lab_bb_01`. |
 | [`kr_10/`](kr_10/) | KUKA KR10 (Stub) | Placeholder ICON config for KUKA KR10; not wired into `//:omts_solution`. |
 

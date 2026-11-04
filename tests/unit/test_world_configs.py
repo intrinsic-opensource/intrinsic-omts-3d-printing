@@ -44,6 +44,9 @@ from intrinsic.icon.server.config import icon_main_config_pb2
 from intrinsic.perception.proto.v1 import camera_config_pb2
 from intrinsic.perception.skills.calibration import sample_calibration_poses_pb2
 from intrinsic.world.proto import object_world_updates_pb2
+from intrinsic_perception.intrinsic.perception.service.nvidia_pose_estimator.proto import (
+  nvidia_service_config_pb2,
+)
 
 from src.core.config import load_app_config
 from tools.world.apply_scene_updates import DEFAULT_UPDATE_FILES
@@ -57,6 +60,7 @@ _REGISTERED_ANY_DESCRIPTORS = (
   ur_module_config_pb2.UniversalRobotsModuleConfig.DESCRIPTOR,
   icon_main_config_pb2.IconMainConfig.DESCRIPTOR,
   camera_config_pb2.CameraConfig.DESCRIPTOR,
+  nvidia_service_config_pb2.NvidiaPoseEstimatorServiceConfig.DESCRIPTOR,
 )
 
 # Every world update config is expected to be an ObjectWorldUpdates. Configs
@@ -226,7 +230,7 @@ class WorldUpdateConfigsTest(absltest.TestCase):
 
   def test_app_config_frames_exist_in_cell_scene_updates(self):
     """Every static frame referenced by app_config.yaml must exist in scene.updates.pbtxt."""
-    for cell in ("omts", "lab_bb_01"):
+    for cell in ("omts", "lab_bb_01", "rebot"):
       with self.subTest(cell=cell):
         app_cfg = load_app_config(f"configs/{cell}/app_config.yaml")
         scene_updates = _load_updates_proto(
@@ -238,6 +242,8 @@ class WorldUpdateConfigsTest(absltest.TestCase):
           for update in scene_updates.updates
           if update.HasField("create_frame")
         }
+        # The machine frames are used even without a machine: the load and
+        # unload subtrees still place the part there and pick it up again.
         required_static_frames = [
           app_cfg.frames.view_frame,
           app_cfg.frames.machine_approach_frame,
@@ -316,6 +322,17 @@ class WorldUpdateConfigsTest(absltest.TestCase):
             cam_cfg = camera_config_pb2.CameraConfig()
             self.assertTrue(any_msg.Unpack(cam_cfg))
             self.assertEqual(cam_cfg.identifier.ros.driver_type, "orbbec")
+          elif path.endswith("nvidia_pose_estimator_config.textproto"):
+            pe_cfg = (
+              nvidia_service_config_pb2.NvidiaPoseEstimatorServiceConfig()
+            )
+            self.assertTrue(any_msg.Unpack(pe_cfg))
+            self.assertEqual(
+              pe_cfg.foundation_pose.n_hypotheses
+              % pe_cfg.foundation_pose.batch_size,
+              0,
+              f"{path}: foundation_pose.batch_size must divide n_hypotheses",
+            )
           else:
             self.fail(f"Unhandled .textproto config file: {path}")
 

@@ -1,13 +1,13 @@
 # Gripper Control CLI (`tools/gripper/`)
 
-Command-line and interactive utility for testing and actuating Robotiq or DIO
-end-effector grippers via SBL skills.
+Command-line and interactive utility for testing and actuating Robotiq, DIO or
+pinch (`control_pinch_gripper`) end-effector grippers via SBL skills.
 
 ## CLI Target
 
 | Target | Source File | Description |
 | :--- | :--- | :--- |
-| `//tools/gripper:control_gripper` | [`control_gripper.py`](control_gripper.py) | Instantiates `RobotiqGripper` or `DioGripper` and executes open/close tasks on `solution.executive`. |
+| `//tools/gripper:control_gripper` | [`control_gripper.py`](control_gripper.py) | Instantiates `RobotiqGripper`, `DioGripper` or `PinchGripper` and executes open/close tasks on `solution.executive`. |
 
 ## Usage Examples
 
@@ -23,6 +23,13 @@ bazel run //tools/gripper:control_gripper -- \
   --address=localhost:17080 \
   --gripper_type=dio \
   --action=close
+
+# Grasp or release with a pinch gripper hardware device (the reBot gripper):
+bazel run //tools/gripper:control_gripper -- \
+  --address=localhost:17080 \
+  --gripper_type=pinch \
+  --resource_name=gripper \
+  --action=open
 
 # Launch interactive menu (omit --action):
 bazel run //tools/gripper:control_gripper -- --address=localhost:17080

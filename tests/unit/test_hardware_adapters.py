@@ -18,6 +18,7 @@ import inspect
 from unittest import mock
 
 from absl.testing import absltest
+from intrinsic.hardware.gripper.eoat import eoat_service_pb2
 from intrinsic.solutions import behavior_tree as bt
 
 from src.core.config import (
@@ -27,7 +28,7 @@ from src.core.config import (
   VisionConfig,
 )
 from src.core.types import JointPosition
-from src.hardware.gripper import DioGripper, RobotiqGripper
+from src.hardware.gripper import DioGripper, PinchGripper, RobotiqGripper
 from src.hardware.machine import DioCncMachine
 from src.hardware.robot import Robot
 from src.hardware.vision import OrbbecVision
@@ -184,7 +185,7 @@ class HardwareAdaptersTest(absltest.TestCase):
     mock_attach.assert_called_once()
     attach_kwargs = mock_attach.call_args.kwargs
     self.assertEqual(
-      attach_kwargs["gripper_entity"].by_name.object_name, "gripper"
+      attach_kwargs["gripper_entity"].by_name.object_name, "ur_module"
     )
     self.assertEqual(
       attach_kwargs["object_entity"].by_name.object_name, "raw_stock_2x3x5"
@@ -196,11 +197,38 @@ class HardwareAdaptersTest(absltest.TestCase):
     mock_detach.assert_called_once()
     detach_kwargs = mock_detach.call_args.kwargs
     self.assertEqual(
-      detach_kwargs["gripper_entity"].by_name.object_name, "gripper"
+      detach_kwargs["gripper_entity"].by_name.object_name, "ur_module"
     )
     self.assertEqual(
       detach_kwargs["object_entity"].by_name.object_name, "raw_stock_2x3x5"
     )
+
+  def test_robot_places_object_at_frame(self):
+    mock_solution = mock.MagicMock()
+    mock_update_world = mock.MagicMock()
+    mock_update_world.return_value = bt.PythonScript(function_body="pass")
+    mock_solution.skills.ai.intrinsic.update_world = mock_update_world
+    robot = Robot(
+      solution=mock_solution,
+      config=RobotConfig(
+        arm_part_name="rebot",
+        tool_object_name="gripper",
+        tool_frame_name="tool_frame",
+      ),
+    )
+
+    task = robot.build_place_object_at_frame_task(
+      "rebot_printed_part", "part_b_rest"
+    )
+
+    self.assertEqual(task.name, "Place rebot_printed_part at root/part_b_rest")
+    request = mock_update_world.call_args.kwargs["update"].update_transform
+    self.assertEqual(request.node_a.by_name.frame.object_name, "root")
+    self.assertEqual(request.node_a.by_name.frame.frame_name, "part_b_rest")
+    for node in (request.node_b, request.node_to_update):
+      self.assertEqual(node.by_name.object.object_name, "rebot_printed_part")
+    self.assertEqual(request.a_t_b.orientation.w, 1.0)
+    self.assertEqual(request.a_t_b.position.z, 0.0)
 
   def test_dio_gripper(self):
     mock_solution = mock.MagicMock()
@@ -226,6 +254,59 @@ class HardwareAdaptersTest(absltest.TestCase):
 
     close_task = gripper.build_close_task()
     self.assertEqual(close_task.name, "Close Gripper (DIO)")
+
+  def test_pinch_gripper(self):
+    mock_solution = mock.MagicMock()
+    control_mock = mock.MagicMock()
+    control_mock.return_value = bt.PythonScript(function_body="pass")
+    mock_solution.skills.ai.intrinsic.control_pinch_gripper = control_mock
+    gripper_resource = mock.sentinel.gripper_resource
+    mock_solution.resources = {"gripper": gripper_resource}
+
+    gripper = PinchGripper(
+      solution=mock_solution,
+      config=GripperConfig(type="pinch", resource_name="gripper"),
+    )
+
+    open_task = gripper.build_open_task()
+    self.assertIsInstance(open_task, bt.Sequence)
+    self.assertEqual(open_task.name, "Open Pinch Gripper")
+    self.assertLen(open_task.children, 2)
+    self.assertEqual(
+      open_task.children[1].name, "Open Pinch Gripper: settle (1.5 s)"
+    )
+    control_mock.assert_called_with(
+      pinch_gripper=gripper_resource,
+      release=eoat_service_pb2.ReleaseRequest(),
+    )
+
+    close_task = gripper.build_close_task(name="Grasp")
+    self.assertEqual(close_task.name, "Grasp")
+    self.assertEqual(close_task.children[1].name, "Grasp: settle (1.5 s)")
+    control_mock.assert_called_with(
+      pinch_gripper=gripper_resource,
+      grasp=eoat_service_pb2.GraspRequest(),
+    )
+
+  def test_pinch_gripper_without_settle_dwell(self):
+    mock_solution = mock.MagicMock()
+    mock_solution.skills.ai.intrinsic.control_pinch_gripper.return_value = (
+      bt.PythonScript(function_body="pass")
+    )
+    mock_solution.resources = {"gripper": mock.sentinel.gripper_resource}
+
+    gripper = PinchGripper(
+      solution=mock_solution,
+      config=GripperConfig(
+        type="pinch", resource_name="gripper", settle_seconds=0.0
+      ),
+    )
+
+    self.assertIsInstance(gripper.build_close_task(), bt.Task)
+
+  def test_pinch_gripper_requires_resource_name(self):
+    with self.assertRaisesRegex(KeyError, "resource_name"):
+      GripperConfig(type="pinch")
 
   def test_robotiq_gripper_explicit_params(self):
     mock_solution = mock.MagicMock()
@@ -794,12 +875,21 @@ class HardwareAdaptersTest(absltest.TestCase):
     # max_tries=1 returns bt.Sequence directly without bt.Retry wrapper
     self.assertIsInstance(seq_task, bt.Sequence)
     self.assertIsNotNone(real_pb.last_parameters)
-    self.assertLen(real_pb.last_parameters.fields, 17)
-    publish_field = real_pb.last_parameters.fields[-1]
+    self.assertLen(real_pb.last_parameters.fields, 19)
+    publish_field = real_pb.last_parameters.fields[-3]
     self.assertEqual(publish_field.name, "publish_grasp_frames")
     self.assertEqual(publish_field.number, 17)
     self.assertEqual(publish_field.type, "bool")
     self.assertTrue(publish_field.arg)
+    tilt_field = real_pb.last_parameters.fields[-2]
+    self.assertEqual(tilt_field.name, "approach_tilt_degrees")
+    self.assertEqual(tilt_field.number, 18)
+    self.assertEqual(tilt_field.type, "float")
+    self.assertEqual(tilt_field.arg, 0.0)
+    symmetry_field = real_pb.last_parameters.fields[-1]
+    self.assertEqual(symmetry_field.name, "yaw_symmetry_degrees")
+    self.assertEqual(symmetry_field.number, 19)
+    self.assertEqual(symmetry_field.arg, 180.0)
 
     # Missing resources raise ValueError
     mock_solution.resources = {}

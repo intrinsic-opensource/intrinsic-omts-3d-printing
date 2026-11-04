@@ -1,0 +1,72 @@
+# proto-file: google/protobuf/any.proto
+# proto-message: google.protobuf.Any
+
+# ICON for the simulated reBot cell: one arm part on the "rebot" hardware
+# module. The interface names are the ones Gazebo's simulated hardware module
+# infers from the arm's joints. No I/O and no force-torque sensor.
+[type.googleapis.com/intrinsic_proto.icon.IconMainConfig]:  {
+  intrinsic_runtime {
+    name: "intrinsic_runtime"
+  }
+  control_frequency_hz:  500
+  services:  {
+    world_service_from_grpc:  {
+      world_id:  "world"
+    }
+    kinematics_from_world_service:  true
+    assembly_from_world_service:  true
+  }
+  realtime_control_config:  {
+    parts_by_name:  {
+      key:  "arm"
+      value:  {
+        part_type_name:  "HalArmPart"
+        config:  {
+          [type.googleapis.com/intrinsic_proto.icon.HalArmPartConfig]:  {
+            joint_position_command:  {
+              module_name:  "rebot"
+              interface_name:  "joint_position_command"
+            }
+            joint_position_state:  {
+              module_name:  "rebot"
+              interface_name:  "joint_position_state"
+            }
+            joint_velocity_state:  {
+              module_name:  "rebot"
+              interface_name:  "joint_velocity_state"
+            }
+            payload_command:  {
+              module_name:  "rebot"
+              interface_name:  "payload_command"
+            }
+            payload_state:  {
+              module_name:  "rebot"
+              interface_name:  "payload_state"
+            }
+            linear_joint_acceleration_filter_config:  {
+              joint_position_process_noise:  0.001
+              joint_velocity_process_noise:  0.001
+              joint_acceleration_process_noise:  0.5
+              joint_jerk_process_noise:  1250
+              joint_position_measurement_noise:  0.0001
+              joint_velocity_measurement_noise:  0.001
+              dare_settings:  {
+                max_iterations:  3000
+              }
+            }
+          }
+        }
+        safety_action_type_name:  "intrinsic.stop"
+        hardware_resource_name:  "rebot"
+      }
+    }
+    safety_hardware_interface:  {
+      module_name:  "rebot"
+      interface_name:  "safety_status"
+    }
+  }
+  hardware_module_names:  "rebot"
+  hardware_module_that_drives_clock:  "rebot"
+  hardware_module_read_write_timeout_seconds:  1
+  deactivated_hardware_configuration:  {}
+}

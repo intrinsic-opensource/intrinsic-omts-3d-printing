@@ -1,0 +1,8 @@
+[
+  {"pattern": "cnc*", "rgba": [0.80, 0.81, 0.82, 1.0], "metallic": 0.8, "roughness": 0.35},
+  {"pattern": "motor_*", "rgba": [0.12, 0.12, 0.13, 1.0], "metallic": 0.3, "roughness": 0.5},
+  {"pattern": "pla*_green*", "rgba": [0.36, 0.73, 0.20, 1.0]},
+  {"pattern": "pla*", "rgba": [0.06, 0.06, 0.06, 1.0]},
+  {"pattern": "base_link*", "rgba": [0.80, 0.81, 0.82, 1.0], "metallic": 0.8, "roughness": 0.35},
+  {"pattern": "link*", "rgba": [0.80, 0.81, 0.82, 1.0], "metallic": 0.8, "roughness": 0.35}
+]

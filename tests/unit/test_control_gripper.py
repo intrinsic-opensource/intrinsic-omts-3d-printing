@@ -22,6 +22,7 @@ from intrinsic.solutions import execution
 from src.hardware.gripper import (
   DioGripper,
   GripperInterface,
+  PinchGripper,
   RobotiqGripper,
 )
 from tools.gripper.control_gripper import (
@@ -140,6 +141,16 @@ class ControlGripperTest(absltest.TestCase):
     self.assertEqual(gripper._open_position, 0.01)
     self.assertEqual(gripper._close_position, 0.04)
     self.assertEqual(gripper._action_name, "/robotiq/cmd")
+
+  def test_create_gripper_pinch(self):
+    """Tests creating PinchGripper bound to a gripper hardware device."""
+    args = parse_args(
+      ["--gripper_type", "pinch", "--resource_name", "rebot_gripper"]
+    )
+    mock_solution = mock.MagicMock()
+    gripper = create_gripper(args, solution=mock_solution)
+    self.assertIsInstance(gripper, PinchGripper)
+    self.assertEqual(gripper._resource_name, "rebot_gripper")
 
   def test_create_gripper_unsupported_type(self):
     """Tests create_gripper raises ValueError for unsupported gripper type."""
