@@ -51,9 +51,8 @@ def main():
 
   # 2. Synchronize Gazebo sim_world
   if getattr(solution, "is_simulated", False) and solution.simulator is not None:
-    print("[+] Syncing with Gazebo simulation (solution.simulator.reset())...")
+    print("[+] Syncing with Gazebo simulation (world.update_joint_positions(printer, [target_angle])...")
     world.update_joint_positions(printer, [target_angle])
-    solution.simulator.reset()
     print("[✓] Gazebo simulation synchronized! Door is now visually positioned.")
 
   # 3. Confirm final state
