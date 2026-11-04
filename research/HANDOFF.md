@@ -11,9 +11,9 @@ This file records what has been decided and what to do next.
 | Item | Location |
 | --- | --- |
 | Repo | `https://github.com/intrinsic-opensource/intrinsic-omts-3d-printing`, branch `added-rebot-solution` |
-| Research commit | `fbb9606` "Printer unloading viability research", on top of upstream `main` at `48be90d` (#151). Upstream has since been merged in through #156. |
-| Printer design notes | `research/PRINTER_UNLOADING.md` (trimmed 2026-10-22; the full feasibility study, including the SO-101 evaluation, is at commit `6b33ad7`) |
-| Arm comparison (decided) | Summarized in section 6.3; the full comparison (`ARM_SELECTION_REQUEST.md`) is in git history at `b5b4eee` |
+| Research commit | `87a4fb8` "Printer unloading viability research", on top of upstream `main` at `48be90d` (#151). Upstream has since been merged in through #156. |
+| Printer design notes | `research/PRINTER_UNLOADING.md` (trimmed 2026-10-22; the full feasibility study, including the SO-101 evaluation, is at commit `d2501bb`) |
+| Arm comparison (decided) | Summarized in section 6.3; the full comparison (`ARM_SELECTION_REQUEST.md`) is in git history at `6f15cc8` |
 | SO-101 URDF | `research/so101_new_calib.urdf`, from the earlier SO-101 evaluation; superseded by the reBot decision |
 | reBot URDFs | Base for the sim model: [Seeed-Projects/reBot-Isaacsim](https://github.com/Seeed-Projects/reBot-Isaacsim) `urdf/00-arm-rs_asm-v3/urdf/00-arm-rs_asm-v3.urdf` (MIT), which fixes the gripper limits (section 6.2). Originals: [Seeed-Projects/reBot-DevArm](https://github.com/Seeed-Projects/reBot-DevArm) `Rebot_Arm_description/` (Apache-2.0 / CERN-OHL-W-2.0). |
 | Reference source | `intrinsic-core` checked out at the commit OMTS pins: `INTRINSIC_CORE_COMMIT` in `MODULE.bazel` (`c40e02aa` since #161), not a release tag. The `20261012.0` tag predates it and lacks `nvidia_pose_estimator`. Check behavior against the pinned commit when it matters. |
@@ -24,7 +24,7 @@ places it, with RViz (the belief world) matching. Milestone 2 (section 5b)
 moves the cell onto OMTS's own app with a wrist camera; to deploy and run it,
 see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md). The milestone 1 demo
 (`//:rebot_demo`, `REBOT_DEMO.md`) was removed on 2026-10-30, once `omts_app`
-did the same round trip with perception; it is in git history (`42fcafc`).
+did the same round trip with perception; it is in git history (`fd96df6`).
 
 ---
 
@@ -71,7 +71,7 @@ original machine had no system pip; it was installed per-user with
 
 | Decision | Consequence |
 | --- | --- |
-| **Arm: Seeed reBot Arm** | Replaces the SO-101 plan (study section 7, at commit `6b33ad7`). The B601-RS is the working assumption until the variant is confirmed. |
+| **Arm: Seeed reBot Arm** | Replaces the SO-101 plan (study section 7, at commit `d2501bb`). The B601-RS is the working assumption until the variant is confirmed. |
 | **ICON support for the reBot is expected from Intrinsic Core** | Hardware only, likely for the B601-RS. This project does not write or validate a driver; the community-driver risks (section 6.3) apply only if that changes. The simulation model is ours to build. |
 | **Target compute: NVIDIA Jetson (Orin or Thor)** | ARM64 support is expected. Seeed sells reBot kits bundled with Jetson Orin or Thor. |
 | **Simulation first** | Hardware waits for ICON support for the arm. All milestone 1 work runs in Gazebo (`--operation_mode=sim`). |
@@ -509,7 +509,7 @@ A→B→A cycles in 71 s, and Gazebo has the part back at A, flat, within 1 mm.
 * The tree excludes the part against whatever it rests on at each end: the
   ground at A, the printer at B (`_SUPPORT_OBJECTS` in
   `src/behaviors/rebot_pick_place.py`).
-* The printer replaces the wall obstacle from `be64fe5`, whose placement was
+* The printer replaces the wall obstacle from `1c9db21`, whose placement was
   inside it; the wall model and placement are removed.
 * **Demo:** deploy and run as in [`REBOT_DEMO.md`](REBOT_DEMO.md): the reBot
   carries the part from behind it into the printer and back.
@@ -1033,7 +1033,7 @@ hardware support once it exists.**
 ### 6.3 Getting a non-UR arm into ICON, and fallback arms
 
 From the arm comparison done before the reBot was chosen (removed
-2026-10-30; the full comparison is in git history at `b5b4eee`). It matters
+2026-10-30; the full comparison is in git history at `6f15cc8`). It matters
 again if ICON support for the reBot does not materialize or another arm is considered.
 
 * **The path for a third-party arm.** ICON accepts a non-UR arm through its
@@ -1087,11 +1087,11 @@ Check these before building on them.
 
 * **Local fixes for `20261012.0`:** written when OMTS pinned that release;
   it now pins commit `c40e02aa` (#161), so recheck both against it. At the
-  time both were still needed with the pinned release. `b7cc503` (no camera args to `estimate_pose_multi_view`) stays
-  needed on intrinsic-core `main` too. `c98d44a` (attach and detach via the
+  time both were still needed with the pinned release. `48fbedb` (no camera args to `estimate_pose_multi_view`) stays
+  needed on intrinsic-core `main` too. `828bbf3` (attach and detach via the
   robot) works around `attach_object_to_robot` parenting to the reference's
   final entity. intrinsic-core `main` (`3d137157`) attaches to a gripper's
-  base entity again, so `c98d44a` becomes optional, though still correct,
+  base entity again, so `828bbf3` becomes optional, though still correct,
   once OMTS pins a release that includes that change.
 * **Upstream gap, still open at `48be90d`:** the solution does not declare
   `dio_wait_for_input`, so `DioCncMachine.build_wait_cycle_complete_task`

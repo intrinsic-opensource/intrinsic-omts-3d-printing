@@ -156,9 +156,9 @@ alias(
 
 # Printer-tending cell under development on the research branch
 # (research/HANDOFF.md): a Seeed reBot Arm B601-RS on a ground slab, controlled
-# by ICON in simulation, with its pinch gripper, an Orbbec camera under the
-# wrist and OMTS's pose estimator, tending a 3D printer in front of it. Run it
-# with omts_app and configs/rebot/app_config.yaml
+# by ICON in simulation, with its pinch gripper, an Orbbec camera on the wrist
+# and OMTS's pose estimator, tending a Prusa Core One model in front of it. Run
+# it with omts_app and configs/rebot/app_config.yaml
 # (research/REBOT_OMTS_APP.md). The camera, driver and train service instances
 # are omts_solution's.
 # flowstate_ros_bridge streams /tf and /joint_states to ROS 2 (RViz) over
