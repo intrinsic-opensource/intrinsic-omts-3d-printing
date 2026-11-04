@@ -142,6 +142,13 @@ Each is recorded in the study with its reasoning.
    under contact: they drift while a grasp rests on the bed, and at release
    one finger can stay on the part or drag it. The cell presses the part
    onto its support before opening as a workaround.
+9. **New (2026-11-04): keep only the top N SAM 3 proposals, by score**,
+   drafted in
+   [`feature_requests/sam3_top_n_proposals.md`](feature_requests/sam3_top_n_proposals.md).
+   The pose estimator runs a pose search on every proposal above an
+   absolute threshold, unsorted and uncapped, and a generic prompt's scores
+   depend on the part's shape (step 4c-2). A top-N cut would bound the cost
+   in any scene and make the threshold part-independent.
 
 ### 4.2 Open project questions
 
@@ -1220,6 +1227,18 @@ tall parts come first, tilted grasps after.
     searches) with a thinner margin; the right part still won every time.
     "object" stays the default. Estimator ids must be lowercase ("3D" in an
     id is rejected).
+  * **"object on a table" separates best.** `research/tools/prompt_sweep`
+    scored 50 generic phrases offline on seven images (the Benchy at three
+    yaws, the box, the lying cylinder, the cuboid, the Benchy beside the
+    grid). "object on a table" ranked the part first everywhere with the
+    highest worst-case score among such phrases (0.45, the cuboid; "object"
+    0.20) and the widest worst-case margin (+0.19). At threshold 0.35 every
+    part passes and each scene passes 1 to 3 regions, against 3 to 7 for
+    "object" at 0.1; at 0.4, 1 to 2, but the cuboid clears it by only 0.05.
+    "small object" scores parts higher but separates them poorly and lights
+    up each grid cube (169 regions); "cube" alone passes 175 regions on the
+    grid, the flood a dense scene can cause with a shape word. Not yet run on
+    the cluster.
   * **A dense grid did not flood the segmentation.** With
     `models/test_grid` (a 100 mm plate of 10 × 10 cubes, `part_trial
     --grid`) beside the part, the first pass still proposed 7 regions:

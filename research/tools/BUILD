@@ -105,3 +105,18 @@ py_binary(
         "@ai_intrinsic_sdks_pip_deps//numpy",
     ],
 )
+
+# Needs onnxruntime on PYTHONPATH, installed separately (README.md); it is not
+# among the solution's Python dependencies.
+py_binary(
+    name = "prompt_sweep",
+    srcs = ["prompt_sweep.py"],
+    main = "prompt_sweep.py",
+    deps = [
+        "@ai_intrinsic_sdks_pip_deps//ftfy",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@ai_intrinsic_sdks_pip_deps//pillow",
+        "@ai_intrinsic_sdks_pip_deps//regex",
+        "@foundationpose_perception_pipeline//:perception_pipeline",
+    ],
+)

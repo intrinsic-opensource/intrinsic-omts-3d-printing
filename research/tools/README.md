@@ -42,6 +42,7 @@ Run them with `bazel run`, which also provides numpy and scipy.
 | `view_search` | Candidate `view` poses that reach, clear the printer, have a clear line of sight to the part, and see all four bed corners with depth. Also checks the committed `view`. |
 | `cuboid_sweep` | Which cuboids the cell can grasp from the bed: sweeps sizes (z up, as printed) and yaws, replays the grasp `omts_app` publishes, and checks jaw width, fingers and palm against the part and printer on the approach and at the grasp, and reach. The grasp rule is reimplemented from `src/utils/dynamic_frame_calculator.py`; keep them in step. |
 | `part_trial` | Sets up a graspability trial in simulation with one test part (a cuboid or a cylinder, standing or lying): its placement on the bed, A's frames at its height, and an `app_config` naming it (see below). |
+| `prompt_sweep` | Scores SAM 3 text prompts on saved camera images, offline on the CPU, with the pose estimator's own SAM 3 export, preprocessing and tokenizer: presence, regions over a threshold, and the part's score, rank and margin when its pixel box is given. Matches the cluster's first segmentation pass (see below). |
 | `release_drift` | From a Gazebo pose recording: how far the part moved at each release, and how long each finger took to open. |
 
 Examples, all from the repository root:
@@ -112,3 +113,32 @@ bazel run //research/tools:part_trial -- \
 Afterwards, `apply_scene_updates --setup rebot --reset_sim` puts the default
 part back on the bed and parks the test parts again. (`--files` with no file
 names applies nothing; it only resets Gazebo to the current world.)
+
+## Comparing SAM 3 prompts offline
+
+`prompt_sweep` runs the pose estimator's SAM 3 export
+(`NVIDIA_POSE_ESTIMATOR_MODELS_DIR`, `research/REBOT_OMTS_APP.md` quick start
+step 2) on the CPU with onnxruntime, so prompts can be compared on saved
+images in seconds each instead of a registration per prompt on the cluster.
+Its scores matched the cluster's to three decimals. onnxruntime is not one of
+the solution's Python dependencies; install it into a directory of its own
+with the Python Bazel uses, once:
+
+```bash
+PY=$(ls -d $(bazel info output_base)/external/rules_python++python+python_3_11_x86_64-unknown-linux-gnu)/bin/python3
+$PY -m pip install --target $HOME/.local/share/omts-onnxruntime onnxruntime
+```
+
+Save an RGB image from `view` (Gazebo's `/orbbec_camera/rgb` after a
+`capture_images`, as in `research/REBOT_OMTS_APP.md`, Debugging), and give the
+part's pixel box after the path to get its score, rank and margin:
+
+```bash
+PYTHONPATH=$HOME/.local/share/omts-onnxruntime \
+  bazel run //research/tools:prompt_sweep -- \
+  --image /tmp/box.png:604,363,676,439 \
+  --prompt "object" --prompt "object on a table" --threshold 0.35
+```
+
+Loading takes a few seconds, each image about 6 s and each prompt well under
+a second per image (32 CPU cores).
