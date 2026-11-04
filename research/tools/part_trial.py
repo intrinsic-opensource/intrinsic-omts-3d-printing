@@ -156,14 +156,14 @@ def main() -> None:
   )
   parser.add_argument(
     "--text_prompt",
-    default="object",
-    help="SAM 3 prompt; the generic 'object' works for any part",
+    default="object on a table",
+    help="SAM 3 prompt; this generic one has worked for every part so far",
   )
   parser.add_argument(
     "--confidence_threshold",
     type=float,
-    default=0.1,
-    help="SAM 3 threshold; low, so the mesh fit picks the part",
+    default=0.25,
+    help="SAM 3 threshold; low enough to keep the part, the mesh fit picks it",
   )
   args = parser.parse_args()
 

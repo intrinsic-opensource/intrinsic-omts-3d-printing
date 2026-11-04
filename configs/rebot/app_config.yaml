@@ -25,11 +25,11 @@ gripper:
 vision:
   camera_name: "orbbec_camera"
   perception_service_name: "nvidia_pose_estimator_service"
-  # Registered with the prompt "object" at confidence_threshold 0.1
-  # (research/REBOT_OMTS_APP.md, quick start step 4): SAM 3 proposes every
-  # object-like region and the estimator returns them best mesh fit first, so
+  # Registered with the prompt "object on a table" at confidence_threshold 0.25
+  # (research/REBOT_OMTS_APP.md, quick start step 4): SAM 3 proposes the
+  # object-like regions and the estimator returns them best mesh fit first, so
   # the vision adapter's first estimate is the part, whatever it is called.
-  pose_estimator_id: "ai.intrinsic.rebot_printed_part_object"
+  pose_estimator_id: "ai.intrinsic.rebot_printed_part_on_table_025"
   scene_object_id: "ai.intrinsic.rebot_printed_part"
   sensor_ids: [1, 4]
   min_num_instances: 1

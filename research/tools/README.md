@@ -102,8 +102,8 @@ bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \
 Then, per trial, write its files and run the commands the tool prints: apply
 the world (the chosen cuboid on the bed and A's frames at its height),
 register the part with the pose estimator (once per part and deploy, with
-the generic prompt "object" at threshold 0.1, which works for every part,
-`research/HANDOFF.md` step 4c-2), and run one cycle:
+the generic prompt "object on a table" at threshold 0.25, which has worked
+for every part so far, `research/HANDOFF.md` step 4c-2), and run one cycle:
 
 ```bash
 bazel run //research/tools:part_trial -- \

@@ -1194,10 +1194,8 @@ tall parts come first, tilted grasps after.
   * **Not yet tested:** real camera images, many parts on the bed, look-alike
     parts (geometry cannot tell two copies of one model apart), and whether
     the runner-up margin holds on real prints.
-  * **Now the cell's default.** `app_config.yaml` uses
-    `ai.intrinsic.rebot_printed_part_object`, registered with "object" at
-    0.1 (`REBOT_OMTS_APP.md`, quick start step 4); two cycles passed, about
-    61 s each against about 50 s with "cube" at 0.5.
+  * **"object" at 0.1 was the default briefly**, at about 61 s per cycle; see
+    below for what replaced it.
   * **A higher threshold cannot cap the masks.** "object" always ranks the
     part first, but its score depends on the shape: the Benchy 0.57–0.69,
     the lying cylinder 0.36, the default box 0.31, the 80×20×40 cuboid 0.20,
@@ -1237,8 +1235,24 @@ tall parts come first, tilted grasps after.
     "object" at 0.1; at 0.4, 1 to 2, but the cuboid clears it by only 0.05.
     "small object" scores parts higher but separates them poorly and lights
     up each grid cube (169 regions); "cube" alone passes 175 regions on the
-    grid, the flood a dense scene can cause with a shape word. Not yet run on
-    the cluster.
+    grid, the flood a dense scene can cause with a shape word.
+  * **"object on a table" at 0.25 is now the cell's default**
+    (`ai.intrinsic.rebot_printed_part_on_table_025` in `app_config.yaml`). On
+    the cluster, confirmed at 0.25 in the service's log, the right part came
+    first in all seven scenes (0.994 to 0.999, others 0.093 or less) within
+    0.5 mm of Gazebo, with 1 to 3 regions, and three full cycles passed in
+    165 s, about 55 s each, with 2 to 3 regions and 5 to 8 s of pose search per
+    pick. A part scoring under 0.25 would not be found; the weakest so far
+    scores 0.45.
+  * **0.25 removes the noise from small regions.** With the grid in view and
+    this prompt, 0.1 passed 27 regions (70 s of pose search, GPU memory steady
+    at 15.3 GB; the Benchy still won, 0.997 / 0.017). The whole plate scores
+    0.44 and single cubes 0.10 to 0.20, so 0.25 leaves 3 regions. Objects
+    scoring above it, such as larger separate prints, would still each cost a
+    pose search: a top-N cap (question 4.1.9) is what would bound that.
+  * **Re-registering under an existing id keeps the old settings.** It reports
+    success, and restarting the service does not help; a deploy removes the
+    registration. Use a new id when changing a prompt or threshold.
   * **A dense grid did not flood the segmentation.** With
     `models/test_grid` (a 100 mm plate of 10 × 10 cubes, `part_trial
     --grid`) beside the part, the first pass still proposed 7 regions:
