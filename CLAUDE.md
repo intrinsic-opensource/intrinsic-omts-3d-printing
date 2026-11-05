@@ -84,6 +84,10 @@ Layers in `src/`:
 
 `configs/<cell>/app_config.yaml` holds runtime parameters. `*.updates.pbtxt` files are `ObjectWorldUpdates` (attachments, base alignment, named frames like `view`, `machine_approach`, `vise_pre_place`). `*.textproto` files are service configs. `tests/unit/test_world_configs` schema-validates all `.pbtxt`/`.textproto` under `configs/`, so new config files get checked automatically. `//tools/jogging:store_frame` rewrites `scene.updates.pbtxt` in place.
 
+## Commits
+
+Sign off every commit with `git commit -s`. The DCO check blocks PRs unless each non-merge commit has a `Signed-off-by` line matching its author's name and email, so check that `git config user.name` and `user.email` match the identity you want on the commit. Don't sign off a commit on behalf of another author without their agreement.
+
 ## CI escape hatch
 
 A PR description containing a line `FORCE_SUBMIT=TRUE` skips the Bazel build/test job. Lint still runs. Use it only for changes that cannot affect the build.

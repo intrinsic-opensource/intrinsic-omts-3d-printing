@@ -6,7 +6,7 @@ checking the bed with a camera. Decisions, the plan and open questions are in
 [`HANDOFF.md`](HANDOFF.md) (section 3.2 summarizes the decisions taken here;
 section 6.3 summarizes the arm comparison).
 Earlier versions of this file, including the SO-101 evaluation, are in git
-history (commit `6b33ad7`).
+history (commit `d2501bb`).
 
 ---
 
