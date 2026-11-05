@@ -43,6 +43,8 @@ Run them with `bazel run`, which also provides numpy and scipy.
 | `cuboid_sweep` | Which cuboids the cell can grasp from the bed: sweeps sizes (z up, as printed) and yaws, replays the grasp `omts_app` publishes, and checks jaw width, fingers and palm against the part and printer on the approach and at the grasp, and reach. The grasp rule is reimplemented from `src/utils/dynamic_frame_calculator.py`; keep them in step. |
 | `part_trial` | Sets up a graspability trial in simulation with one test part (a cuboid or a cylinder, standing or lying): its placement on the bed, A's frames at its height, and an `app_config` naming it (see below). |
 | `prompt_sweep` | Scores SAM 3 text prompts on saved camera images, offline on the CPU, with the pose estimator's own SAM 3 export, preprocessing and tokenizer: presence, regions over a threshold, and the part's score, rank and margin when its pixel box is given. Matches the cluster's first segmentation pass (see below). |
+| `configure_cell` | Sets the printer distance, camera offset and target on the running cell, from `configs/rebot/cell_params.yaml` or flags: checks them, then writes the world update, `app_config` and registration script (`research/REBOT_OMTS_APP.md`). |
+| `cell_limits` | Sweeps the printer distance and camera offset one at a time, with `configure_cell`'s checks. Results in `research/HANDOFF.md`, section 5d. |
 | `release_drift` | From a Gazebo pose recording: how far the part moved at each release, and how long each finger took to open. |
 
 Examples, all from the repository root:

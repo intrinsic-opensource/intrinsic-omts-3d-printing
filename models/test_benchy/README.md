@@ -9,10 +9,9 @@ as a real print for the reBot graspability trials
 millimetres, 59.5 × 31.0 × 48.0 mm, with x along the hull and z up, centred
 at (90, 90) mm on a build plate. `test_benchy.stl`, the mesh the part uses,
 is the same model shifted by (−90, −90, −24) mm so that its origin is the
-centre of its bounding box; `test_benchy.sdf` scales it to metres. The
-origin has to be in the mesh itself: the pose estimator's registration
-exports the mesh without the SDF visual's pose (`research/HANDOFF.md`,
-step 4c).
+centre of its bounding box, and converted to metres. The origin has to be in
+the mesh itself: the pose estimator's registration exports the mesh without
+the SDF visual's pose (`research/HANDOFF.md`, step 4c).
 
 Why a low-poly model: the official single-part STL (225,706 triangles,
 [CreativeTools/3DBenchy](https://github.com/CreativeTools/3DBenchy)) made the

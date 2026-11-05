@@ -268,3 +268,25 @@ bazel run -c opt //:omts_solution -- --address=localhost:17080
 | `move_to_frame` reports "IK solver couldn't find any solutions" for a frame you edited | The planner gives the same error for an unreachable pose and for one where the arm or camera would collide, for example the wrist against the printer's front rail or the gripper
 against one of its towers. Move the frame or check clearances. |
 | The image display stays empty | Nothing has captured yet; trigger a capture ("Look through the camera"). Check the GUI is on the cluster's partition (`GZ_PARTITION=intrinsic_sim`). |
+
+## Changing the printer distance, camera offset or target
+
+Set them in `configs/rebot/cell_params.yaml`, or with flags, and apply them to the
+running cell. No rebuild is needed. Any target but the default part needs a deploy
+with `--//:test_parts` (without it, pass `--no_test_parts`).
+
+```bash
+bazel run //research/tools:configure_cell -- --out /tmp/cell \
+  --printer_distance 0.62 --camera_offset 0.09 -0.024 0.10 --target test_benchy
+bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \
+  --files /tmp/cell/cell.updates.pbtxt --reset_sim
+bash /tmp/cell/register.sh   # once per deploy and target
+bazel run //src:omts_app -- --address=localhost:17080 \
+  --config=/tmp/cell/app_config.yaml --num_cycles=1
+```
+
+It refuses values that fail its checks (`--force` writes them anyway). The limits
+are in `HANDOFF.md`, section 5d: printer 0.44 to 0.76 m; camera x 0.07 to 0.13, y
+-0.044 to -0.004, z 0.076 or more. `--register_all` writes `register.sh` for every
+target, so that switching later needs nothing else. New targets go in
+`configs/rebot/targets.yaml`; the file's header lists the steps.

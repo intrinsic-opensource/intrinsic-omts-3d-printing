@@ -21,6 +21,7 @@ py_library(
     deps = [
         ":kin",
         "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@ai_intrinsic_sdks_pip_deps//pyyaml",
     ],
 )
 
@@ -91,6 +92,51 @@ py_library(
     deps = [
         ":cell",
         ":kin",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+    ],
+)
+
+py_library(
+    name = "cell_checks",
+    srcs = ["cell_checks.py"],
+    deps = [
+        ":a_frames_lib",
+        ":cell",
+        ":kin",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+    ],
+)
+
+py_binary(
+    name = "configure_cell",
+    srcs = ["configure_cell.py"],
+    main = "configure_cell.py",
+    deps = [
+        ":a_frames_lib",
+        ":cell",
+        ":cell_checks",
+        ":part_trial_lib",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+    ],
+)
+
+py_binary(
+    name = "cell_limits",
+    srcs = ["cell_limits.py"],
+    main = "cell_limits.py",
+    deps = [
+        ":cell",
+        ":cell_checks",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+    ],
+)
+
+py_library(
+    name = "part_trial_lib",
+    srcs = ["part_trial.py"],
+    deps = [
+        ":a_frames_lib",
+        ":cell",
         "@ai_intrinsic_sdks_pip_deps//numpy",
     ],
 )
