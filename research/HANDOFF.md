@@ -16,13 +16,15 @@ This file records what has been decided and what to do next.
 | Arm comparison (decided) | Summarized in section 6.3; the full comparison (`ARM_SELECTION_REQUEST.md`) is in git history at `6f15cc8` |
 | SO-101 URDF | `research/so101_new_calib.urdf`, from the earlier SO-101 evaluation; superseded by the reBot decision |
 | reBot URDFs | Base for the sim model: [Seeed-Projects/reBot-Isaacsim](https://github.com/Seeed-Projects/reBot-Isaacsim) `urdf/00-arm-rs_asm-v3/urdf/00-arm-rs_asm-v3.urdf` (MIT), which fixes the gripper limits (section 6.2). Originals: [Seeed-Projects/reBot-DevArm](https://github.com/Seeed-Projects/reBot-DevArm) `Rebot_Arm_description/` (Apache-2.0 / CERN-OHL-W-2.0). |
-| Reference source | `intrinsic-core` checked out at the commit OMTS pins: `INTRINSIC_CORE_COMMIT` in `MODULE.bazel` (`c40e02aa` since #161), not a release tag. The `20261012.0` tag predates it and lacks `nvidia_pose_estimator`. Check behavior against the pinned commit when it matters. |
+| Reference source | `intrinsic-core` checked out at the commit OMTS pins: `INTRINSIC_CORE_COMMIT` in `MODULE.bazel`: `50927e35`, the `20261022.0` release, since #169 (#161 had pinned the untagged commit `c40e02aa`). Check behavior against the pinned commit when it matters. |
 
 Steps 1a–1d are done in simulation (section 5), which completes milestone 1:
 the reBot picks a printed part with its gripper, carries it in Gazebo, and
-places it, with RViz (the belief world) matching. Milestone 2 (section 5b)
-moves the cell onto OMTS's own app with a wrist camera; to deploy and run it,
-see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md). The milestone 1 demo
+places it, with RViz (the belief world) matching. Steps 3a–3c-2 are done
+too, which completes milestone 2 (section 5b; step 3d is optional): OMTS's own
+app runs the cell from the wrist camera, finding the part on a Prusa Core One's
+bed, taking it to a drop-off and back. To deploy and run it, see
+[`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md). The milestone 1 demo
 (`//:rebot_demo`, `REBOT_DEMO.md`) was removed on 2026-10-30, once `omts_app`
 did the same round trip with perception; it is in git history (`fd96df6`).
 
@@ -59,9 +61,11 @@ Perception (milestone 2, step 3b) also needs the NVIDIA pose estimator's
 model assets, including the gated SAM 3 weights, exported once per machine;
 see [`REBOT_OMTS_APP.md`](REBOT_OMTS_APP.md), quick start step 2.
 
-For quick analysis scripts (URDF kinematics, 3MF parsing), install `numpy`. The
-original machine had no system pip; it was installed per-user with
-`get-pip.py --user`, then `python3 -m pip install --user numpy`.
+The offline reach and clearance checks run through Bazel, which provides
+numpy and scipy (`research/tools/README.md`). For other quick scripts (URDF
+kinematics, 3MF parsing), install `numpy`. The original machine had no system
+pip; it was installed per-user with `get-pip.py --user`, then
+`python3 -m pip install --user numpy`.
 
 ---
 
@@ -75,7 +79,7 @@ original machine had no system pip; it was installed per-user with
 | **ICON support for the reBot is expected from Intrinsic Core** | Hardware only, likely for the B601-RS. This project does not write or validate a driver; the community-driver risks (section 6.3) apply only if that changes. The simulation model is ours to build. |
 | **Target compute: NVIDIA Jetson (Orin or Thor)** | ARM64 support is expected. Seeed sells reBot kits bundled with Jetson Orin or Thor. |
 | **Simulation first** | Hardware waits for ICON support for the arm. All milestone 1 work runs in Gazebo (`--operation_mode=sim`). |
-| **No printer yet** | The target printer stays undecided. The arm first works on its own in an empty cell, with no obstacles. |
+| **No target printer yet** | The target printer stays undecided. Milestone 1 started in an empty cell; a stand-in printer joined in step 2a, and a Prusa Core One model replaced it in step 3c-2 as the cell's printer for now. |
 | **Spiral workflow** | Start simple and add complexity in small steps, with something to demo at every step (section 5, and `CLAUDE.md`). |
 
 ### 3.2 From the study
@@ -95,7 +99,7 @@ Each is recorded in the study with its reasoning.
 
 | Decision | Consequence |
 | --- | --- |
-| **Locate the print with an Orbbec camera under the wrist, as OMTS does** | Overrides two study decisions in 3.2: vision replaces the 3MF plate layout as the localization source, and a wrist depth camera replaces the fixed RGB camera. The plate layout stays as a later confidence check. |
+| **Locate the print with an Orbbec camera on the wrist, as OMTS does** | Overrides two study decisions in 3.2: vision replaces the 3MF plate layout as the localization source, and a wrist depth camera replaces the fixed RGB camera. The plate layout stays as a later confidence check. |
 | **Reuse OMTS and Intrinsic Core first; minimize custom code** | Part of the goal is to measure how easy the integration is. Every change to OMTS or a deviation from its design is flagged in the step that needs it. |
 | **Run the reBot cell through `omts_app`** | The pick-and-place `rebot_demo` was custom; the perception milestone moves the cell onto OMTS's own app and tree, with `machine: None` like `lab_bb_01`. The demo was removed after step 3c (2026-10-30). |
 | **No force sensing still holds** | OMTS's compliant touchdowns (`move_to_contact`) must become optional (milestone 2, step 3c). |
@@ -138,11 +142,20 @@ Each is recorded in the study with its reasoning.
    under contact: they drift while a grasp rests on the bed, and at release
    one finger can stay on the part or drag it. The cell presses the part
    onto its support before opening as a workaround.
+9. **New (2026-11-04): keep only the top N SAM 3 proposals, by score**,
+   drafted in
+   [`feature_requests/sam3_top_n_proposals.md`](feature_requests/sam3_top_n_proposals.md).
+   The pose estimator runs a pose search on every proposal above an
+   absolute threshold, unsorted and uncapped, and a generic prompt's scores
+   depend on the part's shape (step 4c-2). A top-N cut would bound the cost
+   in any scene and make the threshold part-independent.
 
 ### 4.2 Open project questions
 
 1. **Target printer and firmware.** Deferred: decides the status API, camera
-   source and 3MF variant. Needed before the printer enters the cell.
+   source and 3MF variant. The cell uses a Prusa Core One model for its
+   geometry (step 3c-2); whether the Prusa is the target is undecided. Needed
+   before the printer adapter and per-job cycle (after milestone 2).
 2. **Sheet swap or direct part grasping.** The study assumes direct grasping
    as the harder case.
 3. **Is the uncovered "collapsed or short print" case acceptable?**
@@ -923,8 +936,9 @@ Learned:
 
 * **Check every arm link, not just the tool, against a new printer.** The
   first offline check covered the gripper and camera and passed; the run then
-  failed on link4. `links_vs_prusa.py` and `tilt_sweep.py` in the offline
-  tools sample each link's collision mesh against the printer's boxes.
+  failed on link4. [`research/tools/`](tools/) has the offline checks used
+  here: `grasp_clearance` and `config_clearance` sample each link's collision
+  mesh against the printer's boxes.
 * **The fingers are two independent actuators in simulation.** Seeed's URDF,
   and so our SDF, has two prismatic finger joints with no coupling, while the
   real gripper drives both from one actuator. Intrinsic's scene object
@@ -966,6 +980,323 @@ Learned:
 * Try the MoveIt grasp planner backend for non-cuboid parts.
 * Move to hardware on a Jetson once ICON support for the arm is available.
 * Printer adapter and per-job cycle.
+
+Found during milestone 2, not yet planned:
+
+* **Pick one part among several detections.** The vision adapter takes the
+  first estimate (`estimates[0]`); the 0.5 confidence threshold keeps false
+  positives out today, but a bed with several parts, or a part next to a
+  look-alike, needs a choice (nearest, most confident, or matched to the
+  plate layout).
+* **Elongated parts.** Studied in step 4a: with `yaw_symmetry_degrees: 90`
+  a long part lying across the line to the robot is gripped by its ends, not
+  leaned sideways, while its length fits the jaws.
+* **Drop the press before release** once the fingers are coupled in
+  simulation (question 4.1.8). The press is a simulation workaround, and on
+  hardware it may not be wanted.
+* **Fix the Prusa model's `bed_joint`:** prismatic along Y, while a Core
+  One's bed moves along Z (step 3c-2). Nothing moves it yet; needed before
+  the cell drives the bed.
+* **Tight clearances in the Prusa.** The gripper spans most of the bed
+  between the internal towers, so the return area is ±1 cm sideways and
+  ±5°, and parts printed off-centre may be out of reach. Options: a narrower
+  gripper; a horizontal grasp (approach along the bed, never tried); or
+  moving the arm, whose placement is free.
+* **A real camera bracket.** The mount pose is a guess (step 3a), and `view`
+  and the tilt limits depend on it; check them again against a real bracket
+  and its cable routing.
+* **Offline checks don't model self-collision**, and only `cuboid_sweep`
+  checks the ground at A ([`tools/README.md`](tools/README.md)); confirm
+  changes near the ground in simulation.
+
+## 5c. Milestone 3: More Graspable Geometries
+
+Goal: know which printed parts the cell can pick, and widen the set. Starting
+with cuboids under 100 mm a side, brute force: sweep sizes offline, then
+confirm the boundaries in simulation.
+
+### Step 4a: Which cuboids are graspable
+
+**Status: done (2026-11-03).** Offline sweep of cuboids standing as printed
+on the Prusa's bed, and trials in simulation with six test parts.
+
+* **`research/tools/cuboid_sweep`** replays the grasp `omts_app` publishes
+  for a cuboid at the bed centre and checks: fit between the open jaws (5 mm
+  per side); the open fingers and gripper body against the part and printer
+  on the approach; the closed fingers and body at the grasp and through the
+  press back onto the bed; the same at A on the ground; and reach. It also
+  reports the finger pad area on the gripped face.
+* **Trials:** `models/test_cuboids/` holds five test cuboids, deployed with
+  `//:rebot_solution` only under `--//:test_parts` and parked out of
+  reach. `research/tools/part_trial` puts one on the bed and writes A's
+  frames at its height and an `app_config` naming it. Register each part
+  with the prompt "cube": "box" found nothing.
+
+Results (75° tilt, yaw symmetry 90):
+
+| Limit | Boundary | What sets it |
+| --- | --- | --- |
+| Height | at least 25 mm | The gripper body reaches the bed (or the ground at A) when the part is pressed down before release; 22 mm failed at A in simulation. |
+| Width between the jaws | 90 mm with 5 mm per side; 95 mm worked in simulation | 100 mm maximum opening. |
+| Turn on the bed | within ±14° of a grasp direction, any size | The gripper body or the open fingers hit the internal towers; 12° passed and 16° failed in simulation. |
+| Reach | not limiting at the bed centre | |
+
+| Part (mm) | Yaw | Simulation |
+| --- | --- | --- |
+| 40×40×22, 40×40×20 | 0° | Picked; then the gripper body hit the ground at A during the press. |
+| 80×20×40, 95×20×40 | 90° | Picked by their ends and returned. |
+| 40×40×40 | 12° / 16° | Passed / gripper body hit a tower. |
+
+Learned:
+
+* **Elongated parts don't lean sideways with yaw symmetry 90.** The grasp
+  turns a quarter and grips the ends instead, as long as the length fits the
+  jaws. With symmetry 180 the lean goes sideways and the open fingers hit a
+  tower, as step 3c warned.
+* **Thin parts are held by the fingertips only.** `cuboid_center` puts the
+  fingertips at the part's centre, so a part thin along the approach (the
+  20 mm ends of the long parts) only meets the tapered tips, which narrow to
+  about 3 × 2 mm. The weld in simulation holds anyway, so a pass there does
+  not mean a real grip.
+* **Deeper grasps raise the contact area.** Pushing the grasp 30 mm past
+  the centre, horizontally along the approach, raised the smallest pad
+  contact over the sweep from 93 to 365 mm² (median 207 to 777), and the
+  long parts, the 40 mm cube and the default part passed in simulation that
+  way. Pushing along the tilted approach instead lowers the gripper onto the
+  bed. The limit is the gripper body, 73 mm behind the tips, reaching the
+  part's near face: at 30 mm, 89 of 125 sizes still fit. **Stashed:** the
+  option (`grasp.grasp_depth_meters`, a change to OMTS's config, vision
+  adapter, pick and frame calculator) is in `git stash` on
+  `rebot-grasp-target`. A's frames must include the same push
+  (`a_frames --depth`).
+* **The offline checks needed two fixes.** The gripper body's bounding box
+  made them too strict (now its collision mesh), and they did not check A
+  or the press before release (now both). Even so, the 20 mm part's pick
+  passed in simulation where the sweep puts the body 1–2 mm into the bed, so
+  treat the height limit as ±3 mm.
+
+### Step 4b: A cylinder, with `cuboid_center`
+
+**Status: done (2026-11-03).** A 30 mm × 60 mm cylinder
+(`models/test_cylinders/`) in three orientations, with the grasp planner
+unchanged. `research/tools/part_trial` (renamed from `cuboid_trial`) lays a
+part on its side with `--lying`; the flag is now `--//:test_parts`. Register
+with the prompt "cylinder".
+
+| Orientation | Simulation | Grasp |
+| --- | --- | --- |
+| Lying, axis toward the robot | Passed | Across the diameter, leaning along the axis. |
+| Lying, axis across | Passed | By the flat ends (60 mm between the jaws), like the long cuboids. |
+| Standing | Failed: link4 against the printer | Turned 32°, past the ±14° limit. |
+
+Learned:
+
+* **A lying cylinder works with `cuboid_center`.** The calculator takes the
+  model z axis (the cylinder's axis) as the long axis when model x points
+  down, so the grasp is across the diameter or on the ends, chosen by the
+  yaw symmetry as for cuboids.
+* **A standing cylinder needs another rule.** It looks the same at any roll
+  about its axis, so the pose estimate's x axis, and the grasp's direction
+  with it, is arbitrary: up to ±45° off with yaw symmetry 90, against a ±14°
+  limit in the Prusa. A round part should lean straight toward the robot,
+  whatever its estimated roll.
+* **Round parts roll in simulation before Gazebo welds them.** Intrinsic's
+  simulator welds a free part to its support (`ObjectInteractionModerator`)
+  only after 2 s at rest, a value set in the simulator asset's arguments
+  that the solution cannot override, and a cylinder on its side rolls to the
+  printer's wall first (3 of 5 resets). Dropping it from 5 mm or holding it
+  with repeated `set_pose` calls did not stop it; a 1 mm flat along its
+  underside, as a part printed lying down has, did (5 of 5).
+
+### Steps 4c–4g: Plan grasps with MoveIt, on to a Benchy (planned 2026-11-04)
+
+Goal: grasp a real print, a 3DBenchy, with OMTS's MoveIt grasp planner
+(`grasp.planner: moveit`) instead of `cuboid_center`.
+
+What OMTS's MoveIt support is, and what it is not:
+
+* OMTS ships the client side: `grasp.planner: moveit` runs Intrinsic's
+  `moveit_plan_grasp_skill` after perception, and the skill writes
+  `root/grasp` and `root/pre_grasp`, which the rest of the pick reads
+  unchanged (`third_party/intrinsic_moveit/README.md`).
+  `moveit_plan_grasp_and_move --plan_only` plans without running the cycle.
+* The skill calls a separate ROS 2 service, `moveit_planning_service` from
+  [intrinsic-moveit](https://github.com/intrinsic-ai/intrinsic-moveit),
+  built in a colcon workspace. Its launch file loads a MoveIt package named
+  `robot_hardware_moveit_config`, which is the UR5e with a Hand-E, and its
+  `flowstate_ros_bridge` settings name the UR's joints.
+* **Grasp candidates come from the part's bounding box**
+  (`generate_box_grasp_poses`): on chosen faces of the box, at a few turns
+  about each face normal, approaching along the normal. Gripper-to-part
+  collision is allowed, and candidates are ranked by motion cost. So MoveIt
+  checks reach and collisions with the cell, not where the fingers meet the
+  part's real shape. It does use the box's centre, not the mesh origin.
+* **Approaches are straight down or horizontal**, never in between. Straight
+  down cannot reach into the Prusa (step 3c). Offline (`cuboid_sweep --tilt
+  90`), a horizontal grasp puts the gripper body, 82 mm tall, into the bed or
+  the printer's base unless the part is about 80 mm tall or more; a 95 mm
+  part passes, a Benchy (48 mm) and a 40 mm cube do not.
+
+Decisions: the Benchy mesh is downloaded at build time and committed (its
+license allows it); the reBot's MoveIt packages are an overlay named
+`robot_hardware_moveit_config` in the colcon workspace; horizontal grasps on
+tall parts come first, tilted grasps after.
+
+* **4c. A Benchy in the cell, located with "boat".** **Done (2026-11-03).**
+  `models/test_benchy/` is a 900-triangle low-poly Benchy (60 × 31 × 48 mm)
+  in `--//:test_parts`. From `view`, registered with "toy boat", the pose
+  estimate is within 0.4 mm and 0.3° of Gazebo's at yaws 0°, 45° and 90°.
+  Learned:
+  * **"boat" only works broadside.** Its first segmentation pass scores the
+    Benchy 0.25 end-on and 0.42 at 45°, below the 0.5 threshold, and 0.67 to
+    0.9 broadside. "toy boat" scores 0.78 or more at all three yaws, so it
+    keeps the threshold; "boat" at 0.2 also works but invites false
+    positives.
+  * **The official mesh is too detailed for FoundationPose here.** Its
+    225,706 triangles ran the 16 GB GPU out of memory (the service holds
+    11 GB idle). Only the shape matters, so the low-poly model replaced it.
+    3DBenchy is CC0 since 2025.
+  * **Registration ignores the visual's pose.** The exported model (in the
+    estimator pod's `/tmp/cad_models/`) is the mesh scaled to metres but
+    without the SDF `<pose>`, so a mesh centred by an SDF offset is
+    estimated at the mesh's own origin, here 12 cm off. A part's mesh must
+    have its origin at the part's frame.
+  * **The service caches exported models by estimator id**, in the pod,
+    across deploys. After changing a part's mesh, restart
+    `rs-nvidia-pose-estimator-service-0` or register under a new id.
+* **4c-2. One prompt for any part, geometry picks.** **Done (2026-11-03).**
+  Registered with the service's own fallback prompt, "object", at a
+  confidence threshold of 0.1, the pose estimator found every part tried, with
+  no part-specific wording:
+
+  | Scene | Masks | Kept | FoundationPose | Best / next score |
+  | --- | --- | --- | --- | --- |
+  | Benchy alone, yaws 0°, 45°, 90° | 5 | 2 | 13 s | 0.999 / 0.011 |
+  | Default 40×40×30 part | 4 | 2 | 10 s | 0.999 / 0.051 |
+  | Cylinder, lying | 5 | 2 | 13 s | 0.994 / 0.010 |
+  | 80×20×40 cuboid | 3 | 1 | 8 s | 0.999 / – |
+  | Benchy and default part together, each estimator | 7 | 3 | 18 s | 0.997 / 0.050 |
+
+  Every best estimate was the right part, within 0.5 mm of Gazebo's pose
+  (the box sometimes upside down, which is equivalent for it). How it works:
+  SAM 3 proposes every region it calls an object; FoundationPose fits the
+  part's mesh to each; the service drops poor fits (`selection` in its
+  config) and returns the rest sorted by FoundationPose's fit, so the app's
+  first estimate is the region the mesh fits best. Learned:
+  * **No prompt-free mode, but a broad prompt works.** The service always
+    prompts SAM 3 (`nvidia_service_config.proto`); "object" with a low
+    threshold hands the choice to the geometry. No code change: only the
+    registration's prompt and threshold.
+  * **The cost is time.** Every mask above the threshold gets its own pose
+    search, about 2.6 s each on this GPU, with no cap: 8 to 18 s per
+    estimate against about 1.2 s for one mask. GPU memory held with up to
+    7 masks.
+  * **Not yet tested:** real camera images, many parts on the bed, look-alike
+    parts (geometry cannot tell two copies of one model apart), and whether
+    the runner-up margin holds on real prints.
+  * **"object" at 0.1 was the default briefly**, at about 61 s per cycle; see
+    below for what replaced it.
+  * **A higher threshold cannot cap the masks.** "object" always ranks the
+    part first, but its score depends on the shape: the Benchy 0.57–0.69,
+    the lying cylinder 0.36, the default box 0.31, the 80×20×40 cuboid 0.20,
+    against 0.10–0.28 for the next region. At 0.5 only the Benchy was
+    found; keeping every part needs a threshold under 0.2. The rank is what
+    is stable, so a cap should keep the top N regions by score. The
+    estimator has no such option: SAM 3's 200 queries are the only limit,
+    and the survivors keep the decoder's order, unsorted.
+  * **Other generic prompts are worse.** Scores of the best and next region
+    in the first pass, with the part on the bed (Benchy end-on):
+
+    | Part | "object" | "shape" | "stock" | "3D printed part" |
+    | --- | --- | --- | --- | --- |
+    | Benchy | 0.57 / 0.20 | 0.03 / 0.02 | 0.001 | 0.36 / 0.28 |
+    | Default box | 0.31 / 0.14 | 0.05 / 0.02 | 0.001 | 0.49 / 0.33 |
+    | Cylinder, lying | 0.36 / 0.15 | 0.02 / 0.01 | 0.001 | 0.74 / 0.35 |
+    | 80×20×40 cuboid | 0.20 / 0.10 | 0.04 / 0.02 | 0.001 | 0.58 / 0.34 |
+    | Regions over 0.1 | 3–5 | 0 | 0 | 13–16 |
+
+    "shape" and "stock" find nothing: abstract words score near zero, while
+    concrete shape names score high on their own shape ("cube" 0.93–0.98
+    on the 40 mm cube, "cylinder" 0.98). SAM 3 ships no list of learned
+    concepts; `bpe_simple_vocab_16e6.txt.gz` in the export is the text
+    tokenizer's merge table. "3D printed part" scores the simple shapes higher
+    than "object" does, but it also scores pieces of the printer at 0.28 to
+    0.35, so it passes three to five times as many regions (more pose
+    searches) with a thinner margin; the right part still won every time.
+    "object" stays the default. Estimator ids must be lowercase ("3D" in an
+    id is rejected).
+  * **"object on a table" separates best.** `research/tools/prompt_sweep`
+    scored 50 generic phrases offline on seven images (the Benchy at three
+    yaws, the box, the lying cylinder, the cuboid, the Benchy beside the
+    grid). "object on a table" ranked the part first everywhere with the
+    highest worst-case score among such phrases (0.45, the cuboid; "object"
+    0.20) and the widest worst-case margin (+0.19). At threshold 0.35 every
+    part passes and each scene passes 1 to 3 regions, against 3 to 7 for
+    "object" at 0.1; at 0.4, 1 to 2, but the cuboid clears it by only 0.05.
+    "small object" scores parts higher but separates them poorly and lights
+    up each grid cube (169 regions); "cube" alone passes 175 regions on the
+    grid, the flood a dense scene can cause with a shape word.
+  * **"object on a table" at 0.25 is now the cell's default**
+    (`ai.intrinsic.rebot_printed_part_on_table_025` in `app_config.yaml`). On
+    the cluster, confirmed at 0.25 in the service's log, the right part came
+    first in all seven scenes (0.994 to 0.999, others 0.093 or less) within
+    0.5 mm of Gazebo, with 1 to 3 regions, and three full cycles passed in
+    165 s, about 55 s each, with 2 to 3 regions and 5 to 8 s of pose search per
+    pick. A part scoring under 0.25 would not be found; the weakest so far
+    scores 0.45.
+  * **0.25 removes the noise from small regions.** With the grid in view and
+    this prompt, 0.1 passed 27 regions (70 s of pose search, GPU memory steady
+    at 15.3 GB; the Benchy still won, 0.997 / 0.017). The whole plate scores
+    0.44 and single cubes 0.10 to 0.20, so 0.25 leaves 3 regions. Objects
+    scoring above it, such as larger separate prints, would still each cost a
+    pose search: a top-N cap (question 4.1.9) is what would bound that.
+  * **Re-registering under an existing id keeps the old settings.** It reports
+    success, and restarting the service does not help; a deploy removes the
+    registration. Use a new id when changing a prompt or threshold.
+  * **A dense grid did not flood the segmentation.** With
+    `models/test_grid` (a 100 mm plate of 10 × 10 cubes, `part_trial
+    --grid`) beside the part, the first pass still proposed 7 regions:
+    SAM 3 takes the grid as one object. The right part won (0.997 / 0.021
+    and 0.999 / 0.059), at about 20 s per estimate, peaking at 15.3 GB of
+    the GPU's 16.4 GB, as without the grid. Separate, larger prints spread
+    over the bed may behave differently; untested.
+  * **`apply_scene_updates --files` with no file names applies nothing**; it
+    only resets Gazebo to the current world. Restore the cell with
+    `--setup rebot`, which applies every `configs/rebot/*.updates.pbtxt`.
+* **4d. MoveIt's planning service for the reBot, offline.** Build the
+  intrinsic-moveit workspace (ROS 2 Lyrical). Write a reBot description from
+  the URDF behind `models/rebot_b601_rs`, with the gripper and camera, and a
+  MoveIt config with an arm group, a "hand" end-effector group and
+  `tool_frame`, as the `robot_hardware_moveit_config` overlay. Demo: a grasp
+  planned on a box in RViz with mock hardware.
+* **4e. Horizontal grasps on a tall part, connected.** Configure the reBot
+  cell's bridge (base frame, joint names), sync the scene into MoveIt, and
+  plan on a 95 mm tall part (`test_cuboid_95x20x40` stood on end with
+  `part_trial --lying`) with `--plan_only`, side faces only; then run one
+  `omts_app` cycle with `planner: moveit` (add the skill to
+  `//:rebot_solution`, and pre-create `grasp` and `pre_grasp`). Demo: a
+  horizontal pick in simulation. A's frames assume the 75° grasp, so A may
+  need its own frames for a horizontal one.
+* **4f. Tilted grasps by tilting the box frame from OMTS.** Pass the box
+  frame (`obj_t_obj_center`) and dimensions with the box pitched 75° about
+  the jaw axis, so that a "face" approach comes in tilted, using parameters
+  OMTS already passes to the skill. Demo: a tilted MoveIt grasp on a 40 mm
+  part. If the service rejects it, file a feature request with
+  intrinsic-moveit for sampled approach angles.
+* **4g. The Benchy with MoveIt.** Run the cycle on the Benchy with the
+  tilted box frame. Demo: a pick and return in simulation, and a look at
+  where the fingers land on the hull.
+
+Next:
+
+* Decide on the grasp depth: restore the stashed option and pick a default
+  per part, or derive it from the part's size (the calculator does not know
+  the size today).
+* Make the yaw symmetry a per-part choice: 90 suits square parts and lets
+  long ones be gripped by their ends; 180 keeps long parts gripped across.
+* A rule for round parts (standing cylinders): lean toward the robot
+  regardless of the estimated roll.
+* Other shapes: L-shapes, parts lying on another face.
 
 ---
 
@@ -1077,22 +1408,27 @@ again if ICON support for the reBot does not materialize or another arm is consi
 
 Check these before building on them.
 
-* **Host-side image capture through Intrinsic** was never exercised in this
-  repo (`tools/calibration/sample_calibration_poses.py` sets `camera = None`).
-  The study avoids it by reading the printer's camera directly.
+* **Getting images back to the host through Intrinsic.** Triggering a
+  capture from a host script works (the `capture_images` skill, and pose
+  estimation; `REBOT_OMTS_APP.md`, Debugging), but the images were viewed on
+  Gazebo's camera topics, never returned to the host through Intrinsic
+  (`tools/calibration/sample_calibration_poses.py` still sets
+  `camera = None`). The study avoids it by reading the printer's camera
+  directly.
 
 ---
 
 ## 8. Housekeeping
 
 * **Local fixes for `20261012.0`:** written when OMTS pinned that release;
-  it now pins commit `c40e02aa` (#161), so recheck both against it. At the
-  time both were still needed with the pinned release. `48fbedb` (no camera args to `estimate_pose_multi_view`) stays
-  needed on intrinsic-core `main` too. `828bbf3` (attach and detach via the
-  robot) works around `attach_object_to_robot` parenting to the reference's
-  final entity. intrinsic-core `main` (`3d137157`) attaches to a gripper's
-  base entity again, so `828bbf3` becomes optional, though still correct,
-  once OMTS pins a release that includes that change.
+  it now pins `20261022.0` (`50927e35`, #169). `b7cc503` (no camera args to
+  `estimate_pose_multi_view`) is no longer a local fix: upstream made the same
+  change in #157. `c98d44a` (attach and detach via the robot, on this branch
+  as `828bbf3`) works around `attach_object_to_robot` parenting to the
+  reference's final entity. The pinned release includes `3d137157`, which
+  attaches to a gripper's base entity again, so the workaround is now
+  optional, though still correct; going back to attaching via the gripper is
+  untested.
 * **Upstream gap, still open at `48be90d`:** the solution does not declare
   `dio_wait_for_input`, so `DioCncMachine.build_wait_cycle_complete_task`
   sleeps and never checks the input (study section 1).

@@ -1,0 +1,437 @@
+<?xml version="1.0" ?>
+<!--
+Copyright 2026 Intrinsic Innovation LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<!-- A dense grid for the graspability trials: many small, similar objects in
+     view, to see how many regions the pose estimator's segmentation proposes.
+     Static, with its origin at the bottom centre of the plate. -->
+<sdf version="1.9">
+  <model name="test_grid">
+    <static>true</static>
+    <link name="base_link">
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>test_grid.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <collision name="plate">
+        <pose>0 0 0.0010 0 0 0</pose>
+        <geometry><box><size>0.1 0.1 0.002</size></box></geometry>
+      </collision>
+      <collision name="cube_000">
+        <pose>-0.0450 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_001">
+        <pose>-0.0450 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_002">
+        <pose>-0.0450 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_003">
+        <pose>-0.0450 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_004">
+        <pose>-0.0450 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_005">
+        <pose>-0.0450 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_006">
+        <pose>-0.0450 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_007">
+        <pose>-0.0450 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_008">
+        <pose>-0.0450 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_009">
+        <pose>-0.0450 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_010">
+        <pose>-0.0350 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_011">
+        <pose>-0.0350 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_012">
+        <pose>-0.0350 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_013">
+        <pose>-0.0350 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_014">
+        <pose>-0.0350 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_015">
+        <pose>-0.0350 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_016">
+        <pose>-0.0350 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_017">
+        <pose>-0.0350 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_018">
+        <pose>-0.0350 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_019">
+        <pose>-0.0350 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_020">
+        <pose>-0.0250 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_021">
+        <pose>-0.0250 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_022">
+        <pose>-0.0250 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_023">
+        <pose>-0.0250 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_024">
+        <pose>-0.0250 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_025">
+        <pose>-0.0250 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_026">
+        <pose>-0.0250 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_027">
+        <pose>-0.0250 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_028">
+        <pose>-0.0250 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_029">
+        <pose>-0.0250 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_030">
+        <pose>-0.0150 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_031">
+        <pose>-0.0150 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_032">
+        <pose>-0.0150 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_033">
+        <pose>-0.0150 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_034">
+        <pose>-0.0150 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_035">
+        <pose>-0.0150 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_036">
+        <pose>-0.0150 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_037">
+        <pose>-0.0150 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_038">
+        <pose>-0.0150 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_039">
+        <pose>-0.0150 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_040">
+        <pose>-0.0050 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_041">
+        <pose>-0.0050 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_042">
+        <pose>-0.0050 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_043">
+        <pose>-0.0050 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_044">
+        <pose>-0.0050 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_045">
+        <pose>-0.0050 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_046">
+        <pose>-0.0050 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_047">
+        <pose>-0.0050 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_048">
+        <pose>-0.0050 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_049">
+        <pose>-0.0050 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_050">
+        <pose>0.0050 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_051">
+        <pose>0.0050 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_052">
+        <pose>0.0050 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_053">
+        <pose>0.0050 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_054">
+        <pose>0.0050 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_055">
+        <pose>0.0050 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_056">
+        <pose>0.0050 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_057">
+        <pose>0.0050 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_058">
+        <pose>0.0050 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_059">
+        <pose>0.0050 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_060">
+        <pose>0.0150 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_061">
+        <pose>0.0150 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_062">
+        <pose>0.0150 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_063">
+        <pose>0.0150 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_064">
+        <pose>0.0150 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_065">
+        <pose>0.0150 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_066">
+        <pose>0.0150 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_067">
+        <pose>0.0150 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_068">
+        <pose>0.0150 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_069">
+        <pose>0.0150 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_070">
+        <pose>0.0250 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_071">
+        <pose>0.0250 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_072">
+        <pose>0.0250 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_073">
+        <pose>0.0250 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_074">
+        <pose>0.0250 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_075">
+        <pose>0.0250 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_076">
+        <pose>0.0250 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_077">
+        <pose>0.0250 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_078">
+        <pose>0.0250 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_079">
+        <pose>0.0250 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_080">
+        <pose>0.0350 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_081">
+        <pose>0.0350 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_082">
+        <pose>0.0350 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_083">
+        <pose>0.0350 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_084">
+        <pose>0.0350 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_085">
+        <pose>0.0350 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_086">
+        <pose>0.0350 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_087">
+        <pose>0.0350 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_088">
+        <pose>0.0350 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_089">
+        <pose>0.0350 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_090">
+        <pose>0.0450 -0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_091">
+        <pose>0.0450 -0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_092">
+        <pose>0.0450 -0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_093">
+        <pose>0.0450 -0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_094">
+        <pose>0.0450 -0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_095">
+        <pose>0.0450 0.0050 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_096">
+        <pose>0.0450 0.0150 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_097">
+        <pose>0.0450 0.0250 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_098">
+        <pose>0.0450 0.0350 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+      <collision name="cube_099">
+        <pose>0.0450 0.0450 0.0050 0 0 0</pose>
+        <geometry><box><size>0.006 0.006 0.006</size></box></geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>
