@@ -31,6 +31,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
+import yaml
 
 from research.tools import kin
 
@@ -150,6 +151,16 @@ def frame_pose(name: str, path: Path = CONFIGS / "scene.updates.pbtxt"):
   raise KeyError(f"no frame {name} in {path}")
 
 
+def targets() -> dict:
+  """The target library, configs/rebot/targets.yaml."""
+  return yaml.safe_load((CONFIGS / "targets.yaml").read_text())["targets"]
+
+
+def parameters() -> dict:
+  """The cell's parameters, configs/rebot/cell_params.yaml."""
+  return yaml.safe_load((CONFIGS / "cell_params.yaml").read_text())
+
+
 def app_setting(key: str) -> float:
   """A numeric `key: value` from configs/rebot/app_config.yaml."""
   text = (CONFIGS / "app_config.yaml").read_text()
@@ -159,8 +170,23 @@ def app_setting(key: str) -> float:
   return float(m.group(1))
 
 
+# Set by set_parameters: the printer's distance and camera offset to check,
+# instead of the committed configs'.
+_printer_distance: float | None = None
+_camera_offset: tuple[float, float, float] | None = None
+
+
+def set_parameters(printer_distance=None, camera_offset=None) -> None:
+  """Checks the cell with these values; None means the committed configs'."""
+  global _printer_distance, _camera_offset
+  _printer_distance, _camera_offset = printer_distance, camera_offset
+
+
 def world_t_printer() -> np.ndarray:
-  return object_pose(CONFIGS / "printer.updates.pbtxt", "printer")
+  t = object_pose(CONFIGS / "printer.updates.pbtxt", "printer")
+  if _printer_distance is not None:
+    t[0, 3] = _printer_distance
+  return t
 
 
 def tool_t_camera() -> np.ndarray:
@@ -168,6 +194,8 @@ def tool_t_camera() -> np.ndarray:
   flange_t_cam = object_pose(
     CONFIGS / "orbbec_gemini.updates.pbtxt", "orbbec_camera"
   )
+  if _camera_offset is not None:
+    flange_t_cam[:3, 3] = _camera_offset
   flange_t_tool = np.eye(4)
   flange_t_tool[2, 3] = kin.TOOL_Z
   return np.linalg.inv(flange_t_tool) @ flange_t_cam

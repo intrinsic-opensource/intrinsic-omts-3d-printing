@@ -1,0 +1,45 @@
+# The library of targets for the reBot cell. Each is a scene object, under
+# models/, that research/tools:configure_cell can put on the printer's bed.
+#
+# size_m: the model's extents along x, y, z (its bounding box).
+# lying: on its side on the bed, model z along the world x axis, instead of as
+#   modelled, model z up.
+# confidence_threshold: SAM 3's threshold for the prompt "object on a table". The
+#   pose estimator's registration keeps it, so a part has one id per threshold.
+#
+# To add one: a model in its package, an entry in _TEST_PARTS in the root BUILD,
+# an entry here, then `part_trial --parking` to rewrite the parked placements.
+targets:
+  rebot_printed_part:
+    size_m: [0.04, 0.04, 0.03]
+    pose_estimator_id: ai.intrinsic.rebot_printed_part_on_table_025
+    confidence_threshold: 0.25
+  test_cuboid_40x40x20:
+    size_m: [0.04, 0.04, 0.02]
+    pose_estimator_id: ai.intrinsic.test_cuboid_40x40x20_object_on_a_table
+    confidence_threshold: 0.25
+  test_cuboid_40x40x22:
+    size_m: [0.04, 0.04, 0.022]
+    pose_estimator_id: ai.intrinsic.test_cuboid_40x40x22_object_on_a_table
+    confidence_threshold: 0.25
+  test_cuboid_40x40x40:
+    size_m: [0.04, 0.04, 0.04]
+    pose_estimator_id: ai.intrinsic.test_cuboid_40x40x40_object_on_a_table
+    confidence_threshold: 0.25
+  test_cuboid_80x20x40:
+    size_m: [0.08, 0.02, 0.04]
+    pose_estimator_id: ai.intrinsic.test_cuboid_80x20x40_object_on_a_table
+    confidence_threshold: 0.25
+  test_cuboid_95x20x40:
+    size_m: [0.095, 0.02, 0.04]
+    pose_estimator_id: ai.intrinsic.test_cuboid_95x20x40_object_on_a_table
+    confidence_threshold: 0.25
+  test_cylinder_30x60:
+    size_m: [0.03, 0.03, 0.06]
+    lying: true
+    pose_estimator_id: ai.intrinsic.test_cylinder_30x60_object_on_a_table
+    confidence_threshold: 0.25
+  test_benchy:
+    size_m: [0.0595, 0.031, 0.048]
+    pose_estimator_id: ai.intrinsic.test_benchy_object_on_a_table
+    confidence_threshold: 0.25

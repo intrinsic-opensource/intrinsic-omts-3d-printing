@@ -1300,6 +1300,45 @@ Next:
 
 ---
 
+## 5d. Cell parameters and the target library (2026-11-05)
+
+`configs/rebot/cell_params.yaml` holds the printer's distance, the camera's offset
+and the target, chosen from `configs/rebot/targets.yaml`. They apply at run time,
+with no rebuild: `research/tools:configure_cell` checks them, writes a world
+update and an `app_config`, and `apply_scene_updates --reset_sim` moves the cell.
+Run guide: `research/REBOT_OMTS_APP.md`. Demo: the printer at 0.62 m with the
+Benchy, and the camera at (0.09, -0.024, 0.10), each one full cycle.
+
+What follows the parameters: the bed's position moves the target and the return
+area. `view` keeps the camera where the committed `view` has it, relative to the
+printer, so the image stays the same and only the arm's pose changes. A's frames
+follow the target's height.
+
+**Limits**, one parameter at a time, the others at their committed values, with
+the default part. `cell_limits` is the offline sweep, with the worst of the
+return area; the cycles are one run each, with a random return, so a pass near
+the edge is not a guarantee. Use the left column.
+
+| Parameter | Committed | Use (offline check passes) | Cycle passes | Cycle fails |
+| --- | --- | --- | --- | --- |
+| Printer distance (m) | 0.5895 | 0.44 to 0.76 | 0.44 to 0.78 | <= 0.42 (link3 on the printer, then no reach); >= 0.80 (no reach) |
+| Camera x (m, flange) | 0.07 | 0.07 to 0.13 | 0.03 to 0.15 | 0.17 (camera on the front rail) |
+| Camera y (m) | -0.024 | -0.044 to -0.004 | -0.064 to 0.036 | <= -0.084, >= 0.056 (camera on a tower) |
+| Camera z (m) | 0.076 | 0.076 to 0.176 or more (end of the sweep) | 0.056, 0.176 | none found |
+
+* **The mount's lower limits are not from the printer.** Below x = 0.07 the camera
+  body overlaps the gripper's box, and below z = 0.076 it is under 1 cm from link4
+  at some wrist angles. The cycle still passes there, because the planner does
+  not check the camera against the arm it is mounted on. A passing cycle says
+  nothing about these two; the gripper box is also larger than the gripper.
+* **Not tested:** combinations (the printer near an edge with the camera moved),
+  and targets other than the default part at the edges.
+* **Registration does not depend on the cell.** It is per part: mesh, prompt and
+  threshold. A deploy removes it, so run `register.sh` once per deploy, per target
+  (4 s for one part once built); moving the printer or camera does not need it.
+  After changing a part's mesh, restart the pose estimator's pod, which caches by
+  id.
+
 ## 6. Findings
 
 ### 6.1 reBot top-down reach (checked offline, 2026-10-20)
