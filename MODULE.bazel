@@ -155,6 +155,11 @@ use_repo(
     "cuda",
 )
 
+# The NVIDIA pose estimator's perception pipeline (Python only), for the SAM 3
+# prompt sweep in research/tools, which reuses its text tokenizer.
+intrinsic_core_non_module_deps = use_extension("@intrinsic-core//bazel:non_module_deps.bzl", "non_module_deps_ext")
+use_repo(intrinsic_core_non_module_deps, "foundationpose_perception_pipeline")
+
 llvm = use_extension("@llvm//extensions:llvm.bzl", "llvm")
 llvm.version(llvm_version = "21.1.8")
 llvm.configure(

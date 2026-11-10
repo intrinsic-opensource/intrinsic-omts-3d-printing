@@ -1,0 +1,16 @@
+# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
+# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+
+metadata {
+  id {
+    name: "test_benchy"
+    package: "ai.intrinsic"
+  }
+  vendor {
+    display_name: "Intrinsic"
+  }
+  display_name: "Test 3DBenchy (low poly)"
+  documentation {
+    description: "A 900-triangle low-poly 3DBenchy, 60 x 31 x 48 mm, a real print for the reBot graspability trials."
+  }
+}
