@@ -25,6 +25,7 @@ git_override(
     commit = INTRINSIC_CORE_COMMIT,
     patch_strip = 1,
     patches = [
+        "//bazel/patches:gazebo_hwm_stub_visibility.patch",
         "//bazel/patches:robotiq_hande_finger_offset.patch",
     ],
     remote = "https://github.com/intrinsic-ai/intrinsic-core.git",

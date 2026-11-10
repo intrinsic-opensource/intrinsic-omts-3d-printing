@@ -1,0 +1,16 @@
+# proto-file: intrinsic/assets/services/proto/service_manifest.proto
+# proto-message: intrinsic_proto.services.ServiceManifest
+
+metadata {
+  id {
+    name: "rebot_b601_rs_service"
+    package: "ai.intrinsic"
+  }
+  vendor {
+    display_name: "intrinsic"
+  }
+  display_name: "reBot Arm B601-RS hardware module (simulation)"
+  documentation {
+    description: "Simulation-only ICON hardware module for the reBot Arm B601-RS."
+  }
+}

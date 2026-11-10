@@ -1,4 +1,4 @@
-load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load("@intrinsic-core//intrinsic/assets/build_defs:solution.bzl", "intrinsic_solution")
 load("@intrinsic-core//intrinsic_sdk/intrinsic/assets/build_defs:asset.bzl", "intrinsic_asset_instance")
 load("//bazel:imported_asset.bzl", "imported_asset_bundle")
@@ -24,6 +24,24 @@ config_setting(
     name = "is_lab_bb_01",
     flag_values = {
         ":setup": "lab_bb_01",
+    },
+)
+
+# Whether rebot_solution carries the NVIDIA pose estimator's model assets.
+# Off by default: the SAM 3 model is exported locally from gated weights, so a
+# build without the export (CI, a fresh machine) cannot include it. Turn on with
+# --//:perception_models --repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR=<export dir>
+# (research/REBOT_OMTS_APP.md). Without the models the pose estimator service
+# does not start; the rest of the cell works.
+bool_flag(
+    name = "perception_models",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "with_perception_models",
+    flag_values = {
+        ":perception_models": "True",
     },
 )
 
@@ -76,9 +94,8 @@ intrinsic_solution(
         "//conditions:default": [
             "@intrinsic-core//intrinsic_control/intrinsic/icon/hardware_modules/universal_robots:ur5e_hardware_module_core",
             "//models/camera_mount",
-            "//models/cnc_enclosure",
             "//models/omts_enclosure",
-            "//models/schunk_egp_64nnb",
+            "//models/printer",
         ],
     }),
     default_operation_mode = "real",
@@ -104,8 +121,7 @@ intrinsic_solution(
         ],
         "//conditions:default": [
             ":camera_mount",
-            ":cnc_enclosure",
-            ":schunk_egp_64nnb",
+            ":printer",
         ],
     }),
     object_world_updates = select({
@@ -120,8 +136,7 @@ intrinsic_solution(
             "//configs:omts/ur_module.attachments.updates.pbtxt",
             "//configs:omts/scene.updates.pbtxt",
             "//configs:omts/align_robot.updates.pbtxt",
-            "//configs:omts/cnc_enclosure.updates.pbtxt",
-            "//configs:omts/schunk.updates.pbtxt",
+            "//configs:omts/printer.updates.pbtxt",
             "//configs:omts/camera_mount.updates.pbtxt",
             "//configs:omts/orbbec_gemini.updates.pbtxt",
         ],
@@ -139,6 +154,118 @@ alias(
     actual = "//src:omts_app",
 )
 
+# Printer-tending cell under development on the research branch
+# (research/HANDOFF.md): a Seeed reBot Arm B601-RS on a ground slab, controlled
+# by ICON in simulation, with its pinch gripper, an Orbbec camera on the wrist
+# and OMTS's pose estimator, tending a Prusa Core One model in front of it. Run
+# it with omts_app and configs/rebot/app_config.yaml
+# (research/REBOT_OMTS_APP.md). The camera, driver and train service instances
+# are omts_solution's.
+# flowstate_ros_bridge streams /tf and /joint_states to ROS 2 (RViz) over
+# Zenoh. Kept as its own solution so omts_solution and its cells are
+# unaffected.
+intrinsic_solution(
+    name = "rebot_solution",
+    assets = [
+        "@intrinsic-core//incode/motion_planning/skills:move_robot_skill",
+        "@intrinsic-core//intrinsic/manipulation/skills:control_pinch_gripper_skill",
+        "@intrinsic-core//intrinsic/manipulation/skills/force:move_to_contact_skill",
+        "@intrinsic-core//intrinsic/skills/apps:attach_object_to_robot_skill",
+        "@intrinsic-core//intrinsic/skills/apps:detach_object_skill",
+        "@intrinsic-core//intrinsic/skills/apps:update_world_skill",
+        "@intrinsic-core//intrinsic_perception/intrinsic/perception/skills:capture_images_skill",
+        "@intrinsic-core//intrinsic_perception/intrinsic/perception/skills/multi_view:estimate_pose_multi_view_skill",
+        "@intrinsic-core//intrinsic/simulation/gazebo/asset:gazebo_simulator_type",
+        "@intrinsic-core//intrinsic_control/intrinsic/icon/machines/common:generic_icon_mainloop_type",
+        "@intrinsic-core//intrinsic_motion_planning/intrinsic/motion_planning/service:motion_planner_service_asset",
+        "@intrinsic-core//intrinsic_perception/intrinsic/perception/cameras/hardware_devices:orbbec_gemini_335le_hardware_device",
+        "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc_train_service:ioc_train_service_asset",
+        "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator:nvidia_pose_estimator_service_asset",
+        "//models/rebot_b601_rs",
+        "//models/rebot_b601_rs_gripper",
+        "//models/rebot_ground",
+        "//models/printer",
+        "//models/rebot_printed_part",
+        ":flowstate_ros_bridge_asset",
+        ":orbbec_gemini_driver_asset",
+    ] + select({
+        # The pose estimator's models. A deploy uninstalls assets the solution
+        # does not declare, so installing them separately (inctl, as the
+        # nvidia_pose_estimator README does) does not survive it.
+        ":with_perception_models": [
+            "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator:foundationpose_model_data_asset_bundle",
+            "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator:foundationstereo_model_data_asset_bundle",
+            "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator:sam3_model_data_asset",
+        ],
+        "//conditions:default": [],
+    }),
+    default_operation_mode = "sim",
+    instances = [
+        ":flowstate_ros_bridge",
+        ":gazebo_simulator",
+        ":motion_planner_service",
+        ":rebot_nvidia_pose_estimator_service",
+        ":orbbec_camera",
+        ":orbbec_gemini_driver",
+        ":printer",
+        ":rebot",
+        ":rebot_gripper",
+        ":rebot_icon",
+        ":rebot_ground",
+        ":rebot_printed_part",
+        ":train_service",
+    ],
+    object_world_updates = [
+        "//configs:rebot/rebot.attachments.updates.pbtxt",
+        "//configs:rebot/orbbec_gemini.updates.pbtxt",
+        "//configs:rebot/rebot_ground.updates.pbtxt",
+        "//configs:rebot/printer.updates.pbtxt",
+        "//configs:rebot/printed_part.updates.pbtxt",
+        "//configs:rebot/scene.updates.pbtxt",
+    ],
+)
+
+intrinsic_asset_instance(
+    name = "rebot",
+    asset = "ai.intrinsic.rebot_b601_rs",
+    instance_name = "rebot",
+)
+
+intrinsic_asset_instance(
+    name = "rebot_gripper",
+    asset = "ai.intrinsic.rebot_b601_rs_gripper",
+    config = "//configs:rebot/gripper.instance.pbtxt",
+    instance_name = "gripper",
+)
+
+intrinsic_asset_instance(
+    name = "rebot_printed_part",
+    asset = "ai.intrinsic.rebot_printed_part",
+    instance_name = "rebot_printed_part",
+)
+
+intrinsic_asset_instance(
+    name = "rebot_ground",
+    asset = "ai.intrinsic.rebot_ground",
+    instance_name = "rebot_ground",
+)
+
+# omts_solution's pose estimator with a smaller FoundationPose batch, which the
+# 16 GB GPU needs (configs/rebot/nvidia_pose_estimator_config.textproto).
+intrinsic_asset_instance(
+    name = "rebot_nvidia_pose_estimator_service",
+    asset = "ai.intrinsic.nvidia_pose_estimator_service",
+    instance_name = "nvidia_pose_estimator_service",
+    service_config = "//configs:rebot/nvidia_pose_estimator_config.textproto",
+)
+
+intrinsic_asset_instance(
+    name = "rebot_icon",
+    asset = "ai.intrinsic.generic_realtime_control_service",
+    instance_name = "icon",
+    service_config = "//configs:rebot/icon_config.textproto",
+)
+
 intrinsic_asset_instance(
     name = "enclosure",
     asset = select({
@@ -149,8 +276,9 @@ intrinsic_asset_instance(
 )
 
 intrinsic_asset_instance(
-    name = "cnc_enclosure",
-    asset = "ai.intrinsic.cnc_enclosure",
+    name = "printer",
+    asset = "ai.intrinsic.printer",
+    instance_name = "printer",
 )
 
 intrinsic_asset_instance(
@@ -332,10 +460,4 @@ intrinsic_asset_instance(
     name = "orbbec_gemini_driver",
     asset = "ai.intrinsic.orbbec_gemini_driver",
     instance_name = "orbbec_gemini_driver",
-)
-
-intrinsic_asset_instance(
-    name = "schunk_egp_64nnb",
-    asset = "ai.intrinsic.schunk_egp_64nnb",
-    instance_name = "schunk_egp_64nnb",
 )

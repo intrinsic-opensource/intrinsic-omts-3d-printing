@@ -1,0 +1,93 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+This repository adapts OMTS (Open Machine Tending Solution), a reference machine-tending app built on Intrinsic Core and its Solution Building Library (SBL) Python SDK, to 3D printer tending. Upstream's default cell tends a CNC machine; here the `omts` cell has a 3D printer where the CNC stood, and the main cell is the reBot (`//:rebot_solution`, run with `omts_app` and `configs/rebot/app_config.yaml`). Everything builds with Bazel (Bzlmod; `@intrinsic-core` and `@intrinsic_apis` are fetched from the same GitHub archive of a pinned intrinsic-core commit via `archive_override` in `MODULE.bazel`, pinned by `INTRINSIC_CORE_COMMIT` + `INTRINSIC_CORE_SHA256`, not by a release tag; `@intrinsic-core` also applies the patches in `bazel/patches/`). Meshes (`*.glb`) are plain files in git; the repository no longer uses Git LFS (#173).
+
+## Current direction
+
+The `research` branch is adapting OMTS into a 3D-printer-tending solution with a low-cost Seeed reBot Arm. ICON support for the arm is expected from Intrinsic Core, and the hardware target is an NVIDIA Jetson (ARM64). Work is in simulation, with a Prusa Core One model in the cell; the target printer is undecided. How to run the reBot cell: `research/REBOT_OMTS_APP.md`. Plan, decisions and open questions: `research/HANDOFF.md` (milestone plan in §5). Printer-side design (plate-layout localization, grasp planning, camera checks): `research/PRINTER_UNLOADING.md`.
+
+## Workflow
+
+Development is a spiral: start with the simplest thing that works and add one layer of complexity per step, with something to demo at the end of every step.
+
+- Plan work as a sequence of small steps, each ending in a concrete demo (what is deployed, what is shown). Milestones are split this way in `research/HANDOFF.md`.
+- Keep the existing cells (`omts`, `lab_bb_01`) building and working. Add new behavior alongside, behind config or the `//:setup` flag, rather than replacing it.
+- Prefer the smallest change that makes the next demo possible. Defer generality (other printers, perception, hardware) until a step needs it, and note it as later work instead of building it early.
+- After each step, update `research/HANDOFF.md`: mark the step done, record what was learned, and re-plan the next steps if it changed them.
+
+## Commands
+
+```bash
+# Unit tests (hermetic, no cluster/hardware needed)
+bazel test //tests/...
+bazel test --test_output=errors //tests/unit:test_behaviors   # single target
+
+# Lint / format (mirrors CI: buildifier + ruff)
+./tools/lint.sh
+./tools/format.sh
+
+# Deploy the solution (default cell is omts; lab cell via flag)
+bazel run //:omts_solution -c opt -- --address=localhost:17080
+bazel run //:omts_solution -c opt --//:setup=lab_bb_01 -- --address=localhost:17080
+
+# Deploy the reBot printer-tending cell (sim by default). With the pose
+# estimator's models (needs a local SAM 3 export; research/REBOT_OMTS_APP.md):
+bazel run //:rebot_solution -c opt -- --address=localhost:17080
+bazel run //:rebot_solution -c opt --//:perception_models \
+  --repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR=$HOME/intrinsic-models/nvidia_pose_estimator \
+  -- --address=localhost:17080
+
+# Push configs/<cell>/*.updates.pbtxt to the live world (--reset_sim also syncs Gazebo)
+bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 --reset_sim
+
+# Run the machine-tending app against a running deployment
+bazel run //src:omts_app -- --address=localhost:17080 --config=configs/omts/app_config.yaml \
+  [--num_cycles=N] [--simulation_mode=fast_preview]
+```
+
+The pose estimator must be registered (`//tools/pose_estimation:register_using_train_service`, see README §5.3) before `omts_app` can do vision-guided picks. Other operational tools (jogging, gripper, machine I/O, calibration, `inspect_world`) are listed in `tools/README.md`.
+
+CI runs `bazel build --nobuild //...` (analysis only, since full compile does not fit on a GitHub runner) plus `bazel test //tests/...`. Analysis catches stale `@intrinsic-core` labels and missing deps, so run it locally after changing BUILD files or bumping Intrinsic Core.
+
+## Style
+
+- Python 3.11, ruff with **2-space indentation**, line length 80, double quotes (`pyproject.toml`). First-party imports are absolute from the repo root: `from src.core.config import ...`.
+- Every new Python module needs a `py_library`/`py_test`/`py_binary` in its package's `BUILD` (using `@intrinsic-core//bazel:python.bzl` macros); tests are `absltest`-based and declared individually in `tests/unit/BUILD`.
+- Files carry the Apache 2.0 "Copyright 2026 Intrinsic Innovation LLC" header.
+
+## Architecture
+
+Two separate deliverables:
+
+1. **`//:omts_solution`** (root `BUILD`): an `intrinsic_solution` declaring skills, hardware modules, services (ICON, motion planner, NVIDIA pose estimator with FoundationPose and SAM 3, Gazebo), scene models from `models/`, and `object_world_updates` from `configs/<cell>/`. The cell is chosen at build time by the `//:setup` string flag (`omts` | `lab_bb_01`), and the BUILD uses `select()` on `:is_lab_bb_01` everywhere. The `omts` cell's CNC enclosure and Schunk vise were replaced by a printer; its `app_config.yaml` still describes the CNC machine. The root `BUILD` also defines `//:rebot_solution`, the reBot printer-tending cell (`configs/rebot/`), whose pose estimator models are opt-in via `--//:perception_models`. `configs/kr_10/` is a stub that is deliberately not wired in. Some assets are prebuilt bundles downloaded from this repo's GitHub Releases (`bazel/gh_release.bzl`, `imported_asset_bundle`).
+2. **`//src:omts_app`** (`src/main.py`): connects over gRPC, loads `configs/<cell>/app_config.yaml` into frozen dataclasses (`src/core/config.py`, missing keys raise `KeyError`), builds hardware adapters and an infeed strategy, assembles **one** `bt.BehaviorTree`, and submits it with a single `solution.executive.run(tree)`.
+
+Layers in `src/`:
+- `core/`: domain models, enums, config, infeed strategies (`PerceptionInfeedStrategy` / `GridInfeedStrategy`). **Must not import `intrinsic.*`.**
+- `hardware/`: stateless adapters: `Robot` (a concrete class, no interface), plus `RobotiqGripper`/`DioGripper`, `DioCncMachine` and `OrbbecVision` behind `GripperInterface`/`CncMachineInterface`/`VisionInterface`. Grasp planning sits behind `GraspPlannerInterface` (`grasping.py`); `grasp_planners.py` builds the backend selected by the `grasp.planner` config key (`cuboid_center` → `None`, letting perception publish the frames itself; `moveit` → `MoveItGraspPlanner` from `third_party/intrinsic_moveit/`). Each adapter takes `solution` plus its config dataclass and returns SBL `bt.Task`/`bt.Sequence` nodes. Nothing runs at construction time.
+- `behaviors/`: five subtree builders (pick → load_machine → machining → unload_machine → return_infeed), composed in `machine_tending_bt.py` and wrapped in `bt.Loop` (`num_cycles` 1, N, or 0 for continuous). `motions.py` holds shared motion primitives (move-to-frame, compliant touchdown via `move_to_contact`, relative `-Z` retract).
+- `utils/`: helpers. `dynamic_frame_calculator.py` is special: `load_python_script()` ships its **entire module source** into a `bt.PythonScript` that runs inside the executive. It may therefore only import things available there (stdlib, `intrinsic.*`), never `src.*`.
+
+### Invariants to preserve (see `docs/ARCHITECTURE.md`)
+
+- `AppConfig.machine` is optional (`None` for `lab_bb_01`). Every subtree must omit door/vise/cycle nodes at build time when it is `None`.
+- Never disable collision checking globally. Contact and close-proximity segments add targeted `CollisionRule` exclusions (e.g. gripper↔workpiece, workpiece/gripper↔`schunk_egp_64nnb`).
+- `update_world` locks the whole world (`lock_the_universe`). Door/vise actuation, which syncs belief-world joints via `update_world`, must run in a `bt.Sequence` before `move_robot`, never in `bt.Parallel`, or you get executive error 18201.
+- DIO-based adapters bind ADIO resources only via `resolve_adio_resource()` (it filters on `Icon2AdioPart`).
+- `apply_scene_updates` writes the belief world. Gazebo's `sim_world` changes only with `--reset_sim`.
+
+### Configs
+
+`configs/<cell>/app_config.yaml` holds runtime parameters. `*.updates.pbtxt` files are `ObjectWorldUpdates` (attachments, base alignment, named frames like `view`, `machine_approach`, `vise_pre_place`). `*.textproto` files are service configs. `tests/unit/test_world_configs` schema-validates all `.pbtxt`/`.textproto` under `configs/`, so new config files get checked automatically. `//tools/jogging:store_frame` rewrites `scene.updates.pbtxt` in place.
+
+## Commits
+
+Sign off every commit with `git commit -s`. The DCO check blocks PRs unless each non-merge commit has a `Signed-off-by` line matching its author's name and email, so check that `git config user.name` and `user.email` match the identity you want on the commit. Don't sign off a commit on behalf of another author without their agreement.
+
+## CI escape hatch
+
+A PR description containing a line `FORCE_SUBMIT=TRUE` skips the Bazel build/test job. Lint still runs. Use it only for changes that cannot affect the build.

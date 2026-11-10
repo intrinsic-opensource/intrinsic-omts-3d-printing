@@ -1,0 +1,78 @@
+# The NVIDIA pose estimator's default config at the pinned intrinsic-core
+# commit (nvidia_pose_estimator/configs/default_config.textproto), with a
+# smaller FoundationPose refinement batch for the reBot cell, to fit the 16 GB
+# laptop GPU: with the default batch of 42 a run ran out of memory. This is the
+# only memory setting that takes effect; see research/HANDOFF.md, step 3b.
+
+[type.googleapis.com/intrinsic_proto.perception.nvidia.NvidiaPoseEstimatorServiceConfig] {
+  # Provides InstalledAssets, which the model download below and the per-request
+  # asset lookups (prompt, CAD model) go through.
+  intrinsic_runtime {
+    name: "intrinsic_runtime"
+  }
+
+  # Model weights, delivered as Data assets and downloaded at startup. The
+  # platform resolves each name to an installed asset and fills in the
+  # interfaces; see proto/nvidia_service_config.proto.
+  foundationpose_model {
+    name: "ai.intrinsic.nvidia_pose_estimator.foundationpose_models"
+  }
+  foundationstereo_model {
+    name: "ai.intrinsic.nvidia_pose_estimator.foundationstereo_models"
+  }
+  sam3_model {
+    name: "ai.intrinsic.nvidia_pose_estimator.sam3_models"
+  }
+
+  # FoundationStereo
+  stereo {
+    min_depth_m: 0.30
+    max_depth_m: 0.80
+    width: 640
+    height: 416
+    # Same defaults as the upstream foundationpose_perception_pipeline.
+    clahe_clip_limit: 3.0
+    clahe_detail_boost: 1.5
+  }
+
+  # SAM3
+  sam3_detection {
+    prompt: "object"
+    confidence_threshold: 0.2
+    resolution: 1008
+  }
+  sam3_refinement {
+    policy: SAM3_REFINEMENT_POLICY_REPLACE_MID_NMS06
+    low_miou: 0.2
+    high_miou: 0.8
+    nms_threshold: 0.6
+  }
+
+  # FoundationPose
+  foundation_pose {
+    n_refine: 5
+    n_hypotheses: 252
+    batch_size: 14  # default 42; must divide n_hypotheses
+  }
+  selection {
+    policy: PROPOSAL_SELECTION_POLICY_SOFT_GLOBAL_V1
+    cutoff: 3.0
+    weight_sam_score: 2.0
+    weight_render_mask_iou: 4.0
+    weight_render_box_iou: 1.0
+    fp_score_divisor: 100.0
+  }
+
+  # Sensor ids follow the Orbbec camera layout ("1"=RGB, "2"/"3"=IR stereo,
+  # "4"=hardware depth); other cameras may need different ids.
+  sensor_routing {
+    detection_sensor: "1"
+    depth_source: DEPTH_SOURCE_HARDWARE
+    stereo_sensors: "2"
+    stereo_sensors: "3"
+  }
+
+  debug {
+    publish_visualization: true
+  }
+}

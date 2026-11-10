@@ -1,17 +1,29 @@
-# Open Machine Tending Solution (OMTS)
+# OMTS for 3D printer tending
 
-[![CI](https://github.com/intrinsic-ai/intrinsic-omts/actions/workflows/ci.yml/badge.svg)](https://github.com/intrinsic-ai/intrinsic-omts/actions/workflows/ci.yml) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/intrinsic-ai/intrinsic-omts/actions/workflows/ci.yml) [![Python](https://img.shields.io/badge/python-3.11-blue.svg?logo=python&logoColor=white)](https://www.python.org/) [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) [![Documentation](https://img.shields.io/badge/Intrinsic%20developer%20community-Join%20us-blue.svg)](https://developer.intrinsic.ai) [![ROS2 Compatibility](https://img.shields.io/badge/ROS2_Compatible-brightgreen.svg)](https://www.ros.org/) [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c.svg?logo=dependabot&logoColor=white)](.github/workflows/dependabot.yml)
+[![CI](https://github.com/intrinsic-opensource/intrinsic-omts-3d-printing/actions/workflows/ci.yml/badge.svg)](https://github.com/intrinsic-opensource/intrinsic-omts-3d-printing/actions/workflows/ci.yml) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/intrinsic-opensource/intrinsic-omts-3d-printing/actions/workflows/ci.yml) [![Python](https://img.shields.io/badge/python-3.11-blue.svg?logo=python&logoColor=white)](https://www.python.org/) [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) [![Documentation](https://img.shields.io/badge/Intrinsic%20developer%20community-Join%20us-blue.svg)](https://developer.intrinsic.ai) [![ROS2 Compatibility](https://img.shields.io/badge/ROS2_Compatible-brightgreen.svg)](https://www.ros.org/) [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c.svg?logo=dependabot&logoColor=white)](.github/workflows/dependabot.yml)
 
-The Open Machine Tending Solution (OMTS) is an open-source reference application for automated machine tending built on [Intrinsic Core™](https://github.com/intrinsic-ai/intrinsic-core) and compatible with ROS to jump-start the development of industrial applications.
+This repository adapts the [Open Machine Tending Solution (OMTS)](https://github.com/intrinsic-ai/intrinsic-omts) to **3D printer tending**. OMTS is an open-source reference application for automated machine tending built on [Intrinsic Core™](https://github.com/intrinsic-ai/intrinsic-core) and compatible with ROS. Here, a low-cost **Seeed reBot Arm** with a wrist camera finds printed parts on a printer's bed and unloads them, running OMTS's own app and behavior tree. Work is in simulation; plan, decisions and findings are in [`research/HANDOFF.md`](research/HANDOFF.md).
 
-<p align="center">
+<!-- <p align="center">
   <img src="docs/omts.gif" alt="OMTS in RViz" />
-</p>
+</p> -->
 
 - A functional baseline for a real-world machine shop use case that delivers pre-configured assets, skills, a native digital twin ready to use out of the box.
 - Easily customize solutions with hardware-agnostic robot control, making it easy to swap arms, grippers, and sensors without rewriting application code.
 - Built-in compatibility with NVIDIA FoundationPose®, providing accurate 6-DoF pose estimation of parts without custom vision pipeline wrappers.
 - An open, modular template built for seamless customization across adjacent manufacturing tasks and collaborative open-source contribution.
+
+---
+
+## Cells
+
+The solution and app configuration are chosen per cell:
+
+| Cell | Deploy | Hardware | What runs |
+| :--- | :--- | :--- | :--- |
+| **`rebot`** | `//:rebot_solution` (simulation) | Seeed reBot Arm B601-RS, its pinch gripper, an Orbbec Gemini 335Le on the wrist, a Prusa Core One printer model | `omts_app` with [`configs/rebot/app_config.yaml`](configs/rebot/app_config.yaml): finds the printed part on the bed with the wrist camera, takes it to a drop-off and back, and returns it at a random offset. **Start here:** [`research/REBOT_OMTS_APP.md`](research/REBOT_OMTS_APP.md). |
+| `omts` | `//:omts_solution` (default `--//:setup=omts`) | UR5e, Robotiq Hand-E, Orbbec Gemini 335Le, cell enclosure, and a 3D printer where upstream's CNC machine stood | The CNC enclosure and Schunk vise were removed from this cell. Its [`app_config.yaml`](configs/omts/app_config.yaml) still describes the CNC machine and vise frames and has not been updated for the printer. |
+| `lab_bb_01` | `//:omts_solution --//:setup=lab_bb_01` | UR3e, Robotiq Hand-E, Orbbec Gemini 335Le, CAW enclosure, no machine | `omts_app` with [`configs/lab_bb_01/app_config.yaml`](configs/lab_bb_01/app_config.yaml), as upstream. |
 
 ---
 
@@ -36,10 +48,10 @@ The top-level task orchestration engine. Built using the Solution Building Libra
 
 #### Skills and services
 - **`move_robot`**: Encapsulates constraint-aware motion planning and real-time control to automatically generate collision-free paths and stream optimized trajectories directly to the robot controller, ensuring smooth, deterministic execution without manual waypoint engineering.
-- **`move_to_contact`**: Leverages real-time force/torque feedback to drive compliant, guarded approach motions, automatically arresting or adapting trajectory upon physical contact to ensure safe, damage-free part localization and seating.
+- **`move_to_contact`**: Leverages real-time force/torque feedback to drive compliant, guarded approach motions, automatically arresting or adapting trajectory upon physical contact to ensure safe, damage-free part localization and seating. Arms without a force-torque sensor, such as the reBot, use linear moves instead (`robot.force_sensing: false`).
 - **`estimate_pose`**: Executes GPU-accelerated 6-DoF pose estimation via NVIDIA FoundationPose® to determine accurate workpiece position and orientation directly from camera feeds, enabling robust grasp planning without rigid physical fixturing.
 - **`hand_e_gripper_cmd_skill`**: Skill to control the Robotiq Hand-E gripper.
-- **`dio_set_output`**: Toggles digital outputs on the I/O controller to automate external hardware signals, such as commanding the CNC machine door to open/close and actuating the vise clamp.
+- **`dio_set_output`**: Toggles digital outputs on the I/O controller to automate external hardware signals, such as commanding a CNC machine's door to open/close and actuating its vise clamp, in cells that have one.
 
 ---
 
@@ -58,7 +70,9 @@ The top-level task orchestration engine. Built using the Solution Building Libra
 
 ### 1. Solution architecture and execution pipeline
 
-OMTS orchestrates a complete perception-to-manipulation machine tending cycle inside a single SBL `BehaviorTree` wrapped in `bt.Loop` for single-cycle, multi-cycle, or continuous operation. It features a dual-infeed strategy supporting either Vision-Guided Pick (random part placement via 3D camera pose estimation) or Blind Grid Pick (deterministic pallet slot math):
+OMTS orchestrates a complete perception-to-manipulation machine tending cycle inside a single SBL `BehaviorTree` wrapped in `bt.Loop` for single-cycle, multi-cycle, or continuous operation. It features a dual-infeed strategy supporting either Vision-Guided Pick (random part placement via 3D camera pose estimation) or Blind Grid Pick (deterministic pallet slot math).
+
+The diagram shows the cycle for a cell with a CNC machine. In a cell without one (`machine` omitted, as in `lab_bb_01` and `rebot`), the door, vise and machining steps are skipped, but the part is still set down at the machine frames and picked up again. The reBot cell uses this for its drop-off behind the robot, picking from the printer's bed as its infeed:
 
 ```mermaid
 flowchart TD
@@ -114,8 +128,9 @@ OMTS adheres to clean separation of concerns:
 #### Hardware requirements
 
 - **CPU**: x86-64 architecture (ARM architectures are currently unsupported).
-- **GPU**: Integrated graphics minimum (dedicated NVIDIA RTX 3060/4060+ strongly
-  recommended for ML/vision workloads).
+- **GPU**: A dedicated NVIDIA GPU with at least 16 GB of memory for the pose
+  estimator (it peaks at about 15.3 GB with the reBot cell's reduced batch;
+  24 GB recommended). Integrated graphics run the rest of the solution.
 - **RAM**: 32 GiB DDR4/DDR5 minimum (64 GiB recommended). Note: Build times may
   be impacted if attempting to compile changes at minimum specs while having a
   solution actively running.
@@ -146,6 +161,13 @@ and model weights from this repository's GitHub Releases (configured in
 
 #### 4.1. Build and install NVIDIA Pose Estimator model `DataAssets` (one-time per cluster)
 
+> [!NOTE]
+> For the reBot cell, follow the quick start in
+> [`research/REBOT_OMTS_APP.md`](research/REBOT_OMTS_APP.md) instead:
+> `//:rebot_solution` carries the model `DataAssets` itself (behind
+> `--//:perception_models`), because a deploy uninstalls assets the solution
+> does not declare, so separately installed ones did not survive it.
+
 The three perception model `DataAssets` (`foundationpose_models`,
 `foundationstereo_models`, and `sam3_models`) are tagged `manual` in
 `@intrinsic-core` and are not built by `//:omts_solution`. Build and install
@@ -167,7 +189,7 @@ bazel fetch @intrinsic-core//intrinsic_perception/intrinsic/perception/service/n
 bazel build \
   --repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR="${HOME}/.cache/intrinsic/nvidia_pose_estimator_models" \
   @intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator:foundationpose_model_data_asset \
-  @intrinsic-core//intrinsic_perception/intrinsic_perception/service/nvidia_pose_estimator:foundationstereo_model_data_asset \
+  @intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator:foundationstereo_model_data_asset \
   @intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator:sam3_model_data_asset
 
 # 3. Install the three model DataAssets onto the cluster:
@@ -197,7 +219,11 @@ simulator. By default, `//:omts_solution` deploys in `real` mode
 simulated 3D camera renders):
 
 ```bash
-# Deploy default OMTS cell (UR5e + CNC enclosure + Schunk vise) in simulation:
+# Deploy the reBot printer-tending cell (simulation only; see
+# research/REBOT_OMTS_APP.md for the perception models flag):
+bazel run //:rebot_solution -c opt -- --address=localhost:17080
+
+# Deploy the default OMTS cell (UR5e + 3D printer where the CNC stood) in simulation:
 bazel run //:omts_solution -c opt -- \
   --address=localhost:17080 \
   --operation_mode=sim
@@ -248,7 +274,14 @@ bazel run @intrinsic-core//intrinsic_perception/intrinsic/perception/service/ioc
 Connect to the running deployment and execute the machine tending Behavior Tree:
 
 ```bash
-# Run with default OMTS cell configuration:
+# Run with the reBot cell configuration (register its part first; see
+# research/REBOT_OMTS_APP.md):
+bazel run //src:omts_app -- \
+  --address=localhost:17080 \
+  --config="configs/rebot/app_config.yaml"
+
+# Run with default OMTS cell configuration (still describes the CNC machine;
+# see "Cells"):
 bazel run //src:omts_app -- \
   --address=localhost:17080 \
   --config="configs/omts/app_config.yaml"
@@ -282,7 +315,8 @@ bazel run //src:omts_app -- \
 > for kinematic trajectory previews in the Belief World without stepping Gazebo.
 
 The grasp planner defaults to `cuboid_center`, which derives a top-down grasp
-from the pose estimate and needs no extra services. `--grasp_planner` overrides
+from the pose estimate and needs no extra services; `grasp.approach_tilt_degrees`
+tilts it for arms that cannot reach straight down, as in the reBot cell. `--grasp_planner` overrides
 the `grasp.planner` field in `app_config.yaml` for a single run; set that field
 instead to make the choice permanent for a cell. The `grasp.moveit_*` config
 fields (planning group, candidate surfaces, retract distance, timeout) only
@@ -319,7 +353,7 @@ bazel run //tools/jogging:store_frame -- view --address=localhost:17080
 # Control gripper (Robotiq or DIO):
 bazel run //tools/gripper:control_gripper -- --address=localhost:17080 --action=open
 
-# Control CNC machine doors, vise, and cycle signals:
+# Control CNC machine doors, vise, and cycle signals (cells with a CNC machine):
 bazel run //tools/machine:control_machine -- --address=localhost:17080 --action=open_door
 ```
 

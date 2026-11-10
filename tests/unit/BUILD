@@ -34,6 +34,16 @@ py_proto_library(
 )
 
 py_test(
+    name = "test_urdf_to_sdf",
+    srcs = ["test_urdf_to_sdf.py"],
+    deps = [
+        "//tools/models:urdf_to_sdf_lib",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
     name = "test_tray",
     srcs = ["test_tray.py"],
     deps = [
@@ -78,6 +88,7 @@ py_test(
         "//src/hardware:vision",
         "@com_google_absl_py//absl/testing:absltest",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+        "@intrinsic_apis//intrinsic/hardware/gripper/eoat:eoat_service_py_pb2",
     ],
 )
 
@@ -244,6 +255,7 @@ py_test(
         "//src/core:config",
         "//tools/world:apply_scene_updates_lib",
         "@com_google_absl_py//absl/testing:absltest",
+        "@intrinsic-core//intrinsic_perception/intrinsic/perception/service/nvidia_pose_estimator/proto:nvidia_service_config_py_pb2",
         "@intrinsic-core//intrinsic_perception/intrinsic/perception/skills/calibration:sample_calibration_poses_py_pb2",
         "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
         "@intrinsic_apis//intrinsic/assets/services/proto:service_manifest_py_pb2",

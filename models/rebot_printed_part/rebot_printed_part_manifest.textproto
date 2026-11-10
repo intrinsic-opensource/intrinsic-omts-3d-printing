@@ -1,0 +1,16 @@
+# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
+# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+
+metadata {
+  id {
+    name: "rebot_printed_part"
+    package: "ai.intrinsic"
+  }
+  vendor {
+    display_name: "Intrinsic"
+  }
+  display_name: "reBot Printed Part"
+  documentation {
+    description: "Lightweight 40 x 40 x 30 mm simulation workpiece."
+  }
+}
