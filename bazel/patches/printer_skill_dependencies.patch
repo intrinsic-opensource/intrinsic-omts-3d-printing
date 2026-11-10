@@ -1,0 +1,12 @@
+diff --git a/intrinsic/assets/build_defs/allowlists.bzl b/intrinsic/assets/build_defs/allowlists.bzl
+--- a/intrinsic/assets/build_defs/allowlists.bzl
++++ b/intrinsic/assets/build_defs/allowlists.bzl
+@@ -43,6 +43,8 @@ _LISTS = {
+         "//intrinsic_perception/intrinsic/perception/skills/calibration:collect_calibration_data_manifest",
+         "//incode/motion_planning/skills:move_robot_manifest",
+         "//incode/motion_planning/skills:preplan_motion_manifest",
++        "//skills/printer:read_printer_status_manifest",
++        "//skills/printer:wait_for_printer_ready_manifest",
+         # keep-sorted end
+     ],
+ }

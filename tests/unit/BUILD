@@ -3,6 +3,44 @@ load("@intrinsic-core//bazel:python.bzl", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
+py_test(
+    name = "test_printer_skills",
+    srcs = ["test_printer_skills.py"],
+    deps = [
+        "//services/prusalink:client",
+        "//services/prusalink:mock",
+        "//services/prusalink:prusalink_py_pb2",
+        "//services/prusalink:server",
+        "//skills/printer:printer_skills",
+        "//skills/printer:read_printer_status_py_pb2",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_canceller",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/testing:skill_test_utils",
+        "@intrinsic_apis//intrinsic/resources/proto:resource_handle_py_pb2",
+    ],
+)
+
+py_test(
+    name = "test_prusalink",
+    srcs = ["test_prusalink.py"],
+    data = ["//services/prusalink:prusalink_server"],
+    deps = [
+        "//services/prusalink:client",
+        "//services/prusalink:main_lib",
+        "//services/prusalink:mock",
+        "//services/prusalink:prusalink_py_pb2",
+        "//services/prusalink:prusalink_py_pb2_grpc",
+        "//services/prusalink:server",
+        "@com_github_grpc_grpc//src/python/grpcio/grpc:grpcio",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
+        "@com_google_protobuf//:protobuf_python",
+        "@intrinsic_apis//intrinsic/resources/proto:runtime_context_py_pb2",
+    ],
+)
+
 # buildifier: disable=LANG_proto_library-colocation
 py_proto_library(
     name = "hal_adio_part_config_py_pb2",

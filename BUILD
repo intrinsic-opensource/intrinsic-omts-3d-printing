@@ -215,6 +215,9 @@ intrinsic_solution(
         "//models/rebot_ground",
         "//models/printer",
         "//models/rebot_printed_part",
+        "//services/prusalink:prusalink_service",
+        "//skills/printer:read_printer_status",
+        "//skills/printer:wait_for_printer_ready",
         ":flowstate_ros_bridge_asset",
         ":orbbec_gemini_driver_asset",
     ] + select({
@@ -246,6 +249,7 @@ intrinsic_solution(
         ":rebot_ground",
         ":rebot_printed_part",
         ":train_service",
+        "//services/prusalink:prusalink_instance",
     ] + select({
         ":with_test_parts": [":" + p for p in _TEST_PARTS],
         "//conditions:default": [],

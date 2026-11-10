@@ -26,6 +26,7 @@ git_override(
     patch_strip = 1,
     patches = [
         "//bazel/patches:gazebo_hwm_stub_visibility.patch",
+        "//bazel/patches:printer_skill_dependencies.patch",
         "//bazel/patches:robotiq_hande_finger_offset.patch",
     ],
     remote = "https://github.com/intrinsic-ai/intrinsic-core.git",
@@ -67,6 +68,12 @@ bazel_dep(name = "pybind11_bazel", version = "3.0.3")
 bazel_dep(name = "rules_cc", version = "0.2.25")
 bazel_dep(name = "rules_cuda", version = "0.3.0")
 bazel_dep(name = "rules_python", version = "2.3.3")
+bazel_dep(name = "rules_oci", version = "2.3.0")
+
+# Reuse Core's pinned base directly; its python3-image-oci wrapper is private.
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+use_repo(oci, "distroless_python3")
+
 # Bzlmod ignores `single_version_override` directives in non-root modules
 # (@intrinsic-core), so the overrides below are mirrored from
 # @intrinsic-core//MODULE.bazel until the upstream fixes land in the Bazel

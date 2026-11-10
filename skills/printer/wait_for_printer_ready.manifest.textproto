@@ -1,0 +1,45 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# proto-file: intrinsic/skills/proto/skill_manifest.proto
+# proto-message: intrinsic_proto.skills.SkillManifest
+
+id { package: "ai.omts" name: "wait_for_printer_ready" }
+display_name: "Wait for printer ready"
+vendor { display_name: "OMTS" }
+documentation { description: "Waits for the specified finished job to cool below 30 degrees. Returns READY or TIMED_OUT, fails on printer faults or changed jobs. Never moves a robot." }
+options {
+  supports_cancellation: true
+  execution_timeout { seconds: 3620 }
+  python_config {
+    skill_module: "skills.printer.printer_skills"
+    proto_module: "skills.printer.read_printer_status_pb2"
+    create_skill: "skills.printer.printer_skills.WaitForPrinterReady"
+  }
+}
+dependencies {
+  required_equipment {
+    key: "printer"
+    value {
+      capability_names: "omts.prusalink.PrusaLinkService"
+      sharing_type: READ
+    }
+  }
+}
+parameter { message_full_name: "omts.printer.WaitForPrinterReadyParams" }
+return_type { message_full_name: "omts.printer.PrinterReadiness" }
+status_info { code: 1001 title: "Invalid printer skill parameters or equipment" }
+status_info { code: 1002 title: "PrusaLink service unavailable" }
+status_info { code: 1003 title: "Printer job blocked, missing or changed" }
+status_info { code: 1004 title: "Invalid or stale printer observation" }

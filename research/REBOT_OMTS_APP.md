@@ -15,6 +15,13 @@ random offset, so the next cycle has to find it again. Simulation only.
 
 **Before you start:**
 
+* **Printer API and skills (no motion).** The reBot deployment includes the
+  PrusaLink mock service and two telemetry skills. Follow the
+  [five-terminal PrusaLink handout](../services/prusalink/README.md#run-with-the-rebot-five-terminals)
+  to watch service health, mock printer state, and actual skill outcomes while
+  changing mock values with curl. That exercise needs no perception models.
+  Do not launch `omts_app` for it: the app below is not yet gated on these
+  skills, and the Executive runs only one operation at a time.
 * **GPU memory.** The pose estimator needs at least 16 GB of dedicated GPU
   memory: it peaks at about 15.3 GB with the reBot's config, which lowers the
   FoundationPose batch, and with nothing else on the GPU. Intrinsic's default

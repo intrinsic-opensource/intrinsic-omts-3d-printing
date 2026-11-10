@@ -1339,6 +1339,41 @@ the edge is not a guarantee. Use the left column.
   After changing a part's mesh, restart the pose estimator's pod, which caches by
   id.
 
+## 5d. Printer LAN telemetry and readiness skills
+
+This work continues on `feat/prusalink-skills`, based directly on
+`origin/rebot-parameters`. It is independent of the door-hinge feature.
+
+* **Done: service demo.** `ai.omts.prusalink` is part of `rebot_solution`,
+  including its `prusalink` instance. Simulation talks to a separate local
+  Digest-authenticated mock PrusaLink server. HTTP curl endpoints expose
+  status/job controls and simulation mutations; typed gRPC exposes telemetry.
+  The service-only target remains an isolated development option, not an
+  additive deployment alongside the reBot.
+* **Done: stateless skills.** `ai.omts.read_printer_status` returns a fresh
+  snapshot/readiness decision. `ai.omts.wait_for_printer_ready` waits for a
+  specified job to finish and cool **strictly below 30 C**, returning READY
+  or TIMED_OUT. Faults, missing/changed jobs, and invalid telemetry fail
+  explicitly. Polling is cancellable. Neither skill moves the robot.
+* **Demo and runbook:** [PrusaLink service README](../services/prusalink/README.md).
+  Five terminals separate deployment, service health, printer telemetry,
+  mock controls, and real Executive skill states/results. Includes warm-cell
+  skill sideloading without replacing the existing reBot deployment.
+* **Learned:** execution success is not readiness. Reads may succeed while
+  printing; a normal wait timeout succeeds with TIMED_OUT and readiness false.
+  Service health is independent of upstream printer faults. The current SDK
+  needs an explicit compatibility allowlist for these equipment manifests;
+  details and removal condition are in the runbook.
+* **Verified:** all 24 repository test targets, complete Bazel analysis,
+  service/skill bundles, and CI lint pass. On the existing reBot simulation,
+  Executive reads followed PRINTING -> FINISHED at 30 -> FINISHED at 29;
+  wait completed with READY only after cooling. Normal timeout, upstream
+  failure, changed-job failure, and cancellation were also exercised.
+* **Next small demo:** compose a guarded wait -> pick, with a persistent
+  per-job consumption guard, a fresh recheck, and independent motion safety
+  checks. The current `omts_app` remains unchanged and is **not** printer-gated.
+  Real LAN printer/firmware authentication compatibility remains unverified.
+
 ## 6. Findings
 
 ### 6.1 reBot top-down reach (checked offline, 2026-10-20)
