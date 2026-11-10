@@ -17,8 +17,8 @@ def parse_args():
   parser.add_argument(
       "--angle",
       type=float,
-      default=-1.57,
-      help="Target angle in radians (e.g., -1.57 is ~90 deg open, 0.0 is closed).",
+      default=1.57,
+      help="Target angle in radians (e.g., 1.57 is ~90 deg open, 0.0 is closed).",
   )
   return parser.parse_args()
 
