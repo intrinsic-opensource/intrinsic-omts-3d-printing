@@ -14,16 +14,37 @@
 
 """Bounded, uncached PrusaLink v1 requests using HTTP Digest authentication."""
 
+import contextlib
+import dataclasses
 import http.client
 import json
 import math
+import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 from services.prusalink import prusalink_pb2 as pb
 
 MAX_RESPONSE_BYTES = 1024 * 1024
+# A sliced job is G-code or bgcode. Sizes in the tens of MB are typical.
+MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
+_DOWNLOAD_PATH = re.compile(r"/api/[A-Za-z0-9._~%/+@=,()\[\]-]{1,1000}")
+
+
+@dataclasses.dataclass(frozen=True)
+class JobFile:
+  """The file the printer is printing, as `GET /api/v1/job` reports it."""
+
+  job_id: int
+  name: str
+  download_path: str
+  size: int | None
+  # The file's modification time on the printer: tells a re-sent file, or a
+  # job id reused after a printer reboot, from the job already read.
+  m_timestamp: int | None = None
 
 
 class ServiceError(Exception):
@@ -68,9 +89,22 @@ def state(value: object) -> int:
 
 class PrusaLinkClient:
   def __init__(
-    self, url: str, username: str, password: str, timeout: float = 5.0
+    self,
+    url: str,
+    username: str,
+    password: str,
+    timeout: float = 5.0,
+    locator=None,
   ):
-    parsed = urllib.parse.urlsplit(url)
+    """`locator` (an object with `current()` and `forget()`) finds the URL.
+
+    Used when no printer is configured: the printer is then looked up on
+    every request until found, and forgotten again if it stops answering.
+    """
+    self.locator = locator
+    if not url and locator is None:
+      raise ValueError("printer_url is required without a locator")
+    parsed = urllib.parse.urlsplit(url or "http://locator.invalid")
     if (
       parsed.scheme not in ("http", "https")
       or not parsed.hostname
@@ -93,21 +127,78 @@ class PrusaLinkClient:
     self.password = password
     self.timeout = timeout
 
-  def request(self, method: str, path: str) -> dict | None:
+  def _target(self) -> str:
+    if self.locator is None:
+      return self.url
+    url = self.locator.current()
+    if not url:
+      raise ServiceError(
+        502,
+        "printer_not_found",
+        "No printer configured and no mock printer found",
+      )
+    self.url = url
+    return url
+
+  def _opener(self) -> urllib.request.OpenerDirector:
     # A separate opener per request avoids sharing Digest nonce state across
     # concurrent HTTP/gRPC workers. Do not inherit workstation proxy settings.
     credentials = urllib.request.HTTPPasswordMgrWithDefaultRealm()
     credentials.add_password(None, self.url, self.username, self.password)
-    opener = urllib.request.build_opener(
+    return urllib.request.build_opener(
       urllib.request.ProxyHandler({}),
       _NoRedirect(),
       urllib.request.HTTPDigestAuthHandler(credentials),
     )
-    request = urllib.request.Request(
-      self.url + path, method=method, headers={"Accept": "application/json"}
-    )
+
+  @contextlib.contextmanager
+  def _upstream_errors(self):
     try:
-      with opener.open(request, timeout=self.timeout) as response:
+      yield
+    except urllib.error.HTTPError as exc:
+      exc.close()
+      if exc.code in (404, 409):
+        raise ServiceError(
+          exc.code, "upstream_error", f"PrusaLink HTTP {exc.code}"
+        )
+      if exc.code == 401:
+        raise ServiceError(
+          502, "upstream_authentication", "PrusaLink rejected credentials"
+        )
+      raise ServiceError(502, "upstream_error", f"PrusaLink HTTP {exc.code}")
+    except TimeoutError:
+      raise ServiceError(504, "upstream_timeout", "PrusaLink request timed out")
+    except urllib.error.URLError as exc:
+      if isinstance(exc.reason, TimeoutError):
+        raise ServiceError(
+          504, "upstream_timeout", "PrusaLink request timed out"
+        )
+      self._forget()
+      raise ServiceError(502, "upstream_unavailable", "Cannot reach PrusaLink")
+    except (ValueError, UnicodeDecodeError):
+      raise ServiceError(
+        502,
+        "invalid_response",
+        "Invalid response or unsupported PrusaLink authentication",
+      )
+    except (OSError, http.client.HTTPException):
+      self._forget()
+      raise ServiceError(
+        502, "upstream_unavailable", "PrusaLink connection failed"
+      )
+
+  def _forget(self) -> None:
+    if self.locator is not None:
+      self.locator.forget()
+
+  def request(self, method: str, path: str) -> dict | None:
+    request = urllib.request.Request(
+      self._target() + path,
+      method=method,
+      headers={"Accept": "application/json"},
+    )
+    with self._upstream_errors():
+      with self._opener().open(request, timeout=self.timeout) as response:
         if method != "GET":
           if response.status != 204:
             raise ServiceError(502, "invalid_response", "Expected HTTP 204")
@@ -129,35 +220,80 @@ class PrusaLinkClient:
         if not isinstance(result, dict):
           raise ServiceError(502, "invalid_response", "Expected a JSON object")
         return result
-    except urllib.error.HTTPError as exc:
-      exc.close()
-      if exc.code in (404, 409):
-        raise ServiceError(
-          exc.code, "upstream_error", f"PrusaLink HTTP {exc.code}"
-        )
-      if exc.code == 401:
-        raise ServiceError(
-          502, "upstream_authentication", "PrusaLink rejected credentials"
-        )
-      raise ServiceError(502, "upstream_error", f"PrusaLink HTTP {exc.code}")
-    except TimeoutError:
-      raise ServiceError(504, "upstream_timeout", "PrusaLink request timed out")
-    except urllib.error.URLError as exc:
-      if isinstance(exc.reason, TimeoutError):
-        raise ServiceError(
-          504, "upstream_timeout", "PrusaLink request timed out"
-        )
-      raise ServiceError(502, "upstream_unavailable", "Cannot reach PrusaLink")
-    except (ValueError, UnicodeDecodeError):
+
+  def get_job_file(self) -> JobFile | None:
+    """The running job's file and where to download it, or None.
+
+    PrusaLink lists it as `file.refs.download` in `GET /api/v1/job`. The
+    reference must be a plain `/api/...` path on the printer: anything that
+    could point elsewhere (a host, `..`, a query) is refused.
+    """
+    data = self.request("GET", "/api/v1/job")
+    if data is None:
+      return None
+    file = data.get("file")
+    refs = file.get("refs") if isinstance(file, dict) else None
+    ref = refs.get("download") if isinstance(refs, dict) else None
+    if not isinstance(file, dict) or ref is None:
       raise ServiceError(
-        502,
-        "invalid_response",
-        "Invalid response or unsupported PrusaLink authentication",
+        404, "no_download_reference", "The job has no downloadable file"
       )
-    except (OSError, http.client.HTTPException):
-      raise ServiceError(
-        502, "upstream_unavailable", "PrusaLink connection failed"
-      )
+    if (
+      not isinstance(ref, str)
+      or not _DOWNLOAD_PATH.fullmatch(ref)
+      or ".." in ref.split("/")
+    ):
+      raise ServiceError(502, "invalid_response", "Invalid download reference")
+    name = file.get("display_name") or file.get("name")
+    if not isinstance(name, str) or not 0 < len(name) <= 255:
+      raise ServiceError(502, "invalid_response", "Invalid job file name")
+    size = file.get("size")
+    return JobFile(
+      job_id=integer(data.get("id"), "job.id"),
+      name=name,
+      download_path=ref,
+      size=None if size is None else integer(size, "file.size"),
+      m_timestamp=(
+        file["m_timestamp"]
+        if isinstance(file.get("m_timestamp"), int)
+        and not isinstance(file.get("m_timestamp"), bool)
+        else None
+      ),
+    )
+
+  def download(
+    self, path: str, destination: Path, max_bytes: int = MAX_DOWNLOAD_BYTES
+  ) -> int:
+    """Streams a file from the printer to `destination`; returns its size.
+
+    Bounded by `max_bytes`; written to a temporary name and renamed, so a
+    partial download never looks like a finished one.
+    """
+    if not _DOWNLOAD_PATH.fullmatch(path) or ".." in path.split("/"):
+      raise ServiceError(400, "invalid_path", "Invalid download path")
+    request = urllib.request.Request(
+      self._target() + path, method="GET", headers={"Accept": "*/*"}
+    )
+    partial = destination.with_name(destination.name + ".part")
+    try:
+      with self._upstream_errors():
+        with self._opener().open(request, timeout=self.timeout) as response:
+          if response.status != 200:
+            raise ServiceError(502, "invalid_response", "Expected HTTP 200")
+          declared = response.headers.get("Content-Length")
+          if declared and declared.isdigit() and int(declared) > max_bytes:
+            raise ServiceError(502, "file_too_large", "File exceeds limit")
+          total = 0
+          with open(partial, "wb") as out:
+            while chunk := response.read(64 * 1024):
+              total += len(chunk)
+              if total > max_bytes:
+                raise ServiceError(502, "file_too_large", "File exceeds limit")
+              out.write(chunk)
+      os.replace(partial, destination)
+      return total
+    finally:
+      partial.unlink(missing_ok=True)
 
   def get_status(self) -> pb.PrinterStatus:
     data = self.request("GET", "/api/v1/status")

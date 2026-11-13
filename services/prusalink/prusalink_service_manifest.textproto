@@ -25,7 +25,7 @@ metadata {
   }
   display_name: "PrusaLink LAN adapter"
   documentation {
-    description: "PrusaLink telemetry and opt-in job commands with a local HTTP simulator."
+    description: "PrusaLink telemetry, opt-in job commands, and a model (STL) of each print job built from its G-code."
   }
 }
 service_def {
@@ -36,7 +36,7 @@ service_def {
     image {
       archive_filename: "prusalink_image.tar"
       settings {
-        args: ["--mode=real", "--runtime-context=/etc/intrinsic/runtime_config.pb"]
+        args: ["--runtime-context=/etc/intrinsic/runtime_config.pb"]
       }
     }
   }
@@ -44,7 +44,7 @@ service_def {
     image {
       archive_filename: "prusalink_image.tar"
       settings {
-        args: ["--mode=sim", "--runtime-context=/etc/intrinsic/runtime_config.pb", "--mock-port=0"]
+        args: ["--runtime-context=/etc/intrinsic/runtime_config.pb"]
       }
     }
   }

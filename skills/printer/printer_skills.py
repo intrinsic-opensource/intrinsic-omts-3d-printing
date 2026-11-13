@@ -35,7 +35,7 @@ PRINT_FAILED = 1003
 INVALID_OBSERVATION = 1004
 
 
-def _positive(value: float, name: str, maximum: float) -> float:
+def positive(value: float, name: str, maximum: float) -> float:
   if not math.isfinite(value) or not 0 < value <= maximum:
     raise skill_interface.SkillError(
       INVALID_INPUT, f"{name} must be finite and in (0, {maximum}]"
@@ -43,7 +43,7 @@ def _positive(value: float, name: str, maximum: float) -> float:
   return value
 
 
-def _check_job(job_id: int | None, required: bool = False) -> None:
+def check_job(job_id: int | None, required: bool = False) -> None:
   if (required and job_id is None) or (job_id is not None and job_id < 0):
     raise skill_interface.SkillError(
       INVALID_INPUT, "A nonnegative expected_job_id is required"
@@ -98,13 +98,13 @@ def readiness(
   )
 
 
-def _cancel(context: skill_interface.ExecuteContext) -> None:
+def cancel(context: skill_interface.ExecuteContext) -> None:
   if context.canceller.cancelled:
     raise skill_interface.SkillCancelledError()
 
 
 @contextmanager
-def _connection(context: skill_interface.ExecuteContext):
+def connection(context: skill_interface.ExecuteContext):
   handle = context.resource_handles.get("printer")
   if handle is None or not handle.connection_info.HasField("grpc"):
     raise skill_interface.SkillError(
@@ -127,22 +127,22 @@ def _connection(context: skill_interface.ExecuteContext):
 
 
 def _observe(stub, metadata, timeout, context, expected_job_id):
-  _cancel(context)
+  cancel(context)
   try:
     status = stub.GetStatus(
       empty_pb2.Empty(), metadata=metadata, timeout=timeout
     )
   except grpc.RpcError as exc:
-    _cancel(context)
+    cancel(context)
     logging.error("PrusaLink GetStatus failed: %s", exc.code())
     raise skill_interface.SkillError(
       SERVICE_FAILURE, f"PrusaLink GetStatus failed: {exc.code().name}"
     ) from exc
-  _cancel(context)
+  cancel(context)
   return readiness(status, expected_job_id)
 
 
-class _PrinterSkill(skill_interface.Skill):
+class PrinterSkill(skill_interface.Skill):
   @classmethod
   def required_equipment(cls) -> dict[str, str]:
     return {"printer": CAPABILITY}
@@ -157,7 +157,7 @@ class _PrinterSkill(skill_interface.Skill):
     )
 
 
-class ReadPrinterStatus(_PrinterSkill):
+class ReadPrinterStatus(PrinterSkill):
   def execute(
     self,
     request: skill_interface.ExecuteRequest[pb.ReadPrinterStatusParams],
@@ -167,8 +167,8 @@ class ReadPrinterStatus(_PrinterSkill):
     expected = (
       params.expected_job_id if params.HasField("expected_job_id") else None
     )
-    _check_job(expected)
-    timeout = _positive(
+    check_job(expected)
+    timeout = positive(
       params.rpc_timeout_seconds
       if params.HasField("rpc_timeout_seconds")
       else 5,
@@ -176,11 +176,11 @@ class ReadPrinterStatus(_PrinterSkill):
       10,
     )
     context.canceller.ready()
-    with _connection(context) as (stub, metadata):
+    with connection(context) as (stub, metadata):
       return _observe(stub, metadata, timeout, context, expected)
 
 
-class WaitForPrinterReady(_PrinterSkill):
+class WaitForPrinterReady(PrinterSkill):
   def execute(
     self,
     request: skill_interface.ExecuteRequest[pb.WaitForPrinterReadyParams],
@@ -190,20 +190,20 @@ class WaitForPrinterReady(_PrinterSkill):
     expected = (
       params.expected_job_id if params.HasField("expected_job_id") else None
     )
-    _check_job(expected, required=True)
-    timeout = _positive(
+    check_job(expected, required=True)
+    timeout = positive(
       params.timeout_seconds if params.HasField("timeout_seconds") else 120,
       "timeout_seconds",
       3600,
     )
-    poll = _positive(
+    poll = positive(
       params.poll_interval_seconds
       if params.HasField("poll_interval_seconds")
       else 1,
       "poll_interval_seconds",
       60,
     )
-    rpc_timeout = _positive(
+    rpc_timeout = positive(
       params.rpc_timeout_seconds
       if params.HasField("rpc_timeout_seconds")
       else 5,
@@ -214,7 +214,7 @@ class WaitForPrinterReady(_PrinterSkill):
     deadline = time.monotonic() + timeout
     previous_decision = None
     result = None
-    with _connection(context) as (stub, metadata):
+    with connection(context) as (stub, metadata):
       while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:

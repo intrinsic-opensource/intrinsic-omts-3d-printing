@@ -23,10 +23,11 @@ from intrinsic.resources.proto import resource_handle_pb2
 from intrinsic.skills.python import skill_canceller, skill_interface
 from intrinsic.skills.testing import skill_test_utils as stu
 
-from services.prusalink import client, mock, server
+from services.prusalink import client, server
 from services.prusalink import prusalink_pb2 as service_pb
 from skills.printer import printer_skills as skills
 from skills.printer import read_printer_status_pb2 as pb
+from tools.mock_printer import mock_printer as mock
 
 
 class PrinterSkillsTest(parameterized.TestCase):

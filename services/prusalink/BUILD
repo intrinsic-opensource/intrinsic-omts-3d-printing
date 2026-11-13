@@ -6,6 +6,7 @@ load("@intrinsic-core//bazel:python_oci_image.bzl", "python_oci_image")
 load("@intrinsic-core//intrinsic/assets/build_defs:solution.bzl", "intrinsic_solution")
 load("@intrinsic-core//intrinsic_sdk/intrinsic/assets/build_defs:asset.bzl", "intrinsic_asset_instance")
 load("@intrinsic-core//intrinsic_sdk/intrinsic/assets/services/build_defs:services.bzl", "intrinsic_service")
+load(":config.bzl", "prusalink_config")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -36,9 +37,18 @@ py_library(
 )
 
 py_library(
-    name = "mock",
-    srcs = ["mock.py"],
-    deps = [":client"],
+    name = "discovery",
+    srcs = ["discovery.py"],
+)
+
+py_library(
+    name = "jobwatch",
+    srcs = ["jobwatch.py"],
+    deps = [
+        ":client",
+        ":prusalink_py_pb2",
+        "//tools/printer:gcode_to_stl_lib",
+    ],
 )
 
 py_library(
@@ -46,7 +56,7 @@ py_library(
     srcs = ["server.py"],
     deps = [
         ":client",
-        ":mock",
+        ":jobwatch",
         ":prusalink_py_pb2",
         ":prusalink_py_pb2_grpc",
         "@com_github_grpc_grpc//src/python/grpcio/grpc:grpcio",
@@ -59,7 +69,8 @@ py_library(
     srcs = ["main.py"],
     deps = [
         ":client",
-        ":mock",
+        ":discovery",
+        ":jobwatch",
         ":prusalink_py_pb2",
         ":server",
         "@com_google_protobuf//:protobuf_python",
@@ -95,11 +106,20 @@ intrinsic_service(
     deps = [":prusalink_proto"],
 )
 
+# The instance config comes from --//:printer_url, --//:printer_username and
+# --//:printer_password. With none set the service looks for the mock printer.
+prusalink_config(
+    name = "prusalink_instance_config",
+    password = "//:printer_password",
+    printer_url = "//:printer_url",
+    username = "//:printer_username",
+)
+
 intrinsic_asset_instance(
     name = "prusalink_instance",
     asset = "ai.omts.prusalink",
     instance_name = "prusalink",
-    service_config = "simulation_config.textproto",
+    service_config = ":prusalink_instance_config",
 )
 
 intrinsic_solution(

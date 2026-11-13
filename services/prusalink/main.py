@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Intrinsic RuntimeContext entrypoint, with explicit local simulation mode."""
+"""PrusaLink service: printer telemetry, and a model of each print job.
+
+The printer is the one given by --printer-url (or the solution's config). With
+none given, the service looks for the disposable mock printer
+(tools/mock_printer) on this machine and says which route it took.
+"""
 
 import argparse
 import logging
@@ -26,13 +31,15 @@ from pathlib import Path
 from google.protobuf import any_pb2, message
 from intrinsic.resources.proto import runtime_context_pb2
 
-from services.prusalink import client, mock, server
+from services.prusalink import client, discovery, jobwatch, server
 from services.prusalink import prusalink_pb2 as pb
 
+MOCK_USERNAME = "maker"
+MOCK_PASSWORD = "mock-only"
+DEFAULT_STORAGE = "/tmp/prusalink"
 
-def load_runtime(
-  path: str, mode: str
-) -> tuple[pb.PrusaLinkConfig, int, int, str]:
+
+def load_runtime(path: str) -> tuple[pb.PrusaLinkConfig, int, int, str]:
   context = runtime_context_pb2.RuntimeContext.FromString(
     Path(path).read_bytes()
   )
@@ -41,16 +48,47 @@ def load_runtime(
     raise ValueError(
       "RuntimeContext config is not omts.prusalink.PrusaLinkConfig"
     )
-  expected = (
-    runtime_context_pb2.RuntimeContext.PHYSICS_SIM
-    if mode == "sim"
-    else runtime_context_pb2.RuntimeContext.REALITY
-  )
-  if context.level != expected:
-    raise ValueError("RuntimeContext level disagrees with --mode")
   if not 1 <= context.port <= 65535 or not 1 <= context.http_port <= 65535:
     raise ValueError("RuntimeContext must allocate valid gRPC and HTTP ports")
   return config, context.port, context.http_port, context.http_path_prefix
+
+
+def connect(
+  config: pb.PrusaLinkConfig, mock_port: int, mock_hosts: list[str] | None
+) -> tuple[client.PrusaLinkClient, dict]:
+  """The client for the configured printer, or for the mock; and its route."""
+  password = config.password or os.environ.get(config.password_env, "")
+  timeout = config.timeout_seconds or 5.0
+  if config.printer_url:
+    if not config.username or not password:
+      raise ValueError(
+        "printer_url needs a username and a password "
+        f"(--password, or ${config.password_env or 'PRUSALINK_PASSWORD'})"
+      )
+    logging.info(
+      "ROUTE: printer %s as user %r (explicitly configured)",
+      config.printer_url,
+      config.username,
+    )
+    return (
+      client.PrusaLinkClient(
+        config.printer_url, config.username, password, timeout
+      ),
+      {"route": "configured", "printer_url": config.printer_url},
+    )
+  locator = discovery.MockLocator(mock_port, mock_hosts)
+  logging.info(
+    "ROUTE: no printer configured; looking for the mock printer at %s",
+    ", ".join(locator.candidates()),
+  )
+  printer = client.PrusaLinkClient(
+    "",
+    config.username or MOCK_USERNAME,
+    password or MOCK_PASSWORD,
+    timeout,
+    locator=locator,
+  )
+  return printer, {"route": "mock", "printer_url": None}
 
 
 def run(args: argparse.Namespace) -> None:
@@ -59,17 +97,20 @@ def run(args: argparse.Namespace) -> None:
       raise ValueError(
         "RuntimeContext cannot be combined with local config flags"
       )
-    config, grpc_port, http_port, prefix = load_runtime(
-      args.runtime_context, args.mode
-    )
+    config, grpc_port, http_port, prefix = load_runtime(args.runtime_context)
     host = "0.0.0.0"
   else:
     config = pb.PrusaLinkConfig(
       printer_url=args.printer_url,
       username=args.username,
+      password=args.password,
       password_env=args.password_env,
       timeout_seconds=args.timeout,
       enable_job_commands=args.enable_job_commands,
+      disable_job_pull=args.no_job_pull,
+      storage_dir=args.storage_dir,
+      poll_interval_seconds=args.poll_interval,
+      max_download_bytes=int(args.max_download_mb * 1024 * 1024),
     )
     grpc_port, http_port, prefix, host = (
       args.grpc_port,
@@ -87,33 +128,42 @@ def run(args: argparse.Namespace) -> None:
   for signum in (signal.SIGTERM, signal.SIGINT):
     signal.signal(signum, lambda signum, frame: stop.set())
   with ExitStack() as cleanup:
-    simulator = None
-    if args.mode == "sim":
-      if config.printer_url:
-        raise ValueError("Simulation cannot target an external printer_url")
-      mock_server, simulator = mock.make_mock_server(args.mock_port)
-      cleanup.callback(mock_server.server_close)
-      mock_thread = threading.Thread(
-        target=mock_server.serve_forever, daemon=True
+    printer, route = connect(config, args.mock_port, args.mock_host)
+    watcher = None
+    if not config.disable_job_pull:
+      storage = Path(config.storage_dir or DEFAULT_STORAGE)
+      watcher = jobwatch.JobWatcher(
+        printer,
+        storage,
+        config.poll_interval_seconds or 2.0,
+        config.max_download_bytes or client.MAX_DOWNLOAD_BYTES,
       )
-      mock_thread.start()
-      cleanup.callback(mock_thread.join)
-      cleanup.callback(mock_server.shutdown)
-      url = f"http://127.0.0.1:{mock_server.server_port}"
-      username, password = mock.MOCK_USERNAME, mock.MOCK_PASSWORD
-      logging.info("Separate mock PrusaLink HTTP listener at %s", url)
+      watcher.start()
+      cleanup.callback(watcher.stop)
+      logging.info("Pulling each new job's G-code into %s", watcher.root)
     else:
-      url, username = config.printer_url, config.username
-      password = os.environ.get(config.password_env, "")
-    printer = client.PrusaLinkClient(
-      url, username, password, config.timeout_seconds
-    )
+      logging.info("Job pull disabled: telemetry only")
+
+    def info() -> dict:
+      url = printer.url if printer.locator is None else printer.locator.found
+      return {
+        **route,
+        "printer_url": url,
+        "storage_dir": str(watcher.root) if watcher else None,
+      }
+
     httpd = server.make_http_server(
-      printer, config.enable_job_commands, host, http_port, prefix, simulator
+      printer,
+      config.enable_job_commands,
+      host,
+      http_port,
+      prefix,
+      watcher,
+      info,
     )
     cleanup.callback(httpd.server_close)
     grpcd, bound = server.make_grpc_server(
-      printer, config.enable_job_commands, host, grpc_port
+      printer, config.enable_job_commands, host, grpc_port, watcher
     )
     grpcd.start()
     cleanup.callback(lambda: grpcd.stop(grace=2).wait())
@@ -133,7 +183,6 @@ def run(args: argparse.Namespace) -> None:
 
 def main() -> None:
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument("--mode", choices=("sim", "real"), default="sim")
   parser.add_argument(
     "--runtime-context",
     default=os.environ.get("INTRINSIC_RUNTIME_CONFIG"),
@@ -142,11 +191,36 @@ def main() -> None:
   parser.add_argument("--host", default="127.0.0.1")
   parser.add_argument("--http-port", type=int, default=18080)
   parser.add_argument("--grpc-port", type=int, default=18082)
-  parser.add_argument("--mock-port", type=int, default=18081)
-  parser.add_argument("--printer-url", default="")
+  parser.add_argument(
+    "--printer-url",
+    default="",
+    help="the printer's origin, e.g. http://192.168.1.50; empty: look for "
+    "the mock printer",
+  )
   parser.add_argument("--username", default="")
+  parser.add_argument("--password", default="", help="or use --password-env")
   parser.add_argument("--password-env", default="PRUSALINK_PASSWORD")
   parser.add_argument("--timeout", type=float, default=5.0)
+  parser.add_argument(
+    "--mock-port",
+    type=int,
+    default=discovery.DEFAULT_MOCK_PORT,
+    help="port of the mock printer to look for",
+  )
+  parser.add_argument(
+    "--mock-host",
+    action="append",
+    help="host to look for the mock on (repeatable); default: loopback, the "
+    "default gateway, host.docker.internal",
+  )
+  parser.add_argument("--storage-dir", default="")
+  parser.add_argument("--poll-interval", type=float, default=2.0)
+  parser.add_argument("--max-download-mb", type=float, default=256)
+  parser.add_argument(
+    "--no-job-pull",
+    action="store_true",
+    help="telemetry only: do not download jobs or build models",
+  )
   parser.add_argument("--enable-job-commands", action="store_true")
   parser.add_argument(
     "--write-config", help="Write binary google.protobuf.Any and exit"

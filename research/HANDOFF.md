@@ -1339,26 +1339,25 @@ the edge is not a guarantee. Use the left column.
   After changing a part's mesh, restart the pose estimator's pod, which caches by
   id.
 
-## 5d. Printer LAN telemetry and readiness skills
+## 5e. Printer LAN telemetry and readiness skills
 
 This work continues on `feat/prusalink-skills`, based directly on
 `origin/rebot-parameters`. It is independent of the door-hinge feature.
 
-* **Done: service demo.** `ai.omts.prusalink` is part of `rebot_solution`,
-  including its `prusalink` instance. Simulation talks to a separate local
-  Digest-authenticated mock PrusaLink server. HTTP curl endpoints expose
-  status/job controls and simulation mutations; typed gRPC exposes telemetry.
-  The service-only target remains an isolated development option, not an
-  additive deployment alongside the reBot.
+* **Done: service.** `ai.omts.prusalink` is part of `rebot_solution` (on by
+  default; `--no//:printer_service` leaves it out). It reads a PrusaLink
+  printer over Digest: the one given by `--//:printer_url`, `--//:printer_username`
+  and `--//:printer_password`, or, with none given, the disposable mock
+  printer `tools/mock_printer`, found on the cluster's host, with the route
+  logged and shown in `/healthz`. (Until 2026-11-12 the mock lived inside the
+  service; it no longer does.) HTTP and typed gRPC expose telemetry.
 * **Done: stateless skills.** `ai.omts.read_printer_status` returns a fresh
   snapshot/readiness decision. `ai.omts.wait_for_printer_ready` waits for a
   specified job to finish and cool **strictly below 30 C**, returning READY
   or TIMED_OUT. Faults, missing/changed jobs, and invalid telemetry fail
   explicitly. Polling is cancellable. Neither skill moves the robot.
-* **Demo and runbook:** [PrusaLink service README](../services/prusalink/README.md).
-  Five terminals separate deployment, service health, printer telemetry,
-  mock controls, and real Executive skill states/results. Includes warm-cell
-  skill sideloading without replacing the existing reBot deployment.
+* **Demo and runbook:** [`tools/printer/README.md`](../tools/printer/README.md)
+  ("Step by step"); the service in [its README](../services/prusalink/README.md).
 * **Learned:** execution success is not readiness. Reads may succeed while
   printing; a normal wait timeout succeeds with TIMED_OUT and readiness false.
   Service health is independent of upstream printer faults. The current SDK
@@ -1373,6 +1372,80 @@ This work continues on `feat/prusalink-skills`, based directly on
   per-job consumption guard, a fresh recheck, and independent motion safety
   checks. The current `omts_app` remains unchanged and is **not** printer-gated.
   Real LAN printer/firmware authentication compatibility remains unverified.
+
+## 5f. What the printer will print, rebuilt from its G-code (2026-11-11)
+
+Goal: while a print runs, know the printed shape and pose to train a pose
+model for the bed at the end. The printer is the only part guaranteed to be
+in the system, so nothing here may depend on the slicer. The first attempt
+(a PrusaSlicer post-processing hook that saved the exact STL from the project
+3MF) needed the slicer; it was **removed on 2026-11-13**, with its test and
+fixtures, once the service built the model from the printer's own G-code.
+
+* **Done: `tools/printer/gcode_to_stl.py`.** Rebuilds a compound STL from a
+  `.gcode` or `.bgcode` alone. Each extrusion becomes a box (length x
+  `;WIDTH:` x `;HEIGHT:`), grouped by `;TYPE:`; `by_type/` splits supports,
+  perimeters, infill. Decodes binary G-code (heatshrink + MeatPack) in pure
+  Python; handles G2/G3 arcs (the Core One profile emits ~4,700 of them per
+  job) and spaces-stripped MeatPack lines. Checked on a real Core One L job:
+  binary and ASCII exports give identical toolpaths (56,088 segments, 153
+  layers), and the model's solid types sum to ~514 mm3 against the STL's
+  518.9 mm3.
+* **Done (2026-11-12): the service reads each job itself.** The flow is
+  linear and needs no slicer: a file is uploaded to the printer (PrusaLink
+  `PUT`, `Print-After-Upload`); the service's `JobWatcher` polls
+  `GET /api/v1/job` every 2 s; a job not read before (job id, file name, size
+  and file time) is downloaded from `file.refs.download`, checked and
+  converted by `gcode_to_stl` into `<storage>/jobs/<id>_<name>/compound.stl`,
+  served at `GET /v1/jobs/<id>/model.stl`. The skills `ai.omts.read_job_model`
+  and `wait_for_job_model` report `NO_JOB`, `DOWNLOADING`, `CONVERTING`,
+  `MODEL_READY` or `MODEL_FAILED`, so a later process can start on
+  `MODEL_READY`; `read_printer_status` and `wait_for_printer_ready` give the
+  unload signal as before. The same model sent again is a new job whose
+  conversion is copied when the SHA-256 matches (`reused: true`); a file that
+  is not G-code ends as `MODEL_FAILED`; a restart does not re-read jobs.
+  Replaces `tools/printer/pull_job_stl.py` (removed). The `/raw` path comes
+  from Prusa's OpenAPI spec; the file `GET` itself returns metadata only.
+* **Done: the mock printer is separate.** `tools/mock_printer/mock_printer.py`,
+  one file, standard library, a live in-place screen, automatic print and
+  cooling timing, spec-conformant uploads (409 while printing, `Overwrite`).
+  Checked against the spec text, not a real printer.
+* **Verified (2026-11-12), on the local k3s cluster after a redeploy:** the
+  service found the mock at the pod's gateway `10.42.0.1:18081`;
+  `wait_for_job_model` returned READY with the STL (33.6 MB, 153 layers)
+  after one `curl` upload; `wait_for_printer_ready` returned READY at 28.2 C
+  after the job finished and cooled; the STL was fetched through the ingress;
+  a resend was `reused`; a non-G-code file gave `MODEL_FAILED` and the wait
+  failed; a stopped mock gave `printer_not_found` (502) with the model still
+  served, and the service recovered when the mock came back.
+* **PrusaSlicer 3.0.0-alpha14 (read, not built or run):** still uploads only
+  G-code (`PUT /api/v1/files/...`, `Content-Type: text/x.gcode`,
+  `Print-After-Upload`, `Overwrite`); never a 3MF. `;TYPE:`, `;WIDTH:`,
+  `;HEIGHT:` and the role names are unchanged; libbgcode is pinned to the
+  same commit as 2.9.7. New: `;MOVING_UNRETRACT_START/END` (wipe-tower
+  de-retraction while moving; the parser skips it), a Prusa Buddy flavor, and
+  a `PrintHostPrusaLinkStorage` that only lists storage.
+* **Correction:** `; objects_info` (object names and outline polygons in bed
+  coordinates) is in 2.9.7 too, but only in ASCII G-code; the `.bgcode` the
+  Core One receives has no such line.
+* **Limits:** the result is a layer-stepped envelope at toolpath
+  resolution, not the designer's mesh, with no model frame (pose against the
+  source STL cannot come from G-code alone). Boxes overlap; the mesh is big
+  (33 MB for a 25k-triangle model).
+* **Unverified:** that a real Core One serves `refs.download` while a job is
+  running, on which firmware, and after how long; behaviour when printing
+  from USB; whether the file remains after the print; PrusaSlicer 3.x
+  output (needs a build).
+* **Several objects / one model of several bodies:** not separated; one
+  compound per job (`tools/printer/README.md`, Limits). Object labels in the
+  G-code (`; printing object <name> id:N copy M`, or `M486`) could split
+  objects when the slicer emits them; bodies inside one object have no label.
+* **Next small demo:** a behavior that chains `wait_for_job_model` ->
+  (start the process that consumes the model) and `wait_for_printer_ready`
+  -> unload, guarded per job. Then the real printer; the checks that need it
+  are in section 7. Open: the STL lives in the service container (lost on
+  restart); feeding it to the pose-model training, or into the world as a
+  scene object, is not built.
 
 ## 6. Findings
 
@@ -1489,6 +1562,38 @@ Check these before building on them.
   (`tools/calibration/sample_calibration_poses.py` still sets
   `camera = None`). The study avoids it by reading the printer's camera
   directly.
+* **Mock vs. a real PrusaLink (2026-11-12).** The mock now follows the OpenAPI
+  spec for upload (Overwrite, 409 on a running job, folders, POST/HEAD/GET on
+  files), version, info, storage and errors. Still unchecked on a real
+  printer: the `refs.download` path form, the Digest realm, whether
+  `FINISHED` accepts a new job before it is cleared, 8.3 short `file.name`,
+  and the status/job bodies in `FINISHED` (does `job` stay present?).
+* **The service pulling a job's G-code from a real printer (section 5f).** To check
+  on the Core One, once, with a job running:
+  * that `GET /api/v1/job` lists `file.refs.download` and the path serves the
+    file (Prusa's spec gives `/api/files/local/<name>/raw`; the file `GET`
+    returns metadata only), and on which firmware versions;
+  * that the downloaded bytes equal what the slicer sent (compare SHA-256 with
+    the exported file);
+  * how soon after the job starts the file can be downloaded;
+  * what happens when the job was started from USB or from the printer's
+    own storage, and whether the file is still there after the print;
+  * that a real `.bgcode` decodes (only slicer 2.9.7 output has been tried;
+    the printer might store or serve a different encoding);
+  * whether the Digest login the service already uses also covers the
+    download.
+* **PrusaSlicer 3.x output.** Read from source only (3.0.0-alpha14); no 3.x
+  build was made or run. Slicing a model with it and running
+  `gcode_to_stl` is the check, deliberately not done yet.
+* **A real printer behind the cluster.** The `--//:printer_url` route (real
+  Digest login, a printer on another machine) was built and unit-tested but
+  never run against hardware. Neither was a password delivered as a secret
+  (`password_env` has no path into the cluster; the flag writes it into the
+  solution config).
+* **Large jobs through the cluster.** Only a 600 KB job was pulled; the service
+  limit is 256 MiB and the STL is about 55 times the G-code size.
+* **Several objects, or one model made of several bodies (section 5f).** The
+  tools do not separate them: one compound for the whole job.
 
 ---
 
@@ -1510,3 +1615,11 @@ Check these before building on them.
   (`https://claude.ai/code/artifact/3ea4bddf-2151-46ba-b2d6-65779142ea43`),
   with only two sections filled in. The Markdown study replaces it; it can be
   deleted.
+* **Slicer lab (outside the repo):** `~/omts-slicer-lab/` on the author's
+  machine holds a Docker build of PrusaSlicer 2.9.7 (`ps297/`), a browser GUI
+  (`gui.sh`, then http://localhost:6080/vnc.html), a CLI wrapper (`run.sh`),
+  and the sample jobs used for section 5f (`out/`, `toolpaths/`). Not tracked;
+  rebuild from the `version_2.9.7` tag if needed. Test fixtures derived from it
+  are in `tests/unit/testdata/prusaslicer_2_9_7_part.{gcode,bgcode}`. The
+  slicer-hook leftovers there (`caps*`, `hook_out`, `hook.sh`,
+  `inspect_capture.py`, logs) were deleted on 2026-11-13.

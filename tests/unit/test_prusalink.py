@@ -20,6 +20,7 @@ import math
 import os
 import queue
 import re
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -34,9 +35,10 @@ from absl.testing import absltest, parameterized
 from google.protobuf import empty_pb2
 from intrinsic.resources.proto import runtime_context_pb2
 
-from services.prusalink import client, main, mock, server
+from services.prusalink import client, main, server
 from services.prusalink import prusalink_pb2 as pb
 from services.prusalink import prusalink_pb2_grpc as rpc
+from tools.mock_printer import mock_printer as mock
 
 
 class LifecycleTest(parameterized.TestCase):
@@ -47,13 +49,16 @@ class LifecycleTest(parameterized.TestCase):
       / os.environ["TEST_WORKSPACE"]
       / "services/prusalink/prusalink_server"
     )
+    storage = tempfile.mkdtemp()
+    self.addCleanup(shutil.rmtree, storage, True)
     with subprocess.Popen(
       [
         str(binary),
-        "--mode=sim",
         "--http-port=0",
         "--grpc-port=0",
-        "--mock-port=0",
+        "--mock-port=1",
+        "--mock-host=127.0.0.1",
+        f"--storage-dir={storage}",
       ],
       stdout=subprocess.DEVNULL,
       stderr=subprocess.PIPE,
@@ -78,7 +83,10 @@ class LifecycleTest(parameterized.TestCase):
         with urllib.request.urlopen(
           f"http://127.0.0.1:{match[1]}/healthz", timeout=2
         ) as response:
-          self.assertEqual(json.load(response)["mode"], "sim")
+          health = json.load(response)
+        # No printer given: the service says it is looking for the mock.
+        self.assertEqual(health["route"], "mock")
+        self.assertTrue(health["job_pull_enabled"])
         process.send_signal(stop_signal)
         self.assertEqual(process.wait(timeout=5), 0)
         reader.join(timeout=2)
@@ -106,7 +114,6 @@ class PrusaLinkTest(parameterized.TestCase):
       "127.0.0.1",
       0,
       "/ext/services/prusalink",
-      self.simulator,
     )
     self.start_http(self.httpd)
     self.url = f"http://127.0.0.1:{self.httpd.server_port}"
@@ -150,7 +157,7 @@ class PrusaLinkTest(parameterized.TestCase):
     ("ATTENTION", 25, False),
   )
   def test_unload_threshold_http_and_grpc(self, state, temperature, ready):
-    self.request("/simulation/state", {"state": state, "temp_bed": temperature})
+    self.simulator.update({"state": state, "temp_bed": temperature})
     _, http_result = self.request("/ext/services/prusalink/v1/status")
     result = self.stub.GetStatus(empty_pb2.Empty(), timeout=2)
     self.assertEqual(http_result["ready_for_unload"], ready)
@@ -200,13 +207,14 @@ class PrusaLinkTest(parameterized.TestCase):
     self.assertFalse(self.stub.GetJob(empty_pb2.Empty()).has_job)
     self.assertEqual(self.request("/v1/job")[1]["has_job"], False)
 
-  def test_commands_are_opt_in_and_mock_controls_are_sim_only(self):
+  def test_commands_are_opt_in_and_there_are_no_mock_controls(self):
     httpd = server.make_http_server(self.printer, False, "127.0.0.1", 0)
     self.start_http(httpd)
     self.url = f"http://127.0.0.1:{httpd.server_port}"
     for path, status in (
       ("/v1/jobs/42/pause", 403),
       ("/simulation/state", 404),
+      ("/simulation/job/x.gcode", 404),
     ):
       with self.assertRaises(urllib.error.HTTPError) as cm:
         self.request(path, {})
@@ -227,10 +235,6 @@ class PrusaLinkTest(parameterized.TestCase):
 
   def test_invalid_http_inputs(self):
     for path, body, expected in (
-      ("/simulation/state", {"temp_bed": math.nan}, 400),
-      ("/simulation/state", {"state": "UNKNOWN"}, 400),
-      ("/simulation/state", {"job_id": True}, 400),
-      ("/simulation/state", {"unexpected": 1}, 400),
       ("/v1/jobs/99999999999999999999/pause", {}, 400),
       ("/v1/jobs/99/pause", {}, 404),
       ("/not-a-route", None, 404),
@@ -287,34 +291,34 @@ class PrusaLinkTest(parameterized.TestCase):
       printer.get_status()
     self.assertEqual(cm.exception.status, expected)
 
-  def test_runtime_context_requires_correct_config_mode_and_ports(self):
+  def test_runtime_context_requires_config_and_ports(self):
     context = runtime_context_pb2.RuntimeContext(
       port=30000,
       http_port=30001,
       http_path_prefix="/ext/services/prusalink",
       level=runtime_context_pb2.RuntimeContext.PHYSICS_SIM,
     )
-    context.config.Pack(pb.PrusaLinkConfig(timeout_seconds=5))
+    context.config.Pack(
+      pb.PrusaLinkConfig(timeout_seconds=5, printer_url="http://p")
+    )
     with tempfile.TemporaryDirectory() as directory:
       path = Path(directory) / "context.pb"
       path.write_bytes(context.SerializeToString())
-      config, grpc_port, http_port, prefix = main.load_runtime(str(path), "sim")
-      self.assertEqual(config.timeout_seconds, 5)
+      config, grpc_port, http_port, prefix = main.load_runtime(str(path))
+      self.assertEqual((config.timeout_seconds, config.printer_url), (5, "http://p"))
       self.assertEqual(
         (grpc_port, http_port, prefix),
         (30000, 30001, "/ext/services/prusalink"),
       )
-      with self.assertRaises(ValueError):
-        main.load_runtime(str(path), "real")
       context.http_port = 0
       path.write_bytes(context.SerializeToString())
       with self.assertRaises(ValueError):
-        main.load_runtime(str(path), "sim")
+        main.load_runtime(str(path))
       context.http_port = 30001
       context.config.Pack(empty_pb2.Empty())
       path.write_bytes(context.SerializeToString())
       with self.assertRaises(ValueError):
-        main.load_runtime(str(path), "sim")
+        main.load_runtime(str(path))
 
   @parameterized.parameters(
     "ftp://printer",

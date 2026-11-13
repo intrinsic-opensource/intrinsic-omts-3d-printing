@@ -8,9 +8,9 @@ py_test(
     srcs = ["test_printer_skills.py"],
     deps = [
         "//services/prusalink:client",
-        "//services/prusalink:mock",
         "//services/prusalink:prusalink_py_pb2",
         "//services/prusalink:server",
+        "//tools/mock_printer:mock_printer_lib",
         "//skills/printer:printer_skills",
         "//skills/printer:read_printer_status_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
@@ -29,10 +29,10 @@ py_test(
     deps = [
         "//services/prusalink:client",
         "//services/prusalink:main_lib",
-        "//services/prusalink:mock",
         "//services/prusalink:prusalink_py_pb2",
         "//services/prusalink:prusalink_py_pb2_grpc",
         "//services/prusalink:server",
+        "//tools/mock_printer:mock_printer_lib",
         "@com_github_grpc_grpc//src/python/grpcio/grpc:grpcio",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
@@ -362,5 +362,71 @@ py_test(
         "//src/utils:script_utils",
         "@com_google_absl_py//absl/testing:absltest",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
+    ],
+)
+
+py_test(
+    name = "test_gcode_to_stl",
+    srcs = ["test_gcode_to_stl.py"],
+    data = glob(["testdata/*"]),
+    deps = [
+        "//tools/printer:gcode_to_stl_lib",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
+    name = "test_mock_printer",
+    srcs = ["test_mock_printer.py"],
+    data = glob(["testdata/*"]),
+    deps = [
+        "//tools/mock_printer:mock_printer_lib",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
+    name = "test_discovery",
+    srcs = ["test_discovery.py"],
+    deps = [
+        "//services/prusalink:discovery",
+        "//tools/mock_printer:mock_printer_lib",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
+    name = "test_jobwatch",
+    srcs = ["test_jobwatch.py"],
+    data = glob(["testdata/*"]),
+    deps = [
+        "//services/prusalink:client",
+        "//services/prusalink:jobwatch",
+        "//services/prusalink:prusalink_py_pb2",
+        "//services/prusalink:prusalink_py_pb2_grpc",
+        "//services/prusalink:server",
+        "//tools/mock_printer:mock_printer_lib",
+        "@com_github_grpc_grpc//src/python/grpcio/grpc:grpcio",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_protobuf//:protobuf_python",
+    ],
+)
+
+py_test(
+    name = "test_job_model_skills",
+    srcs = ["test_job_model_skills.py"],
+    data = glob(["testdata/*"]),
+    deps = [
+        "//services/prusalink:client",
+        "//services/prusalink:jobwatch",
+        "//services/prusalink:server",
+        "//skills/printer:job_model_py_pb2",
+        "//skills/printer:job_model_skills",
+        "//tools/mock_printer:mock_printer_lib",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_canceller",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/testing:skill_test_utils",
+        "@intrinsic_apis//intrinsic/resources/proto:resource_handle_py_pb2",
     ],
 )

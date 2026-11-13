@@ -62,6 +62,40 @@ config_setting(
     },
 )
 
+# The PrusaLink printer service and its skills in rebot_solution. ON by default;
+# --no//:printer_service leaves them out. Which printer it reads:
+#   --//:printer_url=http://<printer ip> --//:printer_username=<user>
+#   --//:printer_password=<password>      (the real printer, via Digest login)
+# With no URL the service looks for the mock printer (tools/mock_printer) on
+# the machine that runs the cluster and logs which route it took. The password
+# is written into the solution's config, so use it for test credentials only.
+bool_flag(
+    name = "printer_service",
+    build_setting_default = True,
+)
+
+config_setting(
+    name = "with_printer_service",
+    flag_values = {
+        ":printer_service": "True",
+    },
+)
+
+string_flag(
+    name = "printer_url",
+    build_setting_default = "",
+)
+
+string_flag(
+    name = "printer_username",
+    build_setting_default = "",
+)
+
+string_flag(
+    name = "printer_password",
+    build_setting_default = "",
+)
+
 # Test part asset -> its package.
 _TEST_PARTS = {
     "test_cuboid_40x40x20": "//models/test_cuboids",
@@ -215,9 +249,6 @@ intrinsic_solution(
         "//models/rebot_ground",
         "//models/printer",
         "//models/rebot_printed_part",
-        "//services/prusalink:prusalink_service",
-        "//skills/printer:read_printer_status",
-        "//skills/printer:wait_for_printer_ready",
         ":flowstate_ros_bridge_asset",
         ":orbbec_gemini_driver_asset",
     ] + select({
@@ -232,6 +263,15 @@ intrinsic_solution(
         "//conditions:default": [],
     }) + select({
         ":with_test_parts": [pkg + ":" + p for p, pkg in _TEST_PARTS.items()],
+        "//conditions:default": [],
+    }) + select({
+        ":with_printer_service": [
+            "//services/prusalink:prusalink_service",
+            "//skills/printer:read_printer_status",
+            "//skills/printer:wait_for_printer_ready",
+            "//skills/printer:read_job_model",
+            "//skills/printer:wait_for_job_model",
+        ],
         "//conditions:default": [],
     }),
     default_operation_mode = "sim",
@@ -249,9 +289,11 @@ intrinsic_solution(
         ":rebot_ground",
         ":rebot_printed_part",
         ":train_service",
-        "//services/prusalink:prusalink_instance",
     ] + select({
         ":with_test_parts": [":" + p for p in _TEST_PARTS],
+        "//conditions:default": [],
+    }) + select({
+        ":with_printer_service": ["//services/prusalink:prusalink_instance"],
         "//conditions:default": [],
     }),
     object_world_updates = [

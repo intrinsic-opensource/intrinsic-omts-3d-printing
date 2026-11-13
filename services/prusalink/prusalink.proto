@@ -26,6 +26,17 @@ message PrusaLinkConfig {
   string password_env = 3;
   double timeout_seconds = 4;
   bool enable_job_commands = 5;
+  // A literal password. It ends up in the solution's config, unlike
+  // password_env; for tests and local clusters only.
+  string password = 6;
+  // The service pulls each new job's G-code and builds its STL unless set.
+  bool disable_job_pull = 7;
+  // Where pulled jobs and their models are kept. Default: /tmp/prusalink.
+  string storage_dir = 8;
+  // How often the printer's job is polled. Default: 2 seconds.
+  double poll_interval_seconds = 9;
+  // Download limit for one job file. Default: 256 MiB.
+  int64 max_download_bytes = 10;
 }
 
 enum PrinterState {
@@ -74,7 +85,51 @@ message JobCommand {
   Action action = 2;
 }
 
+enum ModelState {
+  MODEL_STATE_UNSPECIFIED = 0;
+  // The printer has not reported a job with a file yet.
+  NO_JOB = 1;
+  DOWNLOADING = 2;
+  CONVERTING = 3;
+  // The G-code was read and `compound.stl` exists.
+  MODEL_READY = 4;
+  // Not G-code, too large, unreadable, or the printer went away mid-way.
+  MODEL_FAILED = 5;
+}
+
+// What the service did with the G-code of one print job.
+message ModelStatus {
+  ModelState state = 1;
+  optional int64 job_id = 2;
+  string file_name = 3;
+  int64 file_bytes = 4;
+  string sha256 = 5;
+  // Where the STL is inside the service, and where it is served.
+  string stl_path = 6;
+  string http_path = 7;
+  int32 layers = 8;
+  repeated string warnings = 9;
+  string error = 10;
+  // The same file content was already converted for an earlier job.
+  bool reused = 11;
+  // The last poll of the printer failed (empty when it worked).
+  string poll_error = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  google.protobuf.Timestamp observed_at = 14;
+}
+
+message ModelRequest {
+  // Absent: the most recent job.
+  optional int64 job_id = 1;
+}
+
+message ModelList {
+  repeated ModelStatus models = 1;
+}
+
 service PrusaLinkService {
+  rpc GetModelStatus(ModelRequest) returns (ModelStatus);
+  rpc ListModels(google.protobuf.Empty) returns (ModelList);
   rpc GetStatus(google.protobuf.Empty) returns (PrinterStatus);
   rpc GetJob(google.protobuf.Empty) returns (Job);
   rpc CommandJob(JobCommand) returns (google.protobuf.Empty);
