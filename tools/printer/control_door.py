@@ -18,7 +18,7 @@ def parse_args():
       "--angle",
       type=float,
       default=1.57,
-      help="Target angle in radians (e.g., 1.57 is ~90 deg open, 0.0 is closed).",
+      help="Target angle in radians (e.g., 1.57 is ~90 deg open, 3.141596 is closed).",
   )
   return parser.parse_args()
 
@@ -43,7 +43,7 @@ def main():
   if args.action == "status":
     return
 
-  target_angle = 0.0 if args.action == "close" else args.angle
+  target_angle = 3.141596 if args.action == "close" else args.angle
 
   # 1. Update the Belief World
   world.update_joint_positions(printer, [target_angle])
