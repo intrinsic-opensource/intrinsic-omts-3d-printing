@@ -1,64 +1,120 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Opens, closes or reads the printer door's hinge in a running solution.
+
+Writes the door joint in the belief world. In simulation it then resets the
+simulation so Gazebo picks the new position up, the same way
+//tools/world:apply_scene_updates --reset_sim does: a reset clones the belief
+world into Gazebo's sim_world, which the belief world update alone does not
+change.
+"""
+
 import argparse
 import sys
+from collections.abc import Sequence
+
 from intrinsic.solutions import deployments
 
+PRINTER_OBJECT_NAME = "printer"
 
-def parse_args():
-  parser = argparse.ArgumentParser(description="Control printer door in OMTS world.")
-  parser.add_argument(
-      "--address", type=str, default="localhost:17080", help="Solution gRPC address."
-  )
-  parser.add_argument(
-      "--action",
-      choices=["open", "close", "set", "status"],
-      default="open",
-      help="Action to execute.",
-  )
-  parser.add_argument(
-      "--angle",
-      type=float,
-      default=1.57,
-      help="Target angle in radians (e.g., 1.57 is ~90 deg open, 3.141596 is closed).",
-  )
-  return parser.parse_args()
+# Hinge angles, matching configs/rebot/printer_door_{open,closed}.updates.pbtxt.
+DOOR_OPEN_ANGLE = 0.0
+DOOR_CLOSED_ANGLE = 3.141596
 
 
-def main():
-  args = parse_args()
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+  """Parses command line arguments."""
+  parser = argparse.ArgumentParser(description=__doc__)
+  parser.add_argument(
+    "--address",
+    type=str,
+    default="localhost:17080",
+    help="Solution gRPC address.",
+  )
+  parser.add_argument(
+    "--action",
+    choices=["open", "close", "set", "status"],
+    default="open",
+    help=(
+      f"open: {DOOR_OPEN_ANGLE} rad. close: {DOOR_CLOSED_ANGLE} rad."
+      " set: --angle. status: print the joint position only."
+    ),
+  )
+  parser.add_argument(
+    "--angle",
+    type=float,
+    default=1.57,
+    help=(
+      "Target angle in radians for --action=set (e.g. 1.57 is about halfway;"
+      f" {DOOR_OPEN_ANGLE} is open, {DOOR_CLOSED_ANGLE} is closed)."
+    ),
+  )
+  parser.add_argument(
+    "--reset_sim",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+    help=(
+      "In simulation, reset the simulation afterwards so Gazebo shows the new"
+      " door position (default: True)."
+    ),
+  )
+  return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+  """Reads or sets the printer door joint."""
+  args = parse_args(argv)
   print(f"Connecting to Intrinsic solution at {args.address}...")
   solution = deployments.connect(address=args.address)
   world = solution.world
 
-  printer = getattr(world, "printer", None)
-  if printer is None:
-    print(f"ERROR: 'printer' not found in active world. Available objects: {world.list_objects()}")
+  object_names = world.list_object_names()
+  if PRINTER_OBJECT_NAME not in object_names:
+    print(
+      f"ERROR: '{PRINTER_OBJECT_NAME}' not found in the belief world."
+      f" Available objects: {sorted(object_names)}"
+    )
     sys.exit(1)
 
-  joint_names = list(printer.joint_entity_names)
-  current_positions = list(printer.joint_positions)
-  print(f"Printer ID: {printer.id}")
-  print(f"Registered joints: {joint_names}")
-  print(f"Current positions: {current_positions}")
+  printer = world.get_kinematic_object(PRINTER_OBJECT_NAME)
+  print(f"Registered joints: {list(printer.joint_entity_names)}")
+  print(f"Current positions: {list(printer.joint_positions)}")
 
   if args.action == "status":
     return
 
-  target_angle = 3.141596 if args.action == "close" else args.angle
+  if args.action == "open":
+    target_angle = DOOR_OPEN_ANGLE
+  elif args.action == "close":
+    target_angle = DOOR_CLOSED_ANGLE
+  else:
+    target_angle = args.angle
 
-  # 1. Update the Belief World
   world.update_joint_positions(printer, [target_angle])
-  print(f"[✓] Set Belief World joint position to {target_angle:.3f} rad.")
+  print(f"[✓] Set belief world door position to {target_angle:.3f} rad.")
 
-  # 2. Synchronize Gazebo sim_world
-  if getattr(solution, "is_simulated", False) and solution.simulator is not None:
-    print("[+] Syncing with Gazebo simulation (world.update_joint_positions(printer, [target_angle])...")
-    world.update_joint_positions(printer, [target_angle])
-    print("[✓] Gazebo simulation synchronized! Door is now visually positioned.")
+  if args.reset_sim and solution.is_simulated:
+    if solution.simulator is None:
+      print("[-] Warning: no simulator to reset; Gazebo is not updated.")
+    else:
+      print("[+] Resetting the simulation so Gazebo shows the new position...")
+      solution.simulator.reset()
+      print("[✓] Simulation reset.")
 
-  # 3. Confirm final state
-  check_printer = getattr(solution.world, "printer", None)
-  if check_printer:
-    print(f"Confirmed joint position: {list(check_printer.joint_positions)}")
+  printer = world.get_kinematic_object(PRINTER_OBJECT_NAME)
+  print(f"Confirmed joint position: {list(printer.joint_positions)}")
 
 
 if __name__ == "__main__":
