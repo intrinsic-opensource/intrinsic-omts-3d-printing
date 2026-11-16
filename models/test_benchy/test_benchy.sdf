@@ -25,16 +25,15 @@ limitations under the License.
           <izz>5.7e-06</izz>
         </inertia>
       </inertial>
-      <!-- test_benchy.stl is in millimetres with its origin at the centre of
+      <!-- test_benchy.stl is in metres with its origin at the centre of
            its bounding box (59.5 x 31.0 x 48.0 mm), so the part's frame is
            the box centre. The origin is in the mesh itself, not a pose here:
-           the pose estimator's registration exports the mesh scaled but
-           without the visual's pose. -->
+           the pose estimator's registration exports the mesh without the
+           visual's pose. -->
       <visual name="visual">
         <geometry>
           <mesh>
             <uri>test_benchy.stl</uri>
-            <scale>0.001 0.001 0.001</scale>
           </mesh>
         </geometry>
         <material>
@@ -47,7 +46,6 @@ limitations under the License.
         <geometry>
           <mesh>
             <uri>test_benchy.stl</uri>
-            <scale>0.001 0.001 0.001</scale>
           </mesh>
         </geometry>
       </collision>

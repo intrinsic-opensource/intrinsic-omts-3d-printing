@@ -1,0 +1,15 @@
+# Run-time parameters of the reBot cell. research/tools:configure_cell turns
+# them into a world update and an app_config, with no rebuild, and checks them
+# (research/REBOT_OMTS_APP.md). These values match the committed configs.
+
+# The printer model's origin along x from the robot's base (m). The bed's centre
+# is 2.95 cm nearer than this. See the tool's limits in research/HANDOFF.md.
+printer_distance_m: 0.5895
+
+# The Orbbec camera from the arm's flange (m), in the flange frame: x is the
+# gripper's +x side, z along the tool axis. Its orientation stays fixed.
+camera_offset_m: [0.07, -0.024, 0.076]
+
+# What is put on the bed: a name from configs/rebot/targets.yaml. Any but the
+# default part needs a deploy with --//:test_parts.
+target: rebot_printed_part
