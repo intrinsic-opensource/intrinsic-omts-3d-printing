@@ -30,14 +30,14 @@ last requests it served.
 
 ## Send it a job
 
-Like a slicer does (`Print-After-Upload: ?1` starts it, `Overwrite: ?1` allows
+Like a slicer's "send to printer" does (`Print-After-Upload: ?1` starts it, `Overwrite: ?1` allows
 the same name again):
 
 ```bash
 curl --digest -u maker:mock-only -X PUT \
   -H 'Print-After-Upload: ?1' -H 'Overwrite: ?1' \
-  -T ~/omts-slicer-lab/out/warrior_mod_0.4n_0.2mm_PLA_COREONEL_18m.bgcode \
-  http://localhost:18081/api/v1/files/local/warrior.bgcode
+  -T tests/unit/testdata/prusaslicer_2_9_7_part.bgcode \
+  http://localhost:18081/api/v1/files/local/part.bgcode
 ```
 
 The job id starts at 1 and goes up by one per job. The job "prints" for

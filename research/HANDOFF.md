@@ -1377,10 +1377,8 @@ This work continues on `feat/prusalink-skills`, based directly on
 
 Goal: while a print runs, know the printed shape and pose to train a pose
 model for the bed at the end. The printer is the only part guaranteed to be
-in the system, so nothing here may depend on the slicer. The first attempt
-(a PrusaSlicer post-processing hook that saved the exact STL from the project
-3MF) needed the slicer; it was **removed on 2026-11-13**, with its test and
-fixtures, once the service built the model from the printer's own G-code.
+in the system, so nothing here may depend on the slicer or its project files.
+The model is built from the printer's own G-code.
 
 * **Done: `tools/printer/gcode_to_stl.py`.** Rebuilds a compound STL from a
   `.gcode` or `.bgcode` alone. Each extrusion becomes a box (length x
@@ -1615,11 +1613,4 @@ Check these before building on them.
   (`https://claude.ai/code/artifact/3ea4bddf-2151-46ba-b2d6-65779142ea43`),
   with only two sections filled in. The Markdown study replaces it; it can be
   deleted.
-* **Slicer lab (outside the repo):** `~/omts-slicer-lab/` on the author's
-  machine holds a Docker build of PrusaSlicer 2.9.7 (`ps297/`), a browser GUI
-  (`gui.sh`, then http://localhost:6080/vnc.html), a CLI wrapper (`run.sh`),
-  and the sample jobs used for section 5f (`out/`, `toolpaths/`). Not tracked;
-  rebuild from the `version_2.9.7` tag if needed. Test fixtures derived from it
-  are in `tests/unit/testdata/prusaslicer_2_9_7_part.{gcode,bgcode}`. The
-  slicer-hook leftovers there (`caps*`, `hook_out`, `hook.sh`,
-  `inspect_capture.py`, logs) were deleted on 2026-11-13.
+

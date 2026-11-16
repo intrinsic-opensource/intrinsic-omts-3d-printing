@@ -14,7 +14,7 @@ receives. Plan and status: `research/HANDOFF.md`, section 5f.
 ## The flow
 
 ```
- you (curl or a slicer)
+ you (curl, or any sender of G-code)
    │ PUT file, Print-After-Upload                                      A: separate
    ▼                                                                      machine
  PRINTER  (tools/mock_printer, or a real PrusaLink printer)
@@ -71,14 +71,14 @@ each per refresh; the first run builds the tool):
 bazel run //tools/printer:printer_skills -- --address=localhost:17080 --mode=monitor
 ```
 
-**Terminal 4: send the job.** This is the file the slicer would send; the
-original G-code stays where it is and is only read:
+**Terminal 4: send the job.** Any G-code or bgcode works; the
+original file stays where it is and is only read. This one is a test fixture:
 
 ```bash
-F=$HOME/omts-slicer-lab/out/warrior_mod_0.4n_0.2mm_PLA_COREONEL_18m.bgcode
+F=tests/unit/testdata/prusaslicer_2_9_7_part.bgcode   # from the repo root
 curl --digest -u maker:mock-only -sS -w "HTTP %{http_code}\n" -X PUT \
   -H 'Print-After-Upload: ?1' -H 'Overwrite: ?1' -T "$F" \
-  http://localhost:18081/api/v1/files/local/warrior.bgcode
+  http://localhost:18081/api/v1/files/local/part.bgcode
 ```
 
 Expect `HTTP 201`. What you see, within a few seconds:
@@ -198,41 +198,23 @@ volume.
 * Brim, skirt and purge lines are in the G-code (and in `by_type/`), but the
   purge line is excluded from the compound by default.
 
-## Demo: export from the slicer straight to the mock printer
-
-The lab's PrusaSlicer 2.9.7 (`~/omts-slicer-lab/gui.sh`, outside the repo)
-watches its project and output folders; each G-code or bgcode that
-*File > Export G-code* writes there is sent to the mock printer (same `PUT`
-with `Print-After-Upload` as the curl step above), which starts the job:
-
-```bash
-python3 tools/mock_printer/mock_printer.py        # terminal 1
-~/omts-slicer-lab/gui.sh                          # terminal 2; open http://localhost:6080/vnc.html
-docker logs -f ps297-gui                          # sees: [send_to_mock] ... -> HTTP 201
-```
-
-Another mock: `MOCK_URL=http://IP:18081 MOCK_USER=u MOCK_PASS=p ./gui.sh`.
-
 ## After a reboot
 
 The cluster (k3s) and Docker start by themselves and the deployed solution
 comes back (about 5 minutes; wait until `kubectl get pods -A` shows no
 `0/1`). Jobs the service had converted are lost (its storage is in the pod).
-The mock, the slicer and the monitor are not services: start them again.
+The mock and the monitor are not services: start them again.
 
 | Terminal | Folder | Command |
 | --- | --- | --- |
 | 1 | `~/gits/intrinsic-omts` | `python3 tools/mock_printer/mock_printer.py` (leave open, live screen) |
-| 2 | any | `~/omts-slicer-lab/gui.sh`, then open http://localhost:6080/vnc.html and click Connect |
-| 3 | `~/gits/intrinsic-omts` | `bazel run //tools/printer:printer_skills -- --address=localhost:17080 --mode=monitor` |
-| 4 | any | `docker logs -f ps297-gui` (shows each export sent to the mock) |
+| 2 | `~/gits/intrinsic-omts` | `bazel run //tools/printer:printer_skills -- --address=localhost:17080 --mode=monitor` |
 
 Checks, in order: `kubectl get pods -A | grep -v Running` shows nothing
 (except the header); `curl -s localhost:17080/ext/services/prusalink/healthz`
 answers `"route": "mock"` and a `printer_url` once terminal 1 is up (a few
-seconds); the monitor shows `IDLE`, `NO_JOB`. Then in the slicer open a
-project and *Export G-code*; terminal 1 shows the upload and `PRINTING`, the
-monitor goes `WAITING_FOR_PRINT` -> `READY_TO_UNLOAD` and `MODEL_READY`.
+seconds); the monitor shows `IDLE`, `NO_JOB`. Then send a job (the curl
+step above); terminal 1 shows the upload and `PRINTING`, the monitor goes `WAITING_FOR_PRINT` -> `READY_TO_UNLOAD` and `MODEL_READY`.
 
 Redeploy only if the cluster was reset or the code changed:
 `bazel run //:rebot_solution -c opt -- --address=localhost:17080`.
