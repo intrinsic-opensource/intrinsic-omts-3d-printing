@@ -41,6 +41,10 @@ bazel run //:rebot_solution -c opt --//:perception_models \
   --repo_env=NVIDIA_POSE_ESTIMATOR_MODELS_DIR=$HOME/intrinsic-models/nvidia_pose_estimator \
   -- --address=localhost:17080
 
+# Set the reBot cell's printer distance, camera offset and target at run time
+# (research/REBOT_OMTS_APP.md; values in configs/rebot/cell_params.yaml)
+bazel run //research/tools:configure_cell -- --out /tmp/cell
+
 # Push configs/<cell>/*.updates.pbtxt to the live world (--reset_sim also syncs Gazebo)
 bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 --reset_sim
 

@@ -45,19 +45,8 @@ import numpy as np
 
 from research.tools import a_frames, cell
 
-# Name -> model extents along x, y, z (m): the test parts in
-# models/test_cuboids, models/test_cylinders and models/test_benchy (its
-# bounding box), and the default part.
-PARTS = {
-  "rebot_printed_part": (0.04, 0.04, 0.03),
-  "test_cuboid_40x40x20": (0.04, 0.04, 0.02),
-  "test_cuboid_40x40x22": (0.04, 0.04, 0.022),
-  "test_cuboid_40x40x40": (0.04, 0.04, 0.04),
-  "test_cuboid_80x20x40": (0.08, 0.02, 0.04),
-  "test_cuboid_95x20x40": (0.095, 0.02, 0.04),
-  "test_cylinder_30x60": (0.03, 0.03, 0.06),
-  "test_benchy": (0.0595, 0.031, 0.048),
-}
+# Name -> model extents along x, y, z (m), from the target library.
+PARTS = {name: t["size_m"] for name, t in cell.targets().items()}
 # The dense grid (models/test_grid): extents, and its origin's height above
 # what it rests on (it sits on its plate's underside).
 GRID = "test_grid"
