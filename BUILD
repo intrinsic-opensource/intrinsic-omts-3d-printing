@@ -222,7 +222,10 @@ intrinsic_solution(
         "//configs:rebot/printer.updates.pbtxt",
         "//configs:rebot/printed_part.updates.pbtxt",
         "//configs:rebot/scene.updates.pbtxt",
-    ],
+    ] + select({
+    "//models/printer:door_open": ["//configs:rebot/printer_door_open.updates.pbtxt"],
+    "//models/printer:door_closed": ["//configs:rebot/printer_door_closed.updates.pbtxt"],
+}),
 )
 
 intrinsic_asset_instance(
