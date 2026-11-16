@@ -1,0 +1,16 @@
+# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
+# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+
+metadata {
+  id {
+    name: "test_cylinder_30x60"
+    package: "ai.intrinsic"
+  }
+  vendor {
+    display_name: "Intrinsic"
+  }
+  display_name: "Test cylinder 30 x 60 mm"
+  documentation {
+    description: "Cylinder, 30 mm diameter and 60 mm long, with a 1 mm flat along one side as a part printed lying down has, so it does not roll; printed-part stand-in for the reBot graspability trials."
+  }
+}

@@ -1,0 +1,16 @@
+# proto-file: intrinsic/assets/scene_objects/proto/scene_object_manifest.proto
+# proto-message: intrinsic_proto.scene_objects.SceneObjectManifest
+
+metadata {
+  id {
+    name: "test_cuboid_80x20x40"
+    package: "ai.intrinsic"
+  }
+  vendor {
+    display_name: "Intrinsic"
+  }
+  display_name: "Test cuboid 80 x 20 x 40 mm"
+  documentation {
+    description: "80 x 20 x 40 mm printed-part stand-in for the reBot graspability trials."
+  }
+}
