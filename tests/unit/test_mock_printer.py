@@ -218,6 +218,15 @@ class AutoSimulationTest(_Base):
     self.now[0] = 56
     self.assertEqual(self.status()["printer"]["state"], "FINISHED")
 
+  def test_printing_time_stops_when_the_job_finishes(self):
+    self.put("a.gcode", b"G1 X1\n").close()
+    self.now[0] = 10  # print_seconds is 10 in these tests
+    self.assertEqual(self.status()["printer"]["state"], "FINISHED")
+    self.now[0] = 500
+    status = self.status()
+    self.assertEqual(status["printer"]["state"], "FINISHED")
+    self.assertEqual(self.sim._elapsed(), 10)
+
   def test_keys(self):
     self.put("a.gcode", b"G1 X1\n").close()
     self.assertTrue(mock.handle_key(self.sim, "p"))

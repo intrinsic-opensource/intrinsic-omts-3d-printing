@@ -83,8 +83,8 @@ curl --digest -u maker:mock-only -sS -w "HTTP %{http_code}\n" -X PUT \
 
 Expect `HTTP 201`. What you see, within a few seconds:
 
-1. Terminal 1: `PRINTING`, job 1, the progress bar moving for 60 s, then
-   `FINISHED`, the bed cooling from 60 to 24 °C over 60 s.
+1. Terminal 1: `PRINTING`, job 1, the progress bar moving for 7 s, then
+   `FINISHED`, the bed cooling from 60 to 24 °C over 7 s.
 2. Terminal 3, `read_job_model`: `DOWNLOADING`, `CONVERTING` (about 5 s), then
    `MODEL_READY` with the STL path (`MODEL_READY` is the signal for the next
    process to start). `read_printer_status`: `WAITING_FOR_PRINT` while it
@@ -197,3 +197,45 @@ volume.
   would need clustering of the toolpaths by connectivity; not built.
 * Brim, skirt and purge lines are in the G-code (and in `by_type/`), but the
   purge line is excluded from the compound by default.
+
+## Demo: export from the slicer straight to the mock printer
+
+The lab's PrusaSlicer 2.9.7 (`~/omts-slicer-lab/gui.sh`, outside the repo)
+watches its project and output folders; each G-code or bgcode that
+*File > Export G-code* writes there is sent to the mock printer (same `PUT`
+with `Print-After-Upload` as the curl step above), which starts the job:
+
+```bash
+python3 tools/mock_printer/mock_printer.py        # terminal 1
+~/omts-slicer-lab/gui.sh                          # terminal 2; open http://localhost:6080/vnc.html
+docker logs -f ps297-gui                          # sees: [send_to_mock] ... -> HTTP 201
+```
+
+Another mock: `MOCK_URL=http://IP:18081 MOCK_USER=u MOCK_PASS=p ./gui.sh`.
+
+## After a reboot
+
+The cluster (k3s) and Docker start by themselves and the deployed solution
+comes back (about 5 minutes; wait until `kubectl get pods -A` shows no
+`0/1`). Jobs the service had converted are lost (its storage is in the pod).
+The mock, the slicer and the monitor are not services: start them again.
+
+| Terminal | Folder | Command |
+| --- | --- | --- |
+| 1 | `~/gits/intrinsic-omts` | `python3 tools/mock_printer/mock_printer.py` (leave open, live screen) |
+| 2 | any | `~/omts-slicer-lab/gui.sh`, then open http://localhost:6080/vnc.html and click Connect |
+| 3 | `~/gits/intrinsic-omts` | `bazel run //tools/printer:printer_skills -- --address=localhost:17080 --mode=monitor` |
+| 4 | any | `docker logs -f ps297-gui` (shows each export sent to the mock) |
+
+Checks, in order: `kubectl get pods -A | grep -v Running` shows nothing
+(except the header); `curl -s localhost:17080/ext/services/prusalink/healthz`
+answers `"route": "mock"` and a `printer_url` once terminal 1 is up (a few
+seconds); the monitor shows `IDLE`, `NO_JOB`. Then in the slicer open a
+project and *Export G-code*; terminal 1 shows the upload and `PRINTING`, the
+monitor goes `WAITING_FOR_PRINT` -> `READY_TO_UNLOAD` and `MODEL_READY`.
+
+Redeploy only if the cluster was reset or the code changed:
+`bazel run //:rebot_solution -c opt -- --address=localhost:17080`.
+If a skill call hangs with no output, the Executive is stuck (it spins at
+~1 CPU and logs nothing): `kubectl rollout restart deploy/executive -n
+app-intrinsic-app-chart`.

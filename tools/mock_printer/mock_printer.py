@@ -130,6 +130,7 @@ class MockPrinter:
     self.nonce = secrets.token_hex(16)
     self.started_at: float | None = None
     self.paused_at: float | None = None
+    self.ended_at: float | None = None  # the job finished or stopped: time stops
     self.cool_from: tuple[float, float] | None = None
     self.events: collections.deque = collections.deque(maxlen=200)
 
@@ -152,12 +153,19 @@ class MockPrinter:
       ):
         self.started_at += now - self.paused_at  # the pause does not count
         self.paused_at = None
+      if state in ("FINISHED", "STOPPED") and self.started_at is not None:
+        self.ended_at = self.paused_at if self.paused_at is not None else now
     self.printer_state = state
 
   def _elapsed(self) -> float:
     if self.started_at is None:
       return 0.0
-    end = self.paused_at if self.paused_at is not None else self.clock()
+    if self.ended_at is not None:
+      end = self.ended_at
+    elif self.paused_at is not None:
+      end = self.paused_at
+    else:
+      end = self.clock()
     return end - self.started_at
 
   def _advance(self) -> None:
@@ -275,6 +283,7 @@ class MockPrinter:
     self.cool_from = None
     self.paused_at = None
     self.started_at = self.clock()
+    self.ended_at = None
     self.log(f"job {self.job_id} started: {self.gcode_name}")
 
   def start_job(self, name: str, data: bytes) -> dict:
@@ -768,13 +777,13 @@ def main() -> None:
   parser.add_argument(
     "--print-seconds",
     type=float,
-    default=60,
+    default=7,
     help="how long a job 'prints' before FINISHED; 0 = change state by key",
   )
   parser.add_argument(
     "--cool-seconds",
     type=float,
-    default=60,
+    default=7,
     help="how long the bed takes to cool from 60 to 24 °C after FINISHED",
   )
   parser.add_argument(

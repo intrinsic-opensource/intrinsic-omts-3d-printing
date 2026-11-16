@@ -41,8 +41,8 @@ curl --digest -u maker:mock-only -X PUT \
 ```
 
 The job id starts at 1 and goes up by one per job. The job "prints" for
-`--print-seconds` (default 60; progress climbs), then reports `FINISHED` with
-the bed still at 60 °C, which cools to 24 °C over `--cool-seconds` (default 60).
+`--print-seconds` (default 7; progress climbs), then reports `FINISHED` with
+the bed still at 60 °C, which cools to 24 °C over `--cool-seconds` (default 7).
 `--print-seconds=0` turns the automatic behavior off: the state then changes
 only with the keys, or with
 `curl --digest -u maker:mock-only -X POST localhost:18081/mock/state -d '{"state":"FINISHED","temp_bed":29}'`.
