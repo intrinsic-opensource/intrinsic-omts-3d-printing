@@ -305,7 +305,9 @@ class PrusaLinkTest(parameterized.TestCase):
       path = Path(directory) / "context.pb"
       path.write_bytes(context.SerializeToString())
       config, grpc_port, http_port, prefix = main.load_runtime(str(path))
-      self.assertEqual((config.timeout_seconds, config.printer_url), (5, "http://p"))
+      self.assertEqual(
+        (config.timeout_seconds, config.printer_url), (5, "http://p")
+      )
       self.assertEqual(
         (grpc_port, http_port, prefix),
         (30000, 30001, "/ext/services/prusalink"),

@@ -16,9 +16,9 @@
 
 import json
 import math
-from pathlib import Path
 import struct
 import tempfile
+from pathlib import Path
 
 from absl.testing import absltest
 
@@ -37,19 +37,18 @@ def g_signed_volume(triangles) -> float:
   total = 0.0
   for (ax, ay, az), (bx, by, bz), (cx, cy, cz) in triangles:
     total += (
-        ax * (by * cz - bz * cy)
-        - ay * (bx * cz - bz * cx)
-        + az * (bx * cy - by * cx)
+      ax * (by * cz - bz * cy)
+      - ay * (bx * cz - bz * cx)
+      + az * (bx * cy - by * cx)
     ) / 6
   return total
 
 
 class ToolpathTest(absltest.TestCase):
-
   def test_extrusion_becomes_box_of_width_height_length(self):
     text = (
-        ";TYPE:Perimeter\n;WIDTH:0.5\n;HEIGHT:0.2\n"
-        "M83\nG1 X0 Y0 Z0.2\nG1 X10 Y0 E1\n"
+      ";TYPE:Perimeter\n;WIDTH:0.5\n;HEIGHT:0.2\n"
+      "M83\nG1 X0 Y0 Z0.2\nG1 X10 Y0 E1\n"
     )
     segments, info = g.parse_toolpaths(text)
     self.assertLen(segments, 1)
@@ -93,8 +92,8 @@ class ToolpathTest(absltest.TestCase):
   def test_moving_unretract_is_not_printed(self):
     # PrusaSlicer 3.x tags de-retraction done while travelling.
     text = (
-        "M83\n;TYPE:Wipe tower\n;MOVING_UNRETRACT_START\nG1 X5 E0.3\n"
-        ";MOVING_UNRETRACT_END\nG1 X9 E0.3\n"
+      "M83\n;TYPE:Wipe tower\n;MOVING_UNRETRACT_START\nG1 X5 E0.3\n"
+      ";MOVING_UNRETRACT_END\nG1 X9 E0.3\n"
     )
     segments, _ = g.parse_toolpaths(text)
     self.assertEqual([(s[1], s[3]) for s in segments], [(5.0, 9.0)])
@@ -106,7 +105,6 @@ class ToolpathTest(absltest.TestCase):
 
 
 class BinaryGcodeTest(absltest.TestCase):
-
   def test_heatshrink_literals_and_backreference(self):
     # literal 'a', literal 'b', backref offset 2 count 4 -> "ababab".
     bits = "1" + f"{ord('a'):08b}" + "1" + f"{ord('b'):08b}"
@@ -133,7 +131,7 @@ class BinaryGcodeTest(absltest.TestCase):
     text, meta = g.read_gcode(_BINARY)
     self.assertIn("printer_metadata", meta)
     self.assertEqual(
-        g.parse_toolpaths(text)[0], g.parse_toolpaths(g.read_gcode(_ASCII)[0])[0]
+      g.parse_toolpaths(text)[0], g.parse_toolpaths(g.read_gcode(_ASCII)[0])[0]
     )
 
   def test_bad_file_raises(self):
@@ -174,7 +172,6 @@ class DamagedInputTest(absltest.TestCase):
 
 
 class ConvertTest(absltest.TestCase):
-
   def test_convert_writes_compound_and_per_type_meshes(self):
     with tempfile.TemporaryDirectory() as tmp:
       out = Path(tmp) / "out"
@@ -203,7 +200,8 @@ class ConvertTest(absltest.TestCase):
       self.assertNotIn("Support material", summary["part"]["types"])
       self.assertNotIn("Skirt/Brim", summary["part"]["types"])
       self.assertEqual(
-        summary["part"]["triangles"] + summary["supports"]["triangles"]
+        summary["part"]["triangles"]
+        + summary["supports"]["triangles"]
         + summary["types"]["Skirt/Brim"]["triangles"],
         summary["compound"]["triangles"],
       )

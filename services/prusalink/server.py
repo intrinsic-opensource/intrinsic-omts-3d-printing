@@ -247,7 +247,9 @@ def make_http_server(
           send_json(
             self,
             500,
-            {"error": {"code": "internal_error", "message": type(exc).__name__}},
+            {
+              "error": {"code": "internal_error", "message": type(exc).__name__}
+            },
           )
         except OSError:
           self.close_connection = True

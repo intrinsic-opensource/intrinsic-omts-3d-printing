@@ -25,7 +25,9 @@ from absl.testing import absltest
 
 from tools.mock_printer import mock_printer as mock
 
-_BODY = (Path(__file__).parent / "testdata/prusaslicer_2_9_7_part.bgcode").read_bytes()
+_BODY = (
+  Path(__file__).parent / "testdata/prusaslicer_2_9_7_part.bgcode"
+).read_bytes()
 
 
 class _Base(absltest.TestCase):
@@ -38,7 +40,9 @@ class _Base(absltest.TestCase):
     self.addCleanup(self.server.shutdown)
     self.base = f"http://127.0.0.1:{self.server.server_port}"
     manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-    manager.add_password(None, self.base, mock.MOCK_USERNAME, mock.MOCK_PASSWORD)
+    manager.add_password(
+      None, self.base, mock.MOCK_USERNAME, mock.MOCK_PASSWORD
+    )
     self.opener = urllib.request.build_opener(
       urllib.request.HTTPDigestAuthHandler(manager)
     )
@@ -112,7 +116,9 @@ class UploadTest(_Base):
       self.assertEqual(response.status, 204)
     with self.call("GET", "/api/v1/job") as response:
       job = json.load(response)
-    self.assertEqual(job["file"]["refs"]["download"], "/api/files/local/d/a.gcode/raw")
+    self.assertEqual(
+      job["file"]["refs"]["download"], "/api/files/local/d/a.gcode/raw"
+    )
     with self.assertRaises(urllib.error.HTTPError) as raised:
       self.call("POST", "/api/v1/files/local/d/a.gcode")
     self.assertEqual(raised.exception.code, 409)
@@ -124,8 +130,12 @@ class UploadTest(_Base):
       ("PUT", "/api/v1/files/local/../x.gcode", 400),
     ):
       with self.assertRaises(urllib.error.HTTPError) as raised:
-        self.call(method, path, b"x" if method == "PUT" else None,
-                  {"Print-After-Upload": "?1"})
+        self.call(
+          method,
+          path,
+          b"x" if method == "PUT" else None,
+          {"Print-After-Upload": "?1"},
+        )
       self.assertEqual(raised.exception.code, code)
 
   def test_spec_endpoints(self):
@@ -192,7 +202,11 @@ class AutoSimulationTest(_Base):
     self.put("b.gcode", b"G1 X2\n").close()
     status = self.status()
     self.assertEqual(
-      (status["printer"]["state"], status["job"]["id"], status["printer"]["temp_bed"]),
+      (
+        status["printer"]["state"],
+        status["job"]["id"],
+        status["printer"]["temp_bed"],
+      ),
       ("PRINTING", 2, 60.0),
     )
 

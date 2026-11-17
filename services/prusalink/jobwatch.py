@@ -51,7 +51,7 @@ def _key(job: client.JobFile) -> tuple:
 
 
 def _now() -> datetime.datetime:
-  return datetime.datetime.now(datetime.timezone.utc)
+  return datetime.datetime.now(datetime.UTC)
 
 
 @dataclasses.dataclass
@@ -186,11 +186,7 @@ class JobWatcher:
       return
     with self._lock:
       record = next(
-        (
-          r
-          for r in self._records
-          if r.key == _key(job)
-        ),
+        (r for r in self._records if r.key == _key(job)),
         None,
       )
       if record is not None and not record.transient:
@@ -228,7 +224,9 @@ class JobWatcher:
       record.folder.mkdir(parents=True, exist_ok=True)
       suffix = ".bgcode" if job.name.lower().endswith(".bgcode") else ".gcode"
       downloaded = record.folder / f"job{suffix}"
-      size = self.printer.download(job.download_path, downloaded, self.max_bytes)
+      size = self.printer.download(
+        job.download_path, downloaded, self.max_bytes
+      )
       record.size = record.size if record.size is not None else size
       digest = hashlib.sha256()
       with open(downloaded, "rb") as stream:

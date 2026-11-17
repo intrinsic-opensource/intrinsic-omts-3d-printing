@@ -126,7 +126,9 @@ class DiscoveryTest(absltest.TestCase):
         "eth0\t002A0A0A\t00000000\t0001\n"
       )
       self.assertEqual(discovery.default_gateway(str(table)), "10.10.42.1")
-      table.write_text("Iface\tDestination\tGateway\neth0\t002A0A0A\t00000000\n")
+      table.write_text(
+        "Iface\tDestination\tGateway\neth0\t002A0A0A\t00000000\n"
+      )
       self.assertIsNone(discovery.default_gateway(str(table)))
     self.assertIsNone(discovery.default_gateway("/nonexistent"))
 

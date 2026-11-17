@@ -127,6 +127,8 @@ class MockLocator:
   def forget(self) -> None:
     with self._lock:
       if self._url:
-        logging.warning("ROUTE: mock printer at %s stopped answering", self._url)
+        logging.warning(
+          "ROUTE: mock printer at %s stopped answering", self._url
+        )
       self._url = None
       self._next_try = 0.0

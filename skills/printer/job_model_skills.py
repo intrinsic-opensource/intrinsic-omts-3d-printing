@@ -115,7 +115,9 @@ class ReadJobModel(_ModelSkill):
     expected = _optional(params, "expected_job_id")
     common.check_job(expected)
     timeout = common.positive(
-      _or(_optional(params, "rpc_timeout_seconds"), 5), "rpc_timeout_seconds", 10
+      _or(_optional(params, "rpc_timeout_seconds"), 5),
+      "rpc_timeout_seconds",
+      10,
     )
     context.canceller.ready()
     with common.connection(context) as (stub, metadata):
@@ -142,7 +144,9 @@ class WaitForJobModel(_ModelSkill):
       60,
     )
     rpc_timeout = common.positive(
-      _or(_optional(params, "rpc_timeout_seconds"), 5), "rpc_timeout_seconds", 10
+      _or(_optional(params, "rpc_timeout_seconds"), 5),
+      "rpc_timeout_seconds",
+      10,
     )
     context.canceller.ready()
     deadline = time.monotonic() + timeout

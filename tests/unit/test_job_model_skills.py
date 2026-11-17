@@ -136,7 +136,9 @@ class JobModelSkillsTest(absltest.TestCase):
     self.send("second.bgcode")
     self.assertEqual(self.read().model.job_id, 2)
     first = self.read(expected_job_id=1)
-    self.assertEqual((first.decision, first.model.job_id), (Decision.MODEL_READY, 1))
+    self.assertEqual(
+      (first.decision, first.model.job_id), (Decision.MODEL_READY, 1)
+    )
     self.assertEqual(self.read(expected_job_id=9).decision, Decision.NO_JOB)
 
   def test_failed_conversion_is_reported_and_fails_the_wait(self):

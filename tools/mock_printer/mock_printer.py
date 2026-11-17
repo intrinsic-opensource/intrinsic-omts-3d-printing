@@ -130,7 +130,9 @@ class MockPrinter:
     self.nonce = secrets.token_hex(16)
     self.started_at: float | None = None
     self.paused_at: float | None = None
-    self.ended_at: float | None = None  # the job finished or stopped: time stops
+    self.ended_at: float | None = (
+      None  # the job finished or stopped: time stops
+    )
     self.cool_from: tuple[float, float] | None = None
     self.events: collections.deque = collections.deque(maxlen=200)
 
@@ -183,18 +185,14 @@ class MockPrinter:
       start, temp = self.cool_from
       fraction = min(1.0, (now - start) / self.cool_seconds)
       if self.printer_state in ("FINISHED", "IDLE", "READY", "STOPPED"):
-        self.bed_temperature = round(
-          temp - (temp - AMBIENT_C) * fraction, 1
-        )
+        self.bed_temperature = round(temp - (temp - AMBIENT_C) * fraction, 1)
 
   def progress(self) -> float:
     if self.printer_state == "FINISHED":
       return 100.0
     if self.print_seconds and self.started_at is not None:
       if self.printer_state in RUNNING:
-        return round(
-          min(99.9, 100.0 * self._elapsed() / self.print_seconds), 1
-        )
+        return round(min(99.9, 100.0 * self._elapsed() / self.print_seconds), 1)
     return 42.0
 
   def update(self, data: dict) -> dict:
@@ -304,9 +302,7 @@ class MockPrinter:
       "name": short,
       "display_name": short,
       "path": f"/{storage}",
-      "m_timestamp": self.files.get(self.gcode_key, (b"", int(time.time())))[
-        1
-      ],
+      "m_timestamp": self.files.get(self.gcode_key, (b"", int(time.time())))[1],
     }
     if self.gcode is not None:
       file["size"] = len(self.gcode)
@@ -452,11 +448,17 @@ def make_mock_server(
         send_json(
           self,
           exc.status,
-          {"code": exc.code, "title": exc.code.replace("_", " "), "text": exc.text},
+          {
+            "code": exc.code,
+            "title": exc.code.replace("_", " "),
+            "text": exc.text,
+          },
         )
       except (ValueError, UnicodeDecodeError):
         send_json(
-          self, 400, {"code": "invalid_body", "title": "invalid body", "text": ""}
+          self,
+          400,
+          {"code": "invalid_body", "title": "invalid body", "text": ""},
         )
 
     def files_route(self, storage: str, path: str):
@@ -505,8 +507,9 @@ def make_mock_server(
               "type": "PRINT_FILE",
               "m_timestamp": stored[1],
               "refs": {
-                "download": "/api/files/%s/%s/raw"
-                % (storage, urllib.parse.quote(path))
+                "download": (
+                  f"/api/files/{storage}/{urllib.parse.quote(path)}/raw"
+                )
               },
             },
           )
@@ -658,7 +661,9 @@ def render(printer: MockPrinter, port: int) -> str:
     failure = printer.failure
   color = _COLORS.get(state, "\x1b[1m")
   out = []
-  out.append("\x1b[1m MOCK PRUSALINK PRINTER\x1b[0m   (test double, not a printer)")
+  out.append(
+    "\x1b[1m MOCK PRUSALINK PRINTER\x1b[0m   (test double, not a printer)"
+  )
   out.append("─" * width)
   addresses = ", ".join(f"http://{a}:{port}" for a in lan_addresses())
   out.append(f" listening   http://localhost:{port}   {addresses}")
@@ -695,7 +700,9 @@ def render(printer: MockPrinter, port: int) -> str:
     out.append(" job         none")
   out.append(f" stored      {len(files)} file(s): {', '.join(files[-3:])}")
   if failure:
-    out.append(f" \x1b[1;31mFAILURE INJECTED: every request answers {failure}{_RESET}")
+    out.append(
+      f" \x1b[1;31mFAILURE INJECTED: every request answers {failure}{_RESET}"
+    )
   out.append("")
   out.append(f" {_DIM}recent requests and events{_RESET}")
   for stamp, text in events:

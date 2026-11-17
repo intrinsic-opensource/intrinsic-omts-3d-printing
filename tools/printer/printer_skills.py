@@ -138,7 +138,9 @@ def _screen(printer, model, args, error: str = "") -> str:
     "─" * 72,
     " \x1b[1mai.omts.read_printer_status\x1b[0m",
     "   decision          "
-    + _paint(read_printer_status_pb2.PrinterReadiness.Decision.Name(printer.decision)),
+    + _paint(
+      read_printer_status_pb2.PrinterReadiness.Decision.Name(printer.decision)
+    ),
     f"   ready_for_unload  {printer.ready_for_unload}",
     f"   printer           {service_pb.PrinterState.Name(p.state)}  "
     f"job {p.job_id if p.HasField('job_id') else '-'}  "
@@ -181,7 +183,11 @@ def monitor(solution, args) -> None:
         text = _screen(printer, model, args)
       except KeyboardInterrupt:
         raise
-      except (RuntimeError, grpc.RpcError, execution.ExecutionFailedError) as exc:
+      except (
+        RuntimeError,
+        grpc.RpcError,
+        execution.ExecutionFailedError,
+      ) as exc:
         text = f"\x1b[1m SKILLS MONITOR\x1b[0m\n\n \x1b[1;31m{str(exc)[:300]}\x1b[0m\x1b[K"
       sys.stdout.write("\x1b[H" + text + "\x1b[J")
       sys.stdout.flush()

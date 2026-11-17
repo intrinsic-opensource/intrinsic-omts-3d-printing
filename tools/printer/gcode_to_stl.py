@@ -45,11 +45,11 @@ heatshrink and MeatPack implementation. Standard library only.
 import argparse
 import json
 import math
-from pathlib import Path
 import re
 import struct
 import sys
 import zlib
+from pathlib import Path
 
 Triangles = list[tuple[tuple[float, float, float], ...]]
 Segment = tuple[str, float, float, float, float, float, float, float]
@@ -69,16 +69,18 @@ def _is_part(kind: str) -> bool:
   return not (
     _is_support(kind) or lowered.startswith(("skirt", "wipe tower", "custom"))
   )
+
+
 _WORD = re.compile(r"([A-Z])(-?\d*\.?\d+)")
 _COMMAND = re.compile(r"^\s*([GM]\d+)", re.IGNORECASE)
 
 # libbgcode block types and codes.
 _BLOCK_GCODE = 1
 _BLOCK_NAMES = {
-    0: "file_metadata",
-    2: "slicer_metadata",
-    3: "printer_metadata",
-    4: "print_metadata",
+  0: "file_metadata",
+  2: "slicer_metadata",
+  3: "printer_metadata",
+  4: "print_metadata",
 }
 _COMPRESSION_NONE, _COMPRESSION_DEFLATE = 0, 1
 _COMPRESSION_HEATSHRINK = {2: (11, 4), 3: (12, 4)}
@@ -210,7 +212,7 @@ def _read_bgcode(data: bytes) -> tuple[str, dict]:
       payload = zlib.decompressobj().decompress(payload, size + 1)
     elif compression in _COMPRESSION_HEATSHRINK:
       payload = heatshrink_decompress(
-          payload, *_COMPRESSION_HEATSHRINK[compression]
+        payload, *_COMPRESSION_HEATSHRINK[compression]
       )
     if len(payload) != size:
       raise ValueError(f"block {block}: decoded {len(payload)} != {size}")
@@ -220,9 +222,9 @@ def _read_bgcode(data: bytes) -> tuple[str, dict]:
       text.append(payload.decode("utf-8", errors="replace"))
     elif block in _BLOCK_NAMES:
       meta[_BLOCK_NAMES[block]] = dict(
-          line.split("=", 1)
-          for line in payload.decode("utf-8", errors="replace").splitlines()
-          if "=" in line
+        line.split("=", 1)
+        for line in payload.decode("utf-8", errors="replace").splitlines()
+        if "=" in line
       )
   return "".join(text), meta
 
@@ -321,7 +323,7 @@ def parse_toolpaths(text: str) -> tuple[list[Segment], dict]:
         if cmd in ("G2", "G3"):
           if "I" in vals or "J" in vals:
             points = _arc_points(
-                x, y, nx, ny, vals.get("I", 0), vals.get("J", 0), cmd == "G2"
+              x, y, nx, ny, vals.get("I", 0), vals.get("J", 0), cmd == "G2"
             )
           else:
             warnings.add("arc with radius (R) form drawn as a straight line")
@@ -347,10 +349,10 @@ def merge_segments(segments: list[Segment]) -> list[Segment]:
       pk, px0, py0, px1, py1, pz, pw, ph = merged[-1]
       ux, uy, vx, vy = px1 - px0, py1 - py0, x1 - x0, y1 - y0
       if (
-          (kind, x0, y0, z, w, h) == (pk, px1, py1, pz, pw, ph)
-          and abs(ux * vy - uy * vx)
-          < 1e-6 * math.hypot(ux, uy) * math.hypot(vx, vy)
-          and ux * vx + uy * vy > 0
+        (kind, x0, y0, z, w, h) == (pk, px1, py1, pz, pw, ph)
+        and abs(ux * vy - uy * vx)
+        < 1e-6 * math.hypot(ux, uy) * math.hypot(vx, vy)
+        and ux * vx + uy * vy > 0
       ):
         merged[-1][3], merged[-1][4] = x1, y1
         continue
@@ -363,10 +365,10 @@ def _prism(x0, y0, x1, y1, z_top, w, h) -> Triangles:
   length = math.hypot(x1 - x0, y1 - y0)
   nx, ny = -(y1 - y0) / length * w / 2, (x1 - x0) / length * w / 2
   ring = [
-      (x0 + nx, y0 + ny),
-      (x1 + nx, y1 + ny),
-      (x1 - nx, y1 - ny),
-      (x0 - nx, y0 - ny),
+    (x0 + nx, y0 + ny),
+    (x1 + nx, y1 + ny),
+    (x1 - nx, y1 - ny),
+    (x0 - nx, y0 - ny),
   ]
   v = [(cx, cy, z_top - h) for cx, cy in ring]
   v += [(cx, cy, z_top) for cx, cy in ring]
@@ -407,8 +409,8 @@ def write_stl(path: Path, triangles: Triangles) -> None:
 def _bounds(triangles: Triangles) -> dict:
   points = [p for tri in triangles for p in tri]
   return {
-      "min": [round(min(p[k] for p in points), 3) for k in range(3)],
-      "max": [round(max(p[k] for p in points), 3) for k in range(3)],
+    "min": [round(min(p[k] for p in points), 3) for k in range(3)],
+    "max": [round(max(p[k] for p in points), 3) for k in range(3)],
   }
 
 
@@ -417,10 +419,10 @@ def _slug(kind: str) -> str:
 
 
 def convert(
-    gcode_path: Path,
-    out_dir: Path,
-    exclude: tuple[str, ...] = _DEFAULT_EXCLUDE,
-    by_type: bool = True,
+  gcode_path: Path,
+  out_dir: Path,
+  exclude: tuple[str, ...] = _DEFAULT_EXCLUDE,
+  by_type: bool = True,
 ) -> dict:
   """Writes compound.stl, by_type/*.stl and summary.json; returns summary."""
   text, meta = read_gcode(gcode_path)
@@ -431,13 +433,13 @@ def convert(
     groups.setdefault(seg[0], []).append(seg)
   kept = {k: v for k, v in groups.items() if k not in exclude}
   summary = {
-      "source": str(gcode_path),
-      "format": "bgcode" if gcode_path.read_bytes()[:4] == b"GCDE" else "gcode",
-      "printer_model": meta.get("printer_metadata", {}).get("printer_model"),
-      "layers": info["layers"],
-      "excluded_types": [k for k in groups if k in exclude],
-      "warnings": info["warnings"],
-      "types": {},
+    "source": str(gcode_path),
+    "format": "bgcode" if gcode_path.read_bytes()[:4] == b"GCDE" else "gcode",
+    "printer_model": meta.get("printer_metadata", {}).get("printer_model"),
+    "layers": info["layers"],
+    "excluded_types": [k for k in groups if k in exclude],
+    "warnings": info["warnings"],
+    "types": {},
   }
   for kind, segs in sorted(groups.items()):
     triangles = to_triangles(segs)
@@ -457,19 +459,19 @@ def convert(
   if compound:
     write_stl(out_dir / "compound.stl", compound)
     summary["compound"] = {
-        "triangles": len(compound),
-        "bounds": _bounds(compound),
+      "triangles": len(compound),
+      "bounds": _bounds(compound),
     }
   for name, pick in (("part", _is_part), ("supports", _is_support)):
     chosen = [
-        t for k, segs in groups.items() if pick(k) for t in to_triangles(segs)
+      t for k, segs in groups.items() if pick(k) for t in to_triangles(segs)
     ]
     if chosen:
       write_stl(out_dir / f"{name}.stl", chosen)
       summary[name] = {
-          "types": sorted(k for k in groups if pick(k)),
-          "triangles": len(chosen),
-          "bounds": _bounds(chosen),
+        "types": sorted(k for k in groups if pick(k)),
+        "triangles": len(chosen),
+        "bounds": _bounds(chosen),
       }
   (out_dir / "summary.json").write_text(json.dumps(summary, indent=2))
   return summary
@@ -480,10 +482,10 @@ def main(argv: list[str]) -> int:
   parser.add_argument("gcode", type=Path, help=".gcode or .bgcode file")
   parser.add_argument("--out", type=Path, help="output folder")
   parser.add_argument(
-      "--exclude",
-      default=",".join(_DEFAULT_EXCLUDE),
-      help="comma-separated ;TYPE names to leave out of compound.stl "
-      "(default: %(default)s; use '' to keep all)",
+    "--exclude",
+    default=",".join(_DEFAULT_EXCLUDE),
+    help="comma-separated ;TYPE names to leave out of compound.stl "
+    "(default: %(default)s; use '' to keep all)",
   )
   parser.add_argument("--no-by-type", action="store_true")
   args = parser.parse_args(argv[1:])
@@ -494,8 +496,7 @@ def main(argv: list[str]) -> int:
   for kind, t in summary["types"].items():
     mark = "+" if t["included"] else "-"
     print(
-        f" {mark} {kind:28s} {t['segments']:7d} segs"
-        f" {t['volume_mm3']:9.1f} mm3"
+      f" {mark} {kind:28s} {t['segments']:7d} segs {t['volume_mm3']:9.1f} mm3"
     )
   for warning in summary["warnings"]:
     print("warning:", warning)

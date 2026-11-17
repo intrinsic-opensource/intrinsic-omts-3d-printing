@@ -223,9 +223,7 @@ class WatcherTest(_Base):
     self.assertEqual(forgot, [])  # the printer was fine: do not look again
 
   def test_too_large_fails(self):
-    watcher = jobwatch.JobWatcher(
-      self.printer, self.storage, max_bytes=1000
-    )
+    watcher = jobwatch.JobWatcher(self.printer, self.storage, max_bytes=1000)
     self.send("warrior.bgcode", _BGCODE)
     watcher.poll_once()
     model = watcher.status()
@@ -346,9 +344,7 @@ class ServiceInterfaceTest(_Base):
     self.addCleanup(http.shutdown)
     self.url = f"http://127.0.0.1:{http.server_port}"
     self.assertEqual(self.error("/v1/model"), 409)
-    self.assertFalse(
-      json.loads(self.get("/healthz")[2])["job_pull_enabled"]
-    )
+    self.assertFalse(json.loads(self.get("/healthz")[2])["job_pull_enabled"])
 
   def test_a_bug_answers_500_and_internal_not_a_dropped_call(self):
     with unittest_mock.patch.object(
