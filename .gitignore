@@ -3,3 +3,6 @@ bazel-*
 venv*
 MODULE.bazel.lock
 logs/
+
+__pycache__/
+*.pyc

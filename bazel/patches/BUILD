@@ -5,6 +5,7 @@ exports_files([
     "gazebo_hwm_stub_visibility.patch",
     "gloop.patch",
     "llvm_header_search_paths.patch",
+    "printer_skill_dependencies.patch",
     "robotiq_hande_finger_offset.patch",
     "toybox_dynamic_link.patch",
 ])
