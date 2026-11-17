@@ -52,6 +52,15 @@ bazel run //:rebot_solution -c opt \
   --//:printer_password=<digest password> -- --address=localhost:17080
 ```
 
+The URL is `http://` or `https://`, a host name or IP, and optionally a port
+(no path, query or credentials in it); login is Digest. It is fixed when the
+solution is built: to change it, redeploy with new flags. The pod must be able
+to reach that address (not checked anywhere); there is no certificate option
+for `https`. To use a mock on another machine or port, pass its address the same
+way (`--//:printer_url=http://HOST:PORT --//:printer_username=maker
+--//:printer_password=mock-only`); `--mock-host` and `--mock-port` below only
+apply when running the binary directly.
+
 With none of these the service looks for the mock. `--no//:printer_service`
 leaves the service and its skills out of the solution. The password flag
 writes the password into the solution's config (the asset bundle); use it for
@@ -162,4 +171,4 @@ Not verified on a real printer: that a Core One serves `file.refs.download`
 (and in what form) while printing, its Digest realm, which state a new upload
 is accepted in, and the status/job bodies in `FINISHED`. Not covered:
 several objects or several bodies in one job (one merged model), and
-PrusaSlicer 3.x output. See `research/HANDOFF.md` §7.
+PrusaSlicer 3.x output. See `research/PRINTER_SERVICE_HANDOFF.md` §4.

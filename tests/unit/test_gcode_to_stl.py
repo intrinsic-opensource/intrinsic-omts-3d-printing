@@ -141,6 +141,38 @@ class BinaryGcodeTest(absltest.TestCase):
       g.read_bgcode(b"NOPE")
 
 
+class DamagedInputTest(absltest.TestCase):
+  """Whatever is wrong with a file, the converter says ValueError."""
+
+  def test_damaged_bgcode_is_always_a_value_error(self):
+    import random
+
+    good = _BINARY.read_bytes()
+    rng = random.Random(7)
+    with tempfile.TemporaryDirectory() as tmp:
+      path = Path(tmp) / "x.bgcode"
+      for _ in range(120):
+        data = bytearray(good)
+        for _ in range(rng.choice([1, 3, 10])):
+          data[rng.randrange(len(data))] = rng.randrange(256)
+        if rng.random() < 0.3:
+          del data[rng.randrange(10, len(data)) :]
+        path.write_bytes(bytes(data))
+        try:
+          g.read_gcode(path)
+        except ValueError:
+          pass  # the only failure allowed
+
+  def test_known_library_errors_become_value_errors(self):
+    good = _BINARY.read_bytes()
+    for data in (
+      good[:7],  # truncated header: struct.error
+      b"GCDE" + b"\x01\x00\x00\x00\x01\x00" + b"\xff" * 40,
+    ):
+      with self.assertRaises(ValueError):
+        g.read_bgcode(data)
+
+
 class ConvertTest(absltest.TestCase):
 
   def test_convert_writes_compound_and_per_type_meshes(self):

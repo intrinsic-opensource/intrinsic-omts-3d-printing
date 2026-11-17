@@ -175,7 +175,17 @@ def meatpack_decode(data: bytes) -> bytes:
 
 
 def read_bgcode(data: bytes) -> tuple[str, dict]:
-  """Returns the G-code text and the metadata blocks of a .bgcode file."""
+  """Returns the G-code text and the metadata blocks of a .bgcode file.
+
+  Any damage in the file raises ValueError, never a library error.
+  """
+  try:
+    return _read_bgcode(data)
+  except (zlib.error, struct.error, IndexError, KeyError, OverflowError) as exc:
+    raise ValueError(f"corrupt bgcode: {type(exc).__name__}: {exc}") from exc
+
+
+def _read_bgcode(data: bytes) -> tuple[str, dict]:
   if data[:4] != b"GCDE":
     raise ValueError("not a binary G-code file")
   version, checksum = struct.unpack("<IH", data[4:10])
@@ -196,7 +206,8 @@ def read_bgcode(data: bytes) -> tuple[str, dict]:
     if block == 5:
       continue
     if compression == _COMPRESSION_DEFLATE:
-      payload = zlib.decompress(payload)
+      # Bounded by the size the block declares: no decompression bombs.
+      payload = zlib.decompressobj().decompress(payload, size + 1)
     elif compression in _COMPRESSION_HEATSHRINK:
       payload = heatshrink_decompress(
           payload, *_COMPRESSION_HEATSHRINK[compression]

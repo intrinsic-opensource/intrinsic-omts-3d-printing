@@ -143,7 +143,8 @@ class JobWatcher:
     while not self._stop.is_set():
       try:
         self.poll_once()
-      except Exception:  # The watcher must outlive any single bad job.
+      except Exception as exc:  # The watcher must outlive any single bad job.
+        self.poll_error = f"internal_error: {type(exc).__name__}: {exc}"
         logging.exception("Job watcher poll failed")
       self._stop.wait(self.interval)
 
@@ -283,6 +284,10 @@ class JobWatcher:
     except (ValueError, OSError, RuntimeError, UnicodeError, EOFError) as exc:
       record.set(pb.MODEL_FAILED, f"{type(exc).__name__}: {exc}")
       logging.warning("Job %s: %s", job.job_id, record.error)
+    except Exception as exc:  # The file is untrusted: whatever it breaks.
+      # Never leave the job in DOWNLOADING/CONVERTING, or skills wait forever.
+      record.set(pb.MODEL_FAILED, f"{type(exc).__name__}: {exc}")
+      logging.exception("Job %s: unexpected failure", job.job_id)
 
   def _converted_with(self, record: JobRecord) -> JobRecord | None:
     with self._lock:

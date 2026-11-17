@@ -47,6 +47,13 @@ class JobFile:
   m_timestamp: int | None = None
 
 
+def _local_error(exc: OSError) -> "ServiceError":
+  """Our own disk failed (full, read-only, no permission): not the printer."""
+  return ServiceError(
+    500, "local_storage_error", f"Cannot store the file: {exc}"
+  )
+
+
 class ServiceError(Exception):
   def __init__(self, status: int, code: str, message: str):
     super().__init__(message)
@@ -284,12 +291,19 @@ class PrusaLinkClient:
           if declared and declared.isdigit() and int(declared) > max_bytes:
             raise ServiceError(502, "file_too_large", "File exceeds limit")
           total = 0
-          with open(partial, "wb") as out:
+          try:
+            out = open(partial, "wb")
+          except OSError as exc:
+            raise _local_error(exc) from exc
+          with out:
             while chunk := response.read(64 * 1024):
               total += len(chunk)
               if total > max_bytes:
                 raise ServiceError(502, "file_too_large", "File exceeds limit")
-              out.write(chunk)
+              try:
+                out.write(chunk)
+              except OSError as exc:
+                raise _local_error(exc) from exc
       os.replace(partial, destination)
       return total
     finally:

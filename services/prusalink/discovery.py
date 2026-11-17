@@ -23,6 +23,7 @@ challenge for the realm "PrusaLink mock", so a real printer, or any other
 web server, is never taken for it.
 """
 
+import http.client
 import logging
 import threading
 import time
@@ -57,7 +58,8 @@ def is_mock(url: str, timeout: float) -> bool:
     return exc.code == 401 and MOCK_REALM in exc.headers.get(
       "WWW-Authenticate", ""
     )
-  except (OSError, ValueError):
+  except (OSError, ValueError, http.client.HTTPException):
+    # Includes a server that does not speak HTTP (BadStatusLine and friends).
     return False
   return False
 

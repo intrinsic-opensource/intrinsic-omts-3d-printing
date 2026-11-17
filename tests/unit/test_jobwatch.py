@@ -20,6 +20,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import zlib
 from pathlib import Path
 from unittest import mock as unittest_mock
 
@@ -164,6 +165,63 @@ class WatcherTest(_Base):
     self.watcher.poll_once()
     self.assertEqual(self.watcher.status().state, pb.MODEL_FAILED)
 
+  def test_any_conversion_failure_ends_the_job(self):
+    # A library error the converter did not expect must not leave the job in
+    # CONVERTING forever (skills would wait on it until their timeout).
+    for error in (KeyError("x"), zlib.error("bad"), MemoryError()):
+      storage = Path(tempfile.mkdtemp())
+      self.addCleanup(lambda s=storage: __import__("shutil").rmtree(s, True))
+
+      def broken(*_args, error=error):
+        raise error
+
+      watcher = jobwatch.JobWatcher(self.printer, storage, convert=broken)
+      self.send("warrior.bgcode", _BGCODE)
+      watcher.poll_once()
+      model = watcher.status()
+      self.assertEqual(model.state, pb.MODEL_FAILED, error)
+      self.assertIn(type(error).__name__, model.error)
+      watcher.poll_once()  # permanent: not read again
+      self.sim.update({"state": "IDLE"})
+
+  def test_an_unexpected_poll_error_is_reported_and_survived(self):
+    with unittest_mock.patch.object(
+      self.printer, "get_job_file", side_effect=KeyError("boom")
+    ):
+      self.watcher.start()
+      self.addCleanup(self.watcher.stop)
+      deadline = time.monotonic() + 5
+      while "KeyError" not in self.watcher.status().poll_error:
+        self.assertLess(time.monotonic(), deadline)
+        time.sleep(0.02)
+
+  def test_a_full_disk_is_not_a_printer_problem(self):
+    self.send("warrior.bgcode", _BGCODE)
+    forgot = []
+
+    class Locator:
+      def current(_):
+        return self.printer.url
+
+      def forget(_):
+        forgot.append(1)
+
+    via_locator = client.PrusaLinkClient(
+      "",
+      mock.MOCK_USERNAME,
+      mock.MOCK_PASSWORD,
+      2.0,
+      locator=Locator(),
+    )
+    job = via_locator.get_job_file()
+    with self.assertRaises(client.ServiceError) as raised:
+      via_locator.download(
+        job.download_path, self.storage / "no_such_folder" / "job.bgcode"
+      )
+    self.assertEqual(raised.exception.code, "local_storage_error")
+    self.assertEqual(raised.exception.status, 500)
+    self.assertEqual(forgot, [])  # the printer was fine: do not look again
+
   def test_too_large_fails(self):
     watcher = jobwatch.JobWatcher(
       self.printer, self.storage, max_bytes=1000
@@ -291,6 +349,22 @@ class ServiceInterfaceTest(_Base):
     self.assertFalse(
       json.loads(self.get("/healthz")[2])["job_pull_enabled"]
     )
+
+  def test_a_bug_answers_500_and_internal_not_a_dropped_call(self):
+    with unittest_mock.patch.object(
+      self.watcher, "status", side_effect=RuntimeError("bug")
+    ):
+      self.assertEqual(self.error("/v1/model"), 500)
+      with self.assertRaises(grpc.RpcError) as raised:
+        self.stub.GetModelStatus(pb.ModelRequest())
+      self.assertEqual(raised.exception.code(), grpc.StatusCode.INTERNAL)
+    self.assertEqual(self.get("/healthz")[0], 200)  # still serving
+
+  def test_a_vanished_model_file_answers_404(self):
+    self.send("warrior.bgcode", _BGCODE)
+    self.watcher.poll_once()
+    Path(self.watcher.status().stl_path).unlink()
+    self.assertEqual(self.error("/v1/jobs/1/model.stl"), 404)
 
   def test_grpc_model_status(self):
     self.assertEqual(

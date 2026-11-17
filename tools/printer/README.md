@@ -3,7 +3,7 @@
 Goal: while a print runs, know what it deposits (shape, supports, bed
 position), to train a pose model for the finished part. The printer is the only
 part guaranteed to be in the system, so everything starts from what the printer
-receives. Plan and status: `research/HANDOFF.md`, section 5f.
+receives. Plan and status: `research/PRINTER_SERVICE_HANDOFF.md`.
 
 | Tool | Target | What it does |
 | :--- | :--- | :--- |

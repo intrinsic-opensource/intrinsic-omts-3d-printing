@@ -73,6 +73,27 @@ class DiscoveryTest(absltest.TestCase):
     for handler in (Real, Plain):
       self.assertIsNone(self.locator(self.serve(handler=handler)).current())
 
+  def test_a_server_that_is_not_http_is_not_the_mock(self):
+    import socket
+
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(5)
+    self.addCleanup(listener.close)
+
+    def garbage():
+      while True:
+        try:
+          connection, _ = listener.accept()
+        except OSError:
+          return
+        connection.sendall(b"not http at all\r\n\r\n")
+        connection.close()
+
+    threading.Thread(target=garbage, daemon=True).start()
+    port = listener.getsockname()[1]
+    self.assertIsNone(self.locator(port).current())  # and does not raise
+
   def test_forget_looks_again(self):
     port = self.serve(mock_printer=True)
     locator = self.locator(port)

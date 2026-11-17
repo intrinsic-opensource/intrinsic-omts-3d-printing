@@ -31,6 +31,7 @@ _GRPC_ERRORS = {
   400: grpc.StatusCode.INVALID_ARGUMENT,
   403: grpc.StatusCode.PERMISSION_DENIED,
   404: grpc.StatusCode.NOT_FOUND,
+  500: grpc.StatusCode.INTERNAL,
   409: grpc.StatusCode.FAILED_PRECONDITION,
   502: grpc.StatusCode.UNAVAILABLE,
   504: grpc.StatusCode.DEADLINE_EXCEEDED,
@@ -72,7 +73,15 @@ class PrusaLinkServicer(rpc.PrusaLinkServiceServicer):
       return operation()
     except client.ServiceError as exc:
       logging.warning("PrusaLink %s: %s", exc.code, exc)
-      context.abort(_GRPC_ERRORS[exc.status], f"{exc.code}: {exc}")
+      context.abort(
+        _GRPC_ERRORS.get(exc.status, grpc.StatusCode.INTERNAL),
+        f"{exc.code}: {exc}",
+      )
+    except Exception as exc:  # A bug must answer INTERNAL, not hang the call.
+      logging.exception("PrusaLink request failed unexpectedly")
+      context.abort(
+        grpc.StatusCode.INTERNAL, f"internal_error: {type(exc).__name__}"
+      )
 
   def GetStatus(self, request, context):
     return self._invoke(context, self.printer.get_status)
@@ -173,13 +182,24 @@ def make_http_server(
           file = _need_watcher(watcher).model_file(
             int(model_file[1]), model_file[2]
           )
-          self.send_response(200)
-          self.send_header("Content-Type", "model/stl")
-          self.send_header("Content-Length", str(file.stat().st_size))
-          self.end_headers()
-          with open(file, "rb") as stream:
-            while chunk := stream.read(1 << 16):
-              self.wfile.write(chunk)
+          try:
+            stream = open(file, "rb")
+            size = file.stat().st_size
+          except OSError as exc:
+            raise client.ServiceError(
+              500, "local_storage_error", f"Cannot read the model: {exc}"
+            ) from exc
+          with stream:
+            self.send_response(200)
+            self.send_header("Content-Type", "model/stl")
+            self.send_header("Content-Length", str(size))
+            self.end_headers()
+            try:
+              while chunk := stream.read(1 << 16):
+                self.wfile.write(chunk)
+            except OSError as exc:  # The caller left, or the file broke.
+              self.log_error("model transfer stopped: %s", exc)
+              self.close_connection = True
           return
         if self.command == "GET" and path in ("/v1/status", "/v1/job"):
           result = (
@@ -213,9 +233,24 @@ def make_http_server(
         raise client.ServiceError(404, "not_found", "Unknown route or method")
       except client.ServiceError as exc:
         self.log_error("%s: %s", exc.code, exc)
-        send_json(
-          self, exc.status, {"error": {"code": exc.code, "message": str(exc)}}
-        )
+        try:
+          send_json(
+            self,
+            exc.status,
+            {"error": {"code": exc.code, "message": str(exc)}},
+          )
+        except OSError:  # The caller already left.
+          self.close_connection = True
+      except Exception as exc:  # A bug answers 500; it must not drop the call.
+        logging.exception("PrusaLink request failed unexpectedly")
+        try:
+          send_json(
+            self,
+            500,
+            {"error": {"code": "internal_error", "message": type(exc).__name__}},
+          )
+        except OSError:
+          self.close_connection = True
 
     def send_proto(self, message):
       send_json(
