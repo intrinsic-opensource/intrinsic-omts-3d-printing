@@ -295,6 +295,13 @@ bazel run //src:omts_app -- --address=localhost:17080 \
   --config=/tmp/cell/app_config.yaml --num_cycles=1
 ```
 
+With `--apply`, the printer, the camera mount and the view are set on the running
+cell by the `ai.omts.configure_cell` skill (`skills/cell/`), in one update, and
+`cell.updates.pbtxt` holds only the rest (the target, the parked parts, A's
+frames), which still goes through `apply_scene_updates` as above. The skill
+changes the belief world; Gazebo follows after the `--reset_sim`. It moves the
+view with the printer and the mount so the camera sees the bed as before.
+
 It refuses values that fail its checks (`--force` writes them anyway). The limits
 are in `HANDOFF.md`, section 5d: printer 0.44 to 0.76 m; camera x 0.07 to 0.13, y
 -0.044 to -0.004, z 0.076 or more. `--register_all` writes `register.sh` for every

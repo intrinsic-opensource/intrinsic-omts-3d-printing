@@ -215,6 +215,7 @@ intrinsic_solution(
         "//models/rebot_ground",
         "//models/printer",
         "//models/rebot_printed_part",
+        "//skills/cell:configure_cell_skill",
         "//skills/grasp:plan_cuboid_grasp_skill",
         "//skills/perception:register_pose_estimator_skill",
         ":flowstate_ros_bridge_asset",

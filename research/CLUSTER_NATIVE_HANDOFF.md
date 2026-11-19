@@ -8,7 +8,7 @@ plan against it when that branch merges. The overall project plan is
 [`HANDOFF.md`](HANDOFF.md); the way of working (spiral, a demo per step) is in
 `CLAUDE.md`.
 
-Status (2026-11-19): **C1 and C2 done; C3 explored and paused; C4 is next.**
+Status (2026-11-19): **C1, C2 and C4a done; C3 explored and paused; C4b is next.**
 
 ---
 
@@ -206,14 +206,62 @@ date. The normalized manifest was deployed and ran as before.
   version; the process's parameter interface (cell and frame names as
   parameters) and a repeat count.
 
-### Step C4: Cell configuration in the cluster (fixes D4)
+### Step C4: Cell configuration in the cluster (fixes D4) — C4a DONE 2026-11-19
 
-* Replace `configure_cell`'s file output with a skill (or service config) that
-  takes printer distance, camera offset and target, runs the same checks
-  (`research/tools/cell_checks.py`) and applies the world update itself.
-* Keep `cell_params.yaml` as the source for a first run.
-* **Demo:** change the printer distance with a single call to the cluster, with
-  no `/tmp/cell` files and no `apply_scene_updates`.
+**Scope, decided on 2026-11-19:** an *apply-only* skill. The checks
+(`research/tools/cell_checks.py`: reach, clearance, IK sweeps) are design-time
+analysis that needs numpy, scipy and the arm's and printer's meshes from the
+checkout, so they stay a host tool you run first. Registration, the third
+output of `configure_cell` (`register.sh`), went with C1. The skill applies; it
+does not judge.
+
+The skill is built in increments, each its own demo. Every group of values is
+optional and independent, so the skill can be called again at any time, from a
+tool or inside a tree.
+
+* **C4a (done): the printer, the camera mount and the view.**
+  `ai.omts.configure_cell` (`skills/cell/`) sets the printer's x (its distance),
+  the camera's position in the flange frame, and moves the `view` frame so the
+  camera sees the printer as before. Everything is read from the live world (the
+  printer's pose, the flange and tool frames, the camera, the current `view`),
+  so it needs no constants from the checkout, and it applies all of it in one
+  `UpdateWorldResources` call: all or nothing. Belief world only; Gazebo follows
+  after `apply_scene_updates --reset_sim`. No preview. `configure_cell --apply`
+  calls it and leaves those three out of `cell.updates.pbtxt`.
+* **Result** (k3s, sim): for printer 0.62 m and camera (0.09, -0.024, 0.10), the
+  skill's world matches `configure_cell`'s file: printer and camera exactly, the
+  view's position to rounding (0.29092, -0.024, 0.22748 against 0.2909, -0.024,
+  0.2275) and its orientation within 0.1 degree (the host starts from the
+  rounded quaternion of the committed pbtxt; the skill from the world's exact
+  one). A full cycle then ran in the moved cell (63 s). Setting the committed
+  values back through the skill returned the printer, camera and view to
+  their original numbers, with no drift.
+  `tests/unit/test_configure_cell.py` covers the geometry with real transform
+  math, including the invariant that after a mount change the camera at the
+  new `view` is where it was at the old one.
+* **C4b (next): A's frames.** `place_vise`, `pre_place_vise` and
+  `machine_approach` from the tilt, A's radius and bearing and the part's
+  half height (`research/tools/a_frames.py`), so they can follow a part of a
+  different height without a file. The print flow does this per print job
+  (`src/core/drop_off.py` on `feat/preload-printed-model`, tested equal to
+  `a_frames`); the math is plain geometry and belongs in a `core/` function
+  like `grasp_math`.
+* **C4c: the target.** Place a named object on the bed centre at its resting
+  pose (flat or lying), and park the others. It needs the bed's centre, which
+  the file tool reads from `models/printer/heatbed.obj`; a named frame on the
+  printer in the world would let the skill read it instead.
+* **Can it change the grasp target later?** In the world, yes, from C4b and C4c:
+  a call between cycles can move A's frames for a part of another height and
+  put another object on the bed. What it cannot change is what the *built
+  tree* looks for: `omts_app` fixes the part's object, scene-object id, pose
+  estimator and the return area's centre when it builds the tree
+  (`vision.*`, `cycle.workpiece_id`, `cycle.return_shift`). A new part needs a
+  new run of `omts_app` with its own config, as `configure_cell` writes it
+  today, or a tree that reads those from the blackboard, as the print flow does
+  (`ai.omts.register_pose_estimator`'s `return_value_key` and one world
+  object per cycle). That is a separate step.
+* Not covered: the checks run in the skill, and `cell_params.yaml` as a source
+  for it (the tool still reads it for `--apply`).
 
 ### Stays on the host (D5, D6)
 

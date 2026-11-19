@@ -1,0 +1,273 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Skill: move the printer and the wrist camera, and the view with them.
+
+Step C4 (research/CLUSTER_NATIVE_HANDOFF.md). The geometry of
+`research/tools/configure_cell.py`, read from the live world instead of the
+checkout: the camera's pose relative to the printer at `view` is kept when the
+printer moves (the camera follows it by the same distance) and when the mount
+changes (the arm's pose for `view` is solved again). It changes the belief
+world only, in one `UpdateWorldResources` call, and cannot be previewed.
+
+The checks of `research/tools/cell_checks.py` (reach, clearance) are design-time
+analysis and stay a host tool: run them first.
+"""
+
+import logging
+
+from intrinsic.math.python import data_types
+from intrinsic.math.python import proto_conversion as math_proto_conversion
+from intrinsic.skills.proto import footprint_pb2
+from intrinsic.skills.python import skill_interface
+from intrinsic.world.proto import (
+  object_world_refs_pb2,
+  object_world_updates_pb2,
+)
+
+from skills.cell import configure_cell_pb2 as pb
+
+INVALID_INPUT = 2201
+MISSING_WORLD_ENTITY = 2202
+
+# Bounds that catch a value in the wrong unit (millimetres for metres).
+_MAX_PRINTER_DISTANCE_M = 3.0
+_MAX_CAMERA_OFFSET_M = 0.5
+
+
+def _optional(params, field, default):
+  return getattr(params, field) if params.HasField(field) else default
+
+
+def _node(owner, name: str, what: str):
+  try:
+    return getattr(owner, name)
+  except AttributeError as exc:
+    raise skill_interface.SkillError(
+      MISSING_WORLD_ENTITY, f"{what} '{name}' is not in the world"
+    ) from exc
+
+
+def _frame_of(obj, name: str, what: str):
+  """A frame of an object, by attribute."""
+  try:
+    return getattr(obj, name)
+  except AttributeError as exc:
+    raise skill_interface.SkillError(
+      MISSING_WORLD_ENTITY, f"{what} '{name}' is not in the world"
+    ) from exc
+
+
+def _object_ref(name: str):
+  return object_world_refs_pb2.TransformNodeReference(
+    by_name=object_world_refs_pb2.TransformNodeReferenceByName(
+      object=object_world_refs_pb2.ObjectReferenceByName(object_name=name)
+    )
+  )
+
+
+def _frame_ref(object_name: str, frame_name: str):
+  return object_world_refs_pb2.TransformNodeReference(
+    by_name=object_world_refs_pb2.TransformNodeReferenceByName(
+      frame=object_world_refs_pb2.FrameReferenceByName(
+        object_name=object_name, frame_name=frame_name
+      )
+    )
+  )
+
+
+def _update(node_a, node_b, a_t_b: data_types.Pose3):
+  """Sets the pose of node_b (a child of node_a) in node_a."""
+  return object_world_updates_pb2.ObjectWorldUpdate(
+    update_transform=object_world_updates_pb2.UpdateTransformRequest(
+      node_a=node_a,
+      node_b=node_b,
+      node_to_update=node_b,
+      a_t_b=math_proto_conversion.pose_to_proto(a_t_b),
+    )
+  )
+
+
+def _shifted(
+  pose: data_types.Pose3, dx=0.0, dy=0.0, dz=0.0
+) -> data_types.Pose3:
+  t = pose.translation
+  return data_types.Pose3(
+    pose.rotation, [float(t[0]) + dx, float(t[1]) + dy, float(t[2]) + dz]
+  )
+
+
+def _with_position(pose: data_types.Pose3, position) -> data_types.Pose3:
+  return data_types.Pose3(pose.rotation, [float(v) for v in position])
+
+
+class ConfigureCell(skill_interface.Skill):
+  def get_footprint(self, request, context) -> footprint_pb2.Footprint:
+    return footprint_pb2.Footprint(lock_the_universe=True)
+
+  def preview(self, request, context):
+    raise NotImplementedError(
+      "configure_cell changes the belief world, which a preview cannot"
+    )
+
+  def execute(
+    self,
+    request: skill_interface.ExecuteRequest[pb.ConfigureCellParams],
+    context: skill_interface.ExecuteContext,
+  ) -> pb.ConfigureCellResult:
+    params = request.params
+    parent_name = _optional(params, "parent_object", "root")
+    printer_name = _optional(params, "printer_object", "printer")
+    camera_name = _optional(params, "camera_object", "orbbec_camera")
+    robot_name = _optional(params, "robot_object", "rebot")
+    flange_name = _optional(params, "flange_frame", "flange")
+    tool_name = _optional(params, "tool_object", "gripper")
+    tool_frame_name = _optional(params, "tool_frame", "tool_frame")
+    view_name = _optional(params, "view_frame", "view")
+    follow_view = _optional(params, "follow_view", True)
+    for label, value in (
+      ("parent_object", parent_name),
+      ("printer_object", printer_name),
+      ("camera_object", camera_name),
+      ("robot_object", robot_name),
+      ("flange_frame", flange_name),
+      ("tool_object", tool_name),
+      ("tool_frame", tool_frame_name),
+      ("view_frame", view_name),
+    ):
+      if not value:
+        raise skill_interface.SkillError(INVALID_INPUT, f"{label} is empty")
+
+    new_distance = (
+      params.printer_distance_m
+      if params.HasField("printer_distance_m")
+      else None
+    )
+    if (
+      new_distance is not None
+      and not 0.0 < new_distance <= _MAX_PRINTER_DISTANCE_M
+    ):
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"printer_distance_m {new_distance} is outside (0, "
+        f"{_MAX_PRINTER_DISTANCE_M}] m",
+      )
+    new_offset = None
+    if params.HasField("camera_offset_m"):
+      offset = params.camera_offset_m
+      new_offset = (offset.x, offset.y, offset.z)
+      if any(abs(v) > _MAX_CAMERA_OFFSET_M for v in new_offset):
+        raise skill_interface.SkillError(
+          INVALID_INPUT,
+          f"camera_offset_m {new_offset} has a component over "
+          f"{_MAX_CAMERA_OFFSET_M} m",
+        )
+
+    world = context.object_world
+    parent = _node(world, parent_name, "Parent object")
+    printer = _node(world, printer_name, "Printer object")
+    camera = _node(world, camera_name, "Camera object")
+    robot = _node(world, robot_name, "Robot object")
+    flange = _frame_of(robot, flange_name, "Flange frame")
+    tool = _frame_of(
+      _node(world, tool_name, "Tool object"), tool_frame_name, "Tool frame"
+    )
+
+    parent_t_printer = world.get_transform(parent, printer)
+    flange_t_camera = world.get_transform(flange, camera)
+    new_flange_t_camera = (
+      _with_position(flange_t_camera, new_offset)
+      if new_offset is not None
+      else flange_t_camera
+    )
+    new_parent_t_printer = (
+      _with_position(
+        parent_t_printer,
+        [
+          new_distance,
+          parent_t_printer.translation[1],
+          parent_t_printer.translation[2],
+        ],
+      )
+      if new_distance is not None
+      else parent_t_printer
+    )
+
+    updates = []
+    if new_distance is not None:
+      updates.append(
+        _update(
+          _object_ref(parent_name),
+          _object_ref(printer_name),
+          new_parent_t_printer,
+        )
+      )
+    if new_offset is not None:
+      updates.append(
+        _update(
+          _frame_ref(robot_name, flange_name),
+          _object_ref(camera_name),
+          new_flange_t_camera,
+        )
+      )
+
+    result = pb.ConfigureCellResult(
+      parent_t_printer=math_proto_conversion.pose_to_proto(
+        new_parent_t_printer
+      ),
+      parent_t_camera=math_proto_conversion.pose_to_proto(
+        world.get_transform(parent, camera)
+      ),
+    )
+    if follow_view and (new_distance is not None or new_offset is not None):
+      view = _frame_of(parent, view_name, "View frame")
+      parent_t_view = world.get_transform(parent, view)
+      tool_t_camera = world.get_transform(tool, camera)
+      tool_t_flange = world.get_transform(tool, flange)
+      # Where the view puts the camera now, moved with the printer, and the
+      # view that puts the camera there with the new mount.
+      parent_t_camera_at_view = parent_t_view * tool_t_camera
+      dx = float(new_parent_t_printer.translation[0]) - float(
+        parent_t_printer.translation[0]
+      )
+      new_tool_t_camera = tool_t_flange * new_flange_t_camera
+      new_parent_t_view = _shifted(parent_t_camera_at_view, dx=dx) * (
+        new_tool_t_camera.inverse()
+      )
+      updates.append(
+        _update(
+          _object_ref(parent_name),
+          _frame_ref(parent_name, view_name),
+          new_parent_t_view,
+        )
+      )
+      result.parent_t_view.CopyFrom(
+        math_proto_conversion.pose_to_proto(new_parent_t_view)
+      )
+
+    if updates:
+      world.batch_update(
+        object_world_updates_pb2.ObjectWorldUpdates(updates=updates)
+      )
+      # The camera's pose in the parent follows the printer move or the mount.
+      result.parent_t_camera.CopyFrom(
+        math_proto_conversion.pose_to_proto(world.get_transform(parent, camera))
+      )
+    logging.info(
+      "Configured the cell: printer distance %s, camera offset %s, view %s",
+      new_distance,
+      new_offset,
+      "moved" if result.HasField("parent_t_view") else "kept",
+    )
+    return result

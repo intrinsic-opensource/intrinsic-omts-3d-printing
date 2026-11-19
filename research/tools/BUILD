@@ -119,6 +119,9 @@ py_binary(
         ":cell_checks",
         ":part_trial_lib",
         "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
+        "@intrinsic_apis//intrinsic/math/proto:point_py_pb2",
     ],
 )
 
