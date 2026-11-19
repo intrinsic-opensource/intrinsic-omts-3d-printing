@@ -27,6 +27,8 @@ from collections.abc import Sequence
 
 from intrinsic.solutions import deployments
 
+from src.core import door
+
 PRINTER_OBJECT_NAME = "printer"
 
 # Hinge angles, matching configs/rebot/printer_door_{open,closed}.updates.pbtxt.
@@ -59,6 +61,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     help=(
       "Target angle in radians for --action=set (e.g. 1.57 is about halfway;"
       f" {DOOR_OPEN_ANGLE} is open, {DOOR_CLOSED_ANGLE} is closed)."
+    ),
+  )
+  parser.add_argument(
+    "--theta_deg",
+    type=float,
+    default=None,
+    help=(
+      "With --action=set: the door angle in degrees (0 closed, 180 open),"
+      " instead of --angle. Also prints the belief marker frames against"
+      " the door model."
     ),
   )
   parser.add_argument(
@@ -99,6 +111,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     target_angle = DOOR_OPEN_ANGLE
   elif args.action == "close":
     target_angle = DOOR_CLOSED_ANGLE
+  elif args.theta_deg is not None:
+    target_angle = door.theta_to_q(args.theta_deg)
   else:
     target_angle = args.angle
 
@@ -115,6 +129,26 @@ def main(argv: Sequence[str] | None = None) -> None:
 
   printer = world.get_kinematic_object(PRINTER_OBJECT_NAME)
   print(f"Confirmed joint position: {list(printer.joint_positions)}")
+  if args.theta_deg is not None or args.action in ("open", "close"):
+    check_frames(world, door.q_to_theta(float(printer.joint_positions[0])))
+
+
+def check_frames(world, theta_deg: float) -> None:
+  """Prints each marker frame's belief position against the door model."""
+  printer = getattr(world, PRINTER_OBJECT_NAME)
+  print(f"theta {theta_deg:.2f} deg: marker frames in the printer frame")
+  worst = 0.0
+  for marker_id in sorted(door.MARKERS):
+    pose = world.get_transform(printer, getattr(printer, f"aruco_{marker_id}"))
+    got = [float(v) for v in pose.translation]
+    want = door.marker_in_printer(marker_id, theta_deg)[0]
+    err = max(abs(a - b) for a, b in zip(got, want, strict=True))
+    worst = max(worst, err)
+    print(
+      f"  aruco_{marker_id}: belief {[round(v, 4) for v in got]}"
+      f" model {[round(v, 4) for v in want]} (max err {err * 1000:.2f} mm)"
+    )
+  print(f"worst marker frame error {worst * 1000:.2f} mm")
 
 
 if __name__ == "__main__":

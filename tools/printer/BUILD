@@ -49,6 +49,7 @@ py_library(
     name = "control_door_lib",
     srcs = ["control_door.py"],
     deps = [
+        "//src/core:door",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
     ],
 )

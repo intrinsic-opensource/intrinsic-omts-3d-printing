@@ -72,7 +72,7 @@ def main() -> None:
     raise SystemExit("no door_link and printer poses in the recording")
   t0 = samples[0][0]
   base = samples[0][2]
-  for t, theta, pos in samples[:: args.every]:
+  for t, theta, _pos in samples[:: args.every]:
     print(f"  {t - t0:7.2f} s  theta {theta:7.2f} deg")
   drift = max(math.dist(base, s[2]) for s in samples) * 1000
   last = samples[-1][1]

@@ -82,6 +82,16 @@ py_test(
 )
 
 py_test(
+    name = "test_door_model",
+    srcs = ["test_door_model.py"],
+    data = ["//models/printer:3d_printer.sdf"],
+    deps = [
+        "//src/core:door",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
     name = "test_tray",
     srcs = ["test_tray.py"],
     deps = [

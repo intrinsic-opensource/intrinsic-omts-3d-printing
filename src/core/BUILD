@@ -16,6 +16,11 @@ py_library(
 )
 
 py_library(
+    name = "door",
+    srcs = ["door.py"],
+)
+
+py_library(
     name = "tray",
     srcs = ["tray.py"],
     deps = [

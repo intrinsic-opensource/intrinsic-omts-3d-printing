@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<sdf version="1.8">
+<sdf xmlns:intrinsic="https://intrinsic.ai/" version="1.8">
   <model name="3d_printer">
   <self_collide>false</self_collide>
     <link name="base_link">
@@ -234,5 +234,19 @@
     </dynamics>
   </axis>
 </joint>
+
+    <!-- Frames from src/core/door.py (checked by test_door_model). -->
+    <frame name="door_hinge_axis" attached_to="base_link" intrinsic:create_entity="true">
+      <pose>0.174 0.205 0.279 0 0 0</pose>
+    </frame>
+    <frame name="aruco_1" attached_to="door_link" intrinsic:create_entity="true">
+      <pose relative_to="door_link">-0.065 0.0075 0.2 -1.570796 -0.000000 3.141593</pose>
+    </frame>
+    <frame name="aruco_2" attached_to="door_link" intrinsic:create_entity="true">
+      <pose relative_to="door_link">-0.295 0.0075 0.02 -1.570796 -0.000000 3.141593</pose>
+    </frame>
+    <frame name="aruco_3" attached_to="door_link" intrinsic:create_entity="true">
+      <pose relative_to="door_link">-0.065 0.0025 0.2 -1.570796 -0.000000 0.000000</pose>
+    </frame>
   </model>
 </sdf>

@@ -1386,6 +1386,20 @@ existing unload cycle. Closing the door is out of scope. Plan and decisions
 * Not run: the OMTS cell baseline (`omts_solution` + `omts_app`) for this
   step; it is run when the shared SDF changes (5e.3 onward).
 
+### 5e.3: theta is one belief state; door and marker frames follow it (done)
+
+* `src/core/door.py` (math only): theta <-> q, the hinge in the printer frame,
+  marker poses (ids 1, 2 outer, 3 inner, 50 mm) in the door frame, any
+  door-frame pose in the printer frame at theta. `test_door_model` also checks
+  the SDF frames against it.
+* `3d_printer.sdf` gains frames `door_hinge_axis` (on `base_link`) and
+  `aruco_1..3` (on `door_link`, written `relative_to="door_link"`).
+* `control_door --action=set --theta_deg=T` prints each marker frame's belief
+  position against the model. Gazebo/belief demo: T = 0, 45, 90 gave 0.00 mm.
+* Not run yet: `omts_solution` + `omts_app` for the shared SDF change (the
+  frames add no geometry); `frame_face` and `door_hook` frames come with the
+  steps that use them.
+
 ## 6. Findings
 
 ### 6.1 reBot top-down reach (checked offline, 2026-10-20)
