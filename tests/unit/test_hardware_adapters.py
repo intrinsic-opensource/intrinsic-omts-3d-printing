@@ -705,6 +705,84 @@ class HardwareAdaptersTest(absltest.TestCase):
       bt.Retry,
     )
 
+  def test_orbbec_vision_can_plan_the_grasp_with_the_skill(self):
+    mock_solution = mock.MagicMock()
+    mock_camera = mock.MagicMock()
+    mock_camera.types = ["CameraConfig"]
+    mock_perception = mock.MagicMock()
+    mock_perception.types = [
+      "intrinsic_proto.perception.v1.PoseEstimationService"
+    ]
+    mock_solution.resources = {
+      "orbbec_camera": mock_camera,
+      "nvidia_pose_estimator_service": mock_perception,
+    }
+    for skill in ("capture_images", "estimate_pose_multi_view"):
+      action = mock.MagicMock(spec=bt.ActionBase)
+      action.proto = mock.MagicMock()
+      getattr(mock_solution.skills.ai.intrinsic, skill).return_value = action
+    plan = mock_solution.skills.ai.omts.plan_cuboid_grasp
+    plan_action = mock.MagicMock(spec=bt.ActionBase)
+    plan_action.proto = mock.MagicMock()
+    plan.return_value = plan_action
+
+    def vision(**overrides):
+      return OrbbecVision(
+        solution=mock_solution,
+        config=VisionConfig(
+          camera_name="orbbec_camera",
+          perception_service_name="nvidia_pose_estimator_service",
+          pose_estimator_id="ai.intrinsic.part_on_table_025",
+          scene_object_id="ai.intrinsic.part",
+          sensor_ids=(1, 4),
+          min_num_instances=1,
+          infeed_mode="perception",
+          min_safe_z=0.13,
+          **overrides,
+        ),
+      )
+
+    def perception(v, **kwargs):
+      return v.build_perception_and_spawn_task(
+        approach_offset_z=0.06,
+        parent_object="root",
+        pregrasp_frame_name="pre_grasp",
+        grasp_frame_name="grasp",
+        tool_object_name="gripper",
+        tool_frame_name="tool_frame",
+        approach_tilt_degrees=75.0,
+        yaw_symmetry_degrees=90.0,
+        **kwargs,
+      )
+
+    node = perception(vision(frame_calculator="skill"))
+    # The same node name as the script's, in the same place.
+    self.assertEqual(
+      node.child.children[2].name,
+      "3. Calculate & Update Dynamic Grasp & Pre-Grasp Frames",
+    )
+    kwargs = plan.call_args.kwargs
+    self.assertEqual(kwargs["camera_name"], "orbbec_camera")
+    self.assertEqual(kwargs["target_scene_object_id"], "ai.intrinsic.part")
+    self.assertEqual(kwargs["min_safe_z"], 0.13)
+    self.assertEqual(kwargs["approach_tilt_degrees"], 75.0)
+    self.assertEqual(kwargs["yaw_symmetry_degrees"], 90.0)
+    self.assertTrue(kwargs["publish_grasp_frames"])
+    suppressed = perception(
+      vision(frame_calculator="skill"), publish_grasp_frames=False
+    )
+    self.assertEqual(
+      suppressed.child.children[2].name, "3. Update Detected Workpiece Pose"
+    )
+
+    # The script stays the default, and the skill is not called for it.
+    plan.reset_mock()
+    perception(vision())
+    plan.assert_not_called()
+
+    with self.assertRaisesRegex(ValueError, "frame_calculator"):
+      vision(frame_calculator="magic")
+
   def test_orbbec_vision_signature_cleanups(self):
     sig = inspect.signature(OrbbecVision.build_perception_and_spawn_task)
     self.assertNotIn("target_scene_object_id", sig.parameters)

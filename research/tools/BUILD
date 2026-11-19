@@ -82,7 +82,9 @@ py_binary(
         ":a_frames_lib",
         ":cell",
         ":kin",
+        "//src/core:grasp_math",
         "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@ai_intrinsic_sdks_pip_deps//scipy",
     ],
 )
 

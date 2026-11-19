@@ -136,6 +136,9 @@ class MachineConfig:
   input_block_name: str
 
 
+FRAME_CALCULATORS = ("script", "skill")
+
+
 @dataclasses.dataclass(frozen=True)
 class PoseEstimatorRegistration:
   """How to register the pose estimator, when the cell registers it itself.
@@ -175,6 +178,11 @@ class VisionConfig:
         registered. A deploy removes the registration, so without this the
         estimator is registered by hand after every deploy. `None` leaves
         registration to the operator.
+      frame_calculator: What turns the estimate into the part's pose and the
+        grasp frames: `'script'` (a `bt.PythonScript` in the executive,
+        `src/utils/dynamic_frame_calculator.py`) or `'skill'` (the
+        `ai.omts.plan_cuboid_grasp` skill, `skills/grasp/`). The skill must be
+        in the solution's assets; both give the same frames.
   """
 
   camera_name: str
@@ -186,6 +194,14 @@ class VisionConfig:
   infeed_mode: str
   min_safe_z: float
   registration: PoseEstimatorRegistration | None = None
+  frame_calculator: str = "script"
+
+  def __post_init__(self) -> None:
+    if self.frame_calculator not in FRAME_CALCULATORS:
+      raise ValueError(
+        f"vision.frame_calculator must be one of {FRAME_CALCULATORS}, got "
+        f"{self.frame_calculator!r}"
+      )
 
 
 @dataclasses.dataclass(frozen=True)

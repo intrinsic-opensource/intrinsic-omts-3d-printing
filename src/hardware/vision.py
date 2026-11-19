@@ -131,6 +131,7 @@ class OrbbecVision(VisionInterface):
     self._min_num_instances = config.min_num_instances
     self._min_safe_z = config.min_safe_z
     self._registration = config.registration
+    self._frame_calculator = config.frame_calculator
     self._log_debug_data = log_debug_data
 
     # Resolve resource handles strictly by configured name
@@ -255,7 +256,12 @@ class OrbbecVision(VisionInterface):
 
     # 3. Workpiece pose update, and optionally the cuboid-center grasp and
     #    pre-grasp frames, via bt.PythonScript
-    calc_task = self._create_frame_calc_script_task(
+    build_calc = (
+      self._create_frame_calc_skill_task
+      if self._frame_calculator == "skill"
+      else self._create_frame_calc_script_task
+    )
+    calc_task = build_calc(
       estimate_action=estimate_action,
       approach_offset_z=approach_offset_z,
       parent_object=parent_object,
@@ -295,6 +301,46 @@ class OrbbecVision(VisionInterface):
     return bt.Sequence(
       name=f"Register Estimator, then {task_name}",
       children=[self._build_registration_task(), pipeline],
+    )
+
+  def _frame_task_name(self, publish_grasp_frames: bool) -> str:
+    return (
+      "3. Calculate & Update Dynamic Grasp & Pre-Grasp Frames"
+      if publish_grasp_frames
+      else "3. Update Detected Workpiece Pose"
+    )
+
+  def _create_frame_calc_skill_task(
+    self,
+    estimate_action: bt.ActionBase,
+    approach_offset_z: float,
+    parent_object: str,
+    pregrasp_frame_name: str,
+    grasp_frame_name: str,
+    tool_object_name: str,
+    tool_frame_name: str,
+    publish_grasp_frames: bool = True,
+    approach_tilt_degrees: float = 0.0,
+    yaw_symmetry_degrees: float = 180.0,
+  ) -> bt.Task:
+    """The same step as the script, as the `ai.omts.plan_cuboid_grasp` skill."""
+    action = self._solution.skills.ai.omts.plan_cuboid_grasp(
+      camera_t_target=estimate_action.result.estimates[0].root_t_target,
+      camera_name=self._camera_name,
+      parent_object=parent_object,
+      pregrasp_frame_name=pregrasp_frame_name,
+      grasp_frame_name=grasp_frame_name,
+      tool_object_name=tool_object_name,
+      tool_frame_name=tool_frame_name,
+      target_scene_object_id=self._scene_object_id,
+      approach_offset_z=approach_offset_z,
+      min_safe_z=self._min_safe_z,
+      publish_grasp_frames=publish_grasp_frames,
+      approach_tilt_degrees=approach_tilt_degrees,
+      yaw_symmetry_degrees=yaw_symmetry_degrees,
+    )
+    return bt.Task(
+      action=action, name=self._frame_task_name(publish_grasp_frames)
     )
 
   def _create_frame_calc_script_task(
@@ -442,9 +488,6 @@ class OrbbecVision(VisionInterface):
       signature_with_args=signature,
       function_body=load_python_script(calculate_and_update_dynamic_frames),
     )
-    task_name = (
-      "3. Calculate & Update Dynamic Grasp & Pre-Grasp Frames"
-      if publish_grasp_frames
-      else "3. Update Detected Workpiece Pose"
+    return bt.Task(
+      action=calc_script, name=self._frame_task_name(publish_grasp_frames)
     )
-    return bt.Task(action=calc_script, name=task_name)

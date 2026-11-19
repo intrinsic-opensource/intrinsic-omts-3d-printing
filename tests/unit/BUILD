@@ -348,3 +348,27 @@ py_test(
         "@intrinsic_apis//intrinsic/perception/proto/v1:train_service_py_pb2_grpc",
     ],
 )
+
+py_test(
+    name = "test_grasp_math",
+    srcs = ["test_grasp_math.py"],
+    deps = [
+        "//src/core:grasp_math",
+        "//src/utils:dynamic_frame_calculator",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
+    ],
+)
+
+py_test(
+    name = "test_plan_cuboid_grasp",
+    srcs = ["test_plan_cuboid_grasp.py"],
+    deps = [
+        "//skills/grasp:plan_cuboid_grasp",
+        "//skills/grasp:plan_cuboid_grasp_py_pb2",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:proto_conversion",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
+    ],
+)

@@ -36,6 +36,9 @@ vision:
   infeed_mode: "perception"
   # The Prusa's bed top is at z = 0.1434 and the part's centre 15 mm above it.
   min_safe_z: 0.13
+  # The grasp frames come from the ai.omts.plan_cuboid_grasp skill rather than
+  # a PythonScript in the executive (`script`); both give the same frames.
+  frame_calculator: "skill"
   # The perception step first registers the estimator with the
   # ai.omts.register_pose_estimator skill, which does nothing if it is already
   # registered. A deploy removes the registration (about a minute to redo), so

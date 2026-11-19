@@ -34,6 +34,11 @@ py_library(
 )
 
 py_library(
+    name = "grasp_math",
+    srcs = ["grasp_math.py"],
+)
+
+py_library(
     name = "infeed",
     srcs = ["infeed.py"],
     deps = [
@@ -59,6 +64,7 @@ py_library(
     srcs = ["__init__.py"],
     deps = [
         ":config",
+        ":grasp_math",
         ":infeed",
         ":tray",
         ":types",

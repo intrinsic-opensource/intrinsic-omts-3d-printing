@@ -8,7 +8,7 @@ plan against it when that branch merges. The overall project plan is
 [`HANDOFF.md`](HANDOFF.md); the way of working (spiral, a demo per step) is in
 `CLAUDE.md`.
 
-Status (2026-11-19): **C1 done; C3 explored and paused; C2 is next.**
+Status (2026-11-19): **C1 and C2 done; C3 explored and paused; C4 is next.**
 
 ---
 
@@ -85,22 +85,46 @@ proven.
 * `register_using_ioc_train_service` and `register.sh` still work, and stay
   documented as the manual route.
 
-### Step C2: Grasp-frame skill (fixes D2)
+### Step C2: Grasp-frame skill (fixes D2) — DONE 2026-11-19
 
-* A skill that takes the estimated pose (and the camera and tool names, tilt
-  and yaw symmetry) and returns the grasp and pre-grasp frames; a following
-  `update_world` writes them, or the skill writes them itself like the MoveIt
-  planner does. Decide which when starting: the footprint must lock the world
-  (executive error 18201, `CLAUDE.md`).
-* The math moves out of the script into a plain module that both the skill and
-  `research/tools/cuboid_sweep.py` import, ending the duplicate.
-* Selected through the existing `grasp.planner` config key
-  (`GraspPlannerInterface`), next to `cuboid_center` and `moveit`.
-* **Demo:** the same pick cycle with the new planner; the cuboid sweep's
-  results unchanged.
-* The `PythonScript` also updates the part's pose and applies `min_safe_z`;
-  keep those (in the skill, or as a separate small node) so behavior stays the
-  same.
+* The `ai.omts.plan_cuboid_grasp` skill (`skills/grasp/`) replaces the
+  `bt.PythonScript` of `src/utils/dynamic_frame_calculator.py`. It takes the
+  estimate (the `root_t_target` of `estimate_pose_multi_view`, which is in the
+  camera's frame), the camera, tool and frame names, tilt and yaw symmetry,
+  and does everything the script did: composes the estimate with the camera's
+  pose from the world, moves the part's world object there, checks
+  `min_safe_z`, and creates or moves the grasp and pre-grasp frames.
+* **The skill writes the frames itself** (decided at the start: the
+  alternative, returning them for `update_world`, needs CEL values inside an
+  `ObjectWorldUpdate`, which is untried). Its footprint locks the world, so it
+  must stay in a `bt.Sequence`, as `update_world` must (executive error
+  18201). It also returns the three poses.
+* The rule is a plain function, `src/core/grasp_math.py` (no `intrinsic`
+  imports, as `core/` requires). `tests/unit/test_grasp_math.py` runs the script
+  and the function on 300 random poses (tilts 0 to 75, both symmetries, with
+  and without a tool orientation) and they agree. `research/tools/cuboid_sweep`
+  now calls the function instead of its own copy, and its output is identical
+  on a sweep of 3 sizes by 4 yaws.
+* Selected by `vision.frame_calculator: script | skill` (default `script`, so
+  `omts` and `lab_bb_01` are unchanged; `configs/rebot/app_config.yaml` uses
+  `skill`). Not the `grasp.planner` key, which picks who owns the grasp
+  frames, not how the part's pose is composed.
+* **Result** (k3s, sim, models): a full cycle with the skill finished (61 s), and
+  the skill logged a grasp at (0.560, -0.0002, 0.160), the bed centre at the
+  part's height.
+* Not supported: **preview** (`--simulation_mode=preview` or `fast_preview`).
+  A skill's preview world is taken for the real one, and the frames are what
+  the following motions need, so the skill refuses it. The script is the
+  route for those modes; whether the script itself works in preview was not
+  checked.
+* Known gaps: a missing part object is skipped with a warning, as the script
+  did; a missing camera or parent object is now an error (the script fell
+  back to the root). The script is still in the tree for `omts` and
+  `lab_bb_01`, so the rule exists twice (script and `grasp_math`) until it is
+  retired; the equivalence test is the guard.
+* After a deploy that does not restart the simulator, Gazebo keeps the last
+  cycle's state, and the first run fails with "0 detections" (SAM 3 sees no part).
+  Run `apply_scene_updates --reset_sim` after each deploy (`REBOT_OMTS_APP.md`).
 
 ### Step C3: Pick cycle as a process asset (fixes D1) — PAUSED
 
