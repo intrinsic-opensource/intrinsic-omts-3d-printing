@@ -227,10 +227,12 @@ def bed_centre() -> np.ndarray:
 
 def printer_boxes() -> dict[str, tuple[np.ndarray, np.ndarray]]:
   """Name -> (centre, size) in the printer frame: the SDF's collision boxes
-  and a 1 cm plate under the heatbed's top surface."""
+  of base_link (not the door's, which turns) and a 1 cm plate under the
+  heatbed's top surface."""
   root = ET.parse(REPO / "models/printer/3d_printer.sdf").getroot()
   boxes = {}
-  for col in root.iter("collision"):
+  base = next(k for k in root.iter("link") if k.get("name") == "base_link")
+  for col in base.iter("collision"):
     size = col.find("geometry/box/size")
     if size is None:
       continue

@@ -17,7 +17,7 @@
 Reads Gazebo's /world/default/pose/info recorded as JSON lines (README.md,
 "Recording poses in Gazebo"). Prints the door angle theta (0 closed, 180 deg
 fully open) and the printer's world position for each distinct sample, then
-the largest printer base movement. door_link's pose is relative to the
+where the printer base went (first to last sample). door_link's pose is relative to the
 printer model; with the SDF convention q = pi - theta, theta is
 pi - (yaw(door_link) + pi), i.e. minus its yaw, wrapped to [0, 360).
 
@@ -71,13 +71,17 @@ def main() -> None:
   if not samples:
     raise SystemExit("no door_link and printer poses in the recording")
   t0 = samples[0][0]
-  base = samples[0][2]
   for t, theta, _pos in samples[:: args.every]:
     print(f"  {t - t0:7.2f} s  theta {theta:7.2f} deg")
-  drift = max(math.dist(base, s[2]) for s in samples) * 1000
   last = samples[-1][1]
   print(f"{len(samples)} samples; last theta {last:.2f} deg")
-  print(f"printer base moved at most {drift:.3f} mm")
+  x0, y0, _ = samples[0][2]
+  x1, y1, _ = samples[-1][2]
+  moved = math.dist(samples[0][2], samples[-1][2]) * 1000
+  print(
+    f"printer base: first ({x0:.4f}, {y0:.4f}) -> last ({x1:.4f}, {y1:.4f}),"
+    f" moved {moved:.1f} mm"
+  )
 
 
 if __name__ == "__main__":
