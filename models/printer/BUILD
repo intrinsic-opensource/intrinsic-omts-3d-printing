@@ -25,9 +25,38 @@ config_setting(
     flag_values = {":door": "open"},
 )
 
+# hinge=held (default): Gazebo's position controller holds the door joint at
+# the angle the belief world gives it. hinge=passive: a Gazebo
+# JointStatePublisher plugin in the model replaces the default controller
+# (core world_object_plugin.cc), so the door turns freely under contact; belief
+# joint writes then no longer move it in Gazebo.
+string_flag(
+    name = "hinge",
+    build_setting_default = "held",
+    values = [
+        "held",
+        "passive",
+    ],
+)
+
+config_setting(
+    name = "hinge_passive",
+    flag_values = {":hinge": "passive"},
+)
+
+genrule(
+    name = "printer_passive_sdf",
+    srcs = ["3d_printer.sdf"],
+    outs = ["3d_printer_passive.sdf"],
+    cmd = "sed 's|</model>|<plugin filename=\"gz-sim-joint-state-publisher-system\" name=\"gz::sim::systems::JointStatePublisher\"><joint_name>door_hinge</joint_name></plugin></model>|' $< > $@",
+)
+
 sdf_scene_object(
     name = "printer_scene_object",
-    src = "3d_printer.sdf",
+    src = select({
+        ":hinge_passive": ":3d_printer_passive.sdf",
+        "//conditions:default": "3d_printer.sdf",
+    }),
     sdf_assets = [
         "frame.obj",
         "heatbed.obj",

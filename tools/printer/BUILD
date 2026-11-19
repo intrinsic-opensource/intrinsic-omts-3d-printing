@@ -70,6 +70,7 @@ py_binary(
     deps = [
         "//src/core:config",
         "//src/core:door",
+        "//src/hardware:gripper",
         "//src/hardware:robot",
         "@ai_intrinsic_sdks_pip_deps//numpy",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",

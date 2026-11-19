@@ -49,6 +49,16 @@ MARKERS: dict[int, tuple[Vec, Mat]] = {
 }
 
 
+# Tool-tip (tool_frame) pose that wraps the handle, in the door frame: the
+# fingertips at the handle centre, 0.15 m above the printer base, approaching
+# into the pane (-y) pitched 30 deg down, roll 270 (offline pull model: pulls
+# the Core One door to about 54 deg at d 0.675, s 0). The tool +z axis is the
+# approach direction.
+WRAP_GRASP_POS: Vec = (-0.3465, 0.0145, 0.15 - HINGE_IN_PRINTER[2])
+_S3 = math.sqrt(3.0) / 2.0
+WRAP_GRASP_ROT: Mat = ((1.0, 0.0, 0.0), (0.0, -0.5, -_S3), (0.0, _S3, -0.5))
+
+
 def theta_to_q(theta_deg: float) -> float:
   """Hinge joint position (rad) for a door angle (deg)."""
   q = math.pi - math.radians(theta_deg)
@@ -99,6 +109,20 @@ def marker_in_printer(marker_id: int, theta_deg: float) -> tuple[Vec, Mat]:
   """Marker pose (OpenCV axes) in the printer frame at door angle theta."""
   p, rot = MARKERS[marker_id]
   return frame_in_printer(p, rot, theta_deg)
+
+
+def wrap_grasp_in_printer(
+  theta_deg: float, back_m: float = 0.0, height_m: float | None = None
+):
+  """The wrap grasp (tool_frame) in the printer frame at door angle theta.
+
+  back_m backs the tool off along its approach axis (a pre-grasp pose);
+  height_m is the tip height above the printer base (default 0.15).
+  """
+  z = WRAP_GRASP_POS[2] if height_m is None else height_m - HINGE_IN_PRINTER[2]
+  base = (WRAP_GRASP_POS[0], WRAP_GRASP_POS[1], z)
+  pos = tuple(base[i] - back_m * WRAP_GRASP_ROT[i][2] for i in range(3))
+  return frame_in_printer(pos, WRAP_GRASP_ROT, theta_deg)
 
 
 def mat_to_rpy(m: Mat) -> Vec:
