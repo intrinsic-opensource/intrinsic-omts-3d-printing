@@ -32,8 +32,10 @@ HINGE_IN_PRINTER: Vec = (0.174, 0.205, 0.279)
 Q_LOWER = 0.0
 Q_UPPER = 3.14159
 # The clip housing (models/printer/3d_printer.sdf) is inserted in the handle; a
-# ball sits in its pocket on the ball joint clip_ball. Ball centre, door frame.
-BALL_POS: Vec = (-0.347, 0.0185, -0.079)
+# ball sits in its pocket on the ball joint clip_ball, a lever (cylinder) rising
+# from the ball through the housing's top slot. The housing is at the top of the
+# handle (its top flush with the blade's top). Ball centre, door frame.
+BALL_POS: Vec = (-0.347, 0.0185, 0.2135)
 # Faces of the pane in the door frame (outer faces the robot).
 OUTER_FACE_Y = 0.0075
 INNER_FACE_Y = 0.0025

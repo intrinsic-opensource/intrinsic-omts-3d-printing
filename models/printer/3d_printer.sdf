@@ -225,84 +225,84 @@
        pocket and a square slot in its top (src/core/door.py BALL_POS). Part of
        the door, so it turns with it. -->
   <visual name="housing_base_v">
-    <pose>-0.34700 0.01850 -0.11400 0 0 0</pose>
+    <pose>-0.34700 0.01850 0.17850 0 0 0</pose>
     <geometry><box><size>0.03600 0.03600 0.04300</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_base_c">
-    <pose>-0.34700 0.01850 -0.11400 0 0 0</pose>
+    <pose>-0.34700 0.01850 0.17850 0 0 0</pose>
     <geometry><box><size>0.03600 0.03600 0.04300</size></box></geometry>
   </collision>
   <visual name="housing_wall_left_v">
-    <pose>-0.36275 0.01850 -0.07900 0 0 0</pose>
+    <pose>-0.36275 0.01850 0.21350 0 0 0</pose>
     <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_wall_left_c">
-    <pose>-0.36275 0.01850 -0.07900 0 0 0</pose>
+    <pose>-0.36275 0.01850 0.21350 0 0 0</pose>
     <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
   </collision>
   <visual name="housing_wall_right_v">
-    <pose>-0.33125 0.01850 -0.07900 0 0 0</pose>
+    <pose>-0.33125 0.01850 0.21350 0 0 0</pose>
     <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_wall_right_c">
-    <pose>-0.33125 0.01850 -0.07900 0 0 0</pose>
+    <pose>-0.33125 0.01850 0.21350 0 0 0</pose>
     <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
   </collision>
   <visual name="housing_wall_front_v">
-    <pose>-0.34700 0.00275 -0.07900 0 0 0</pose>
+    <pose>-0.34700 0.00275 0.21350 0 0 0</pose>
     <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_wall_front_c">
-    <pose>-0.34700 0.00275 -0.07900 0 0 0</pose>
+    <pose>-0.34700 0.00275 0.21350 0 0 0</pose>
     <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
   </collision>
   <visual name="housing_wall_back_v">
-    <pose>-0.34700 0.03425 -0.07900 0 0 0</pose>
+    <pose>-0.34700 0.03425 0.21350 0 0 0</pose>
     <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_wall_back_c">
-    <pose>-0.34700 0.03425 -0.07900 0 0 0</pose>
+    <pose>-0.34700 0.03425 0.21350 0 0 0</pose>
     <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
   </collision>
   <visual name="housing_top_left_v">
-    <pose>-0.35988 0.01850 -0.06300 0 0 0</pose>
+    <pose>-0.35988 0.01850 0.22950 0 0 0</pose>
     <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_top_left_c">
-    <pose>-0.35988 0.01850 -0.06300 0 0 0</pose>
+    <pose>-0.35988 0.01850 0.22950 0 0 0</pose>
     <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
   </collision>
   <visual name="housing_top_right_v">
-    <pose>-0.33412 0.01850 -0.06300 0 0 0</pose>
+    <pose>-0.33412 0.01850 0.22950 0 0 0</pose>
     <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_top_right_c">
-    <pose>-0.33412 0.01850 -0.06300 0 0 0</pose>
+    <pose>-0.33412 0.01850 0.22950 0 0 0</pose>
     <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
   </collision>
   <visual name="housing_top_front_v">
-    <pose>-0.34700 0.00562 -0.06300 0 0 0</pose>
+    <pose>-0.34700 0.00562 0.22950 0 0 0</pose>
     <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_top_front_c">
-    <pose>-0.34700 0.00562 -0.06300 0 0 0</pose>
+    <pose>-0.34700 0.00562 0.22950 0 0 0</pose>
     <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
   </collision>
   <visual name="housing_top_back_v">
-    <pose>-0.34700 0.03138 -0.06300 0 0 0</pose>
+    <pose>-0.34700 0.03138 0.22950 0 0 0</pose>
     <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_top_back_c">
-    <pose>-0.34700 0.03138 -0.06300 0 0 0</pose>
+    <pose>-0.34700 0.03138 0.22950 0 0 0</pose>
     <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
   </collision>
 
@@ -352,7 +352,7 @@
     <!-- A ball in the housing's pocket, free to rotate there. A ball joint
          (kept as a real ball joint in Gazebo, fixed in the belief world). -->
     <link name="ball_link">
-      <pose relative_to="door_link">-0.347 0.0185 -0.079 0 0 0</pose>
+      <pose relative_to="door_link">-0.347 0.0185 0.21350 0 0 0</pose>
       <inertial>
         <mass>0.1</mass>
         <inertia>
@@ -366,6 +366,15 @@
       </visual>
       <collision name="ball_c">
         <geometry><sphere><radius>0.012</radius></sphere></geometry>
+      </collision>
+          <visual name="lever_v">
+        <pose>0 0 0.038 0 0 0</pose>
+        <geometry><cylinder><radius>0.0055</radius><length>0.060</length></cylinder></geometry>
+        <material><ambient>0.75 0.4 1.0 1</ambient><diffuse>0.75 0.4 1.0 1</diffuse></material>
+      </visual>
+      <collision name="lever_c">
+        <pose>0 0 0.038 0 0 0</pose>
+        <geometry><cylinder><radius>0.0055</radius><length>0.060</length></cylinder></geometry>
       </collision>
     </link>
 

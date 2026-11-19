@@ -104,6 +104,7 @@ class SdfFramesTest(absltest.TestCase):
       self.assertAlmostEqual(a, b, places=6)
     self.assertIn('<joint name="clip_ball" type="ball">', text)
     self.assertIn('name="housing_base_c"', text)
+    self.assertIn('name="lever_c"', text)
 
   """The SDF's door frames are the ones door.py predicts."""
 
