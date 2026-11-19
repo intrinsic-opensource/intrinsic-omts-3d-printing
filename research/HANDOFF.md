@@ -12,6 +12,7 @@ This file records what has been decided and what to do next.
 | --- | --- |
 | Repo | `https://github.com/intrinsic-opensource/intrinsic-omts-3d-printing`, branch `added-rebot-solution` |
 | Research commit | `87a4fb8` "Printer unloading viability research", on top of upstream `main` at `48be90d` (#151). Upstream has since been merged in through #156. |
+| Cluster-native plan | `research/CLUSTER_NATIVE_HANDOFF.md`: where the cell deviates from Intrinsic Core's services-and-skills design, and the steps to close it. C1 (the cell registers its own pose estimator with a skill) is done. |
 | Printer design notes | `research/PRINTER_UNLOADING.md` (trimmed 2026-10-22; the full feasibility study, including the SO-101 evaluation, is at commit `d2501bb`) |
 | Arm comparison (decided) | Summarized in section 6.3; the full comparison (`ARM_SELECTION_REQUEST.md`) is in git history at `6f15cc8` |
 | SO-101 URDF | `research/so101_new_calib.urdf`, from the earlier SO-101 evaluation; superseded by the reBot decision |

@@ -215,6 +215,7 @@ intrinsic_solution(
         "//models/rebot_ground",
         "//models/printer",
         "//models/rebot_printed_part",
+        "//skills/perception:register_pose_estimator_skill",
         ":flowstate_ros_bridge_asset",
         ":orbbec_gemini_driver_asset",
     ] + select({

@@ -326,3 +326,25 @@ py_test(
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
     ],
 )
+
+py_test(
+    name = "test_register_pose_estimator",
+    srcs = ["test_register_pose_estimator.py"],
+    deps = [
+        "//skills/perception:register_pose_estimator",
+        "//skills/perception:register_pose_estimator_py_pb2",
+        "@com_github_grpc_grpc//src/python/grpcio/grpc:grpcio",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_googleapis//google/longrunning:operations_py_proto",
+        "@com_google_protobuf//:protobuf_python",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/assets/proto:installed_assets_pb2_grpc",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/assets/proto:installed_assets_py_pb2",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_canceller",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/testing:skill_test_utils",
+        "@intrinsic_apis//intrinsic/assets/proto:id_py_pb2",
+        "@intrinsic_apis//intrinsic/assets/proto/v1:resolved_dependency_py_pb2",
+        "@intrinsic_apis//intrinsic/perception/proto/v1:train_service_py_pb2",
+        "@intrinsic_apis//intrinsic/perception/proto/v1:train_service_py_pb2_grpc",
+    ],
+)

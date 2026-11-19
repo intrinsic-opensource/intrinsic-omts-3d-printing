@@ -99,12 +99,21 @@ kubectl -n app-resources logs rs-nvidia-pose-estimator-service-0 | grep "Server 
 Redeploying the same solution restarts nothing, so the arm stays enabled and
 no new line appears; drop `--since=2m` to see the earlier one.
 
-### 4. Register the part (after every deploy)
+### 4. Register the part (`omts_app` does it for you)
 
 The registration tells the pose estimator which object to look for: the
 part's model, a text prompt and a confidence threshold. It is stored on the
-cluster as an asset, which a deploy removes, so register again after each
-deploy (about a minute):
+cluster as an asset, which a deploy removes.
+
+**`omts_app` registers it for you**: with a `vision.registration` section in the
+cell config (`configs/rebot/app_config.yaml` has one), the perception step
+first calls the `ai.omts.register_pose_estimator` skill (`skills/perception/`),
+which does nothing when the estimator is already registered. After a deploy,
+the first run registers it (a minute or so), and later runs skip it. So skip to
+step 5.
+
+To register by hand instead (a cell without that section, the standalone
+`detect`-style checks below, or to see the training output), run:
 
 ```bash
 bazel run -c opt \
@@ -262,7 +271,7 @@ bazel run -c opt //:omts_solution -- --address=localhost:17080
 | First move fails with `move_robot` "connection refused" | The arm is not enabled yet; wait for "[rebot] Now enabled" (quick start step 3). |
 | Gazebo shows no camera, or the gripper doesn't move | Gazebo still has the old world; run the reset in quick start step 3. |
 | `rs-nvidia-pose-estimator-service-0` keeps restarting | The models are missing: deploy with `--//:perception_models` and `--repo_env` (quick start step 3). |
-| Pose estimation fails because the estimator is not found | A deploy removed the registration; register again (quick start step 4). |
+| Pose estimation fails because the estimator is not found | A deploy removed the registration. `omts_app` registers it itself when the cell config has `vision.registration`; otherwise register by hand (quick start step 4). |
 | `omts_app` fails with a collision between `rebot_printed_part` and the printer, or "could not find a path" | A failed run left the part attached to the arm; put it back on the bed (end of quick start step 5). |
 | Pose estimation fails with "Failed to create TensorRT execution context" | The GPU ran out of memory. The reBot's service config already uses a smaller FoundationPose batch for a 16 GB GPU; close other GPU programs, or lower `batch_size` further in `configs/rebot/nvidia_pose_estimator_config.textproto`. |
 | `move_to_frame` reports "IK solver couldn't find any solutions" for a frame you edited | The planner gives the same error for an unreachable pose and for one where the arm or camera would collide, for example the wrist against the printer's front rail or the gripper
@@ -280,7 +289,7 @@ bazel run //research/tools:configure_cell -- --out /tmp/cell \
   --printer_distance 0.62 --camera_offset 0.09 -0.024 0.10 --target test_benchy
 bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \
   --files /tmp/cell/cell.updates.pbtxt --reset_sim
-bash /tmp/cell/register.sh   # once per deploy and target
+bash /tmp/cell/register.sh   # optional: omts_app registers the target itself
 bazel run //src:omts_app -- --address=localhost:17080 \
   --config=/tmp/cell/app_config.yaml --num_cycles=1
 ```

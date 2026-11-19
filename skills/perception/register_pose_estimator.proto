@@ -1,0 +1,66 @@
+// Copyright 2026 Intrinsic Innovation LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package omts.perception;
+
+import "intrinsic/assets/proto/field_metadata.proto";
+import "intrinsic/assets/proto/id.proto";
+import "intrinsic/assets/proto/v1/resolved_dependency.proto";
+import "intrinsic/perception/proto/v1/pose_estimator_id.proto";
+
+message RegisterPoseEstimatorParams {
+  // Reads the scene object of the installed asset.
+  intrinsic_proto.assets.v1.ResolvedDependency installed_assets = 1
+      [(intrinsic_proto.assets.field_metadata).dependency = {
+        requires: "grpc://intrinsic_proto.assets.v1.InstalledAssetsReader"
+      }];
+
+  // Builds and saves the pose estimator (`ai.intrinsic.ioc_train_service`).
+  intrinsic_proto.assets.v1.ResolvedDependency train_service = 2
+      [(intrinsic_proto.assets.field_metadata).dependency = {
+        requires: "grpc://intrinsic_proto.perception.v1.TrainService"
+      }];
+
+  // The installed scene-object asset to register a pose estimator for.
+  intrinsic_proto.assets.Id scene_object = 3
+      [(intrinsic_proto.assets.field_metadata) = {
+        is_installed_scene_object_asset: true
+      }];
+
+  // The id of the pose estimator asset to create. If it is already installed
+  // the skill succeeds without training (`already_registered`): a behavior
+  // tree can run it every cycle. Uninstall the estimator to change its
+  // settings.
+  intrinsic_proto.assets.Id pose_estimator = 4;
+
+  // The prompt SAM 3 segments with; default "object on a table".
+  optional string text_prompt = 5;
+  optional float confidence_threshold = 6;  // Default 0.25.
+  optional float visibility_threshold = 7;  // Default 0.15.
+  optional int32 refinement_iters = 8;  // Default 5.
+  optional double timeout_seconds = 9;  // Default 120, at most 900.
+}
+
+message RegisterPoseEstimatorResult {
+  // The installed pose estimator asset.
+  intrinsic_proto.assets.Id pose_estimator = 1;
+  // True when the estimator was installed before the skill ran, so nothing was
+  // trained.
+  bool already_registered = 2;
+  // The same estimator, in the form `estimate_pose_multi_view` takes, so a
+  // behavior tree can pass it on through the blackboard.
+  intrinsic_proto.perception.v1.PoseEstimatorId pose_estimator_id = 3;
+}

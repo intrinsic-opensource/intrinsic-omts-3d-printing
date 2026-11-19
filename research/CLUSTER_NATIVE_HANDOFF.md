@@ -8,8 +8,7 @@ plan against it when that branch merges. The overall project plan is
 [`HANDOFF.md`](HANDOFF.md); the way of working (spiral, a demo per step) is in
 `CLAUDE.md`.
 
-Status (2026-11-19): **analysis done; C3 explored and paused; C1 is next.**
-Nothing in the plan is implemented on this branch.
+Status (2026-11-19): **C1 done; C3 explored and paused; C2 is next.**
 
 ---
 
@@ -43,7 +42,7 @@ Each step ends in a demo and leaves the `omts` and `lab_bb_01` cells building
 (`CLAUDE.md`). New behavior goes alongside the old, behind config, until it is
 proven.
 
-### Step C1: `register_pose_estimator` skill (fixes D3, sets the pattern for D7) — NEXT
+### Step C1: `register_pose_estimator` skill (fixes D3, sets the pattern for D7) — DONE 2026-11-19
 
 * New package `skills/perception/` with the proto, manifest, `py_skill` target
   and an `absltest` test, and a `//skills/perception:register_pose_estimator_skill`
@@ -59,9 +58,32 @@ proven.
   registration; the manual step stays documented as a fallback.
 * **Demo:** deploy, run `omts_app` with no `register.sh` step, and the cycle
   finds the part.
-* To check first: how the skill reaches the train service's long-running
-  operation, and that a deploy followed by a second run takes the
-  "already registered" path.
+
+**Done on 2026-11-19** (k3s, sim, with `--//:perception_models`):
+
+* The skill is the one from `feat/preload-printed-model` (its package
+  `skills/perception/`, with its unit test), ported as is apart from two
+  comments. It reads the scene object from the installed-assets service and has
+  the train service build and save the estimator; it returns early if the
+  estimator is installed.
+* `vision.registration` (optional; `PoseEstimatorRegistration` in
+  `src/core/config.py`) holds the train service name, prompt, thresholds and
+  iterations. `OrbbecVision` puts a register node in a sequence **ahead of**
+  the retried perception, so a failed training is not retried three times.
+  Cells without the section build the same tree as before.
+* **Result:** after a deploy, with nothing registered by hand, `omts_app`
+  finished (62 s). The skill logged "Registered pose estimator ..." for that
+  run, and the next run logged "is already installed" and finished (57 s). The
+  deploy had removed the earlier registration, so this covers D3.
+* `MODULE.bazel` gains `rules_oci` and `use_repo(oci, "distroless_python3")`: a
+  `py_skill` needs the base image. Bazel warns that the import is indirect and
+  suggests `bazel mod tidy`; that drops the line and breaks the build.
+* Known gap: `configs/rebot/targets.yaml` has a threshold per target, and
+  `configure_cell` does not carry it into `vision.registration`. All are 0.25
+  today, so nothing differs. Registering again under an existing id keeps the
+  old settings, so a changed prompt or threshold needs a new `pose_estimator_id`.
+* `register_using_ioc_train_service` and `register.sh` still work, and stay
+  documented as the manual route.
 
 ### Step C2: Grasp-frame skill (fixes D2)
 

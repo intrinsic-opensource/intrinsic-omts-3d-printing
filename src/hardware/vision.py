@@ -18,6 +18,8 @@ import abc
 from unittest import mock
 
 from intrinsic.assets import id_utils
+from intrinsic.assets.proto import id_pb2
+from intrinsic.assets.proto.v1 import resolved_dependency_pb2
 from intrinsic.perception.proto.v1 import pose_estimator_id_pb2
 from intrinsic.solutions import behavior_tree as bt
 from intrinsic.solutions import deployments, provided
@@ -28,6 +30,20 @@ from src.utils.dynamic_frame_calculator import (
   calculate_and_update_dynamic_frames,
 )
 from src.utils.script_utils import create_dwell_task, load_python_script
+
+# The solution's own installed-assets service, which the registration skill
+# reads the scene object from (`ResolvedDependency` by instance name).
+_RUNTIME_INSTANCE = "intrinsic_runtime"
+_DEFAULT_PACKAGE = "ai.intrinsic"
+
+
+def _asset_id(asset_id: str) -> id_pb2.Id:
+  """An asset id string as a proto; a bare name is in `ai.intrinsic`."""
+  if id_utils.is_id(asset_id):
+    return id_pb2.Id(
+      package=id_utils.package_from(asset_id), name=id_utils.name_from(asset_id)
+    )
+  return id_pb2.Id(package=_DEFAULT_PACKAGE, name=asset_id)
 
 
 def _get_camera_resource(
@@ -114,6 +130,7 @@ class OrbbecVision(VisionInterface):
     self._sensor_ids = list(config.sensor_ids)
     self._min_num_instances = config.min_num_instances
     self._min_safe_z = config.min_safe_z
+    self._registration = config.registration
     self._log_debug_data = log_debug_data
 
     # Resolve resource handles strictly by configured name
@@ -121,6 +138,28 @@ class OrbbecVision(VisionInterface):
     self._perception_resource = _get_perception_resource(
       solution, config.perception_service_name
     )
+
+  def _build_registration_task(self) -> bt.Node:
+    """Registers the pose estimator for the scene object; a no-op if it is.
+
+    The estimator is an installed asset that a deploy removes, so the cell
+    registers it itself (`ai.omts.register_pose_estimator`) rather than by hand.
+    """
+    registration = self._registration
+    assert registration is not None
+    action = self._solution.skills.ai.omts.register_pose_estimator(
+      installed_assets=resolved_dependency_pb2.ResolvedDependency(
+        name=_RUNTIME_INSTANCE
+      ),
+      train_service=self._solution.resources[registration.train_service_name],
+      scene_object=_asset_id(self._scene_object_id),
+      pose_estimator=_asset_id(self._pose_estimator_id),
+      text_prompt=registration.text_prompt,
+      confidence_threshold=registration.confidence_threshold,
+      visibility_threshold=registration.visibility_threshold,
+      refinement_iters=registration.refinement_iters,
+    )
+    return bt.Task(action=action, name="0. Register Pose Estimator")
 
   def build_capture_image_task(self, name: str | None = None) -> bt.Node:
     """Builds a single image capture task."""
@@ -237,19 +276,26 @@ class OrbbecVision(VisionInterface):
         calc_task,
       ],
     )
+    pipeline: bt.Node = acquisition_and_calc_seq
     if max_tries > 1:
       recovery_task = create_dwell_task(
         dwell_time_sec=retry_delay_sec,
         solution=self._solution,
         task_name=f"Perception Retry Dwell ({retry_delay_sec}s)",
       )
-      return bt.Retry(
+      pipeline = bt.Retry(
         max_tries=max_tries,
         child=acquisition_and_calc_seq,
         recovery=recovery_task,
         name=task_name,
       )
-    return acquisition_and_calc_seq
+    if self._registration is None:
+      return pipeline
+    # Outside the retry: a failed training is not worth retrying blindly.
+    return bt.Sequence(
+      name=f"Register Estimator, then {task_name}",
+      children=[self._build_registration_task(), pipeline],
+    )
 
   def _create_frame_calc_script_task(
     self,

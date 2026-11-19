@@ -80,6 +80,8 @@ py_library(
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:proto_building",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:provided",
+        "@intrinsic_apis//intrinsic/assets/proto:id_py_pb2",
+        "@intrinsic_apis//intrinsic/assets/proto/v1:resolved_dependency_py_pb2",
         "@intrinsic_apis//intrinsic/perception/proto/v1:pose_estimator_id_py_pb2",
     ],
 )

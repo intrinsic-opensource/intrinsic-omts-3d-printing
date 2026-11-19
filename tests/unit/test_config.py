@@ -89,6 +89,22 @@ class ConfigTest(absltest.TestCase):
     self.assertEqual(omts.cycle.workpiece_support_objects, ())
     self.assertEqual(omts.cycle.place_press_meters, 0.0)
 
+  def test_rebot_cell_registers_its_pose_estimator(self):
+    registration = load_app_config(
+      "configs/rebot/app_config.yaml"
+    ).vision.registration
+    assert registration is not None
+    self.assertEqual(registration.train_service_name, "train_service")
+    self.assertEqual(registration.text_prompt, "object on a table")
+    self.assertEqual(registration.confidence_threshold, 0.25)
+    # The other cells leave registration to the operator.
+    self.assertIsNone(
+      load_app_config("configs/omts/app_config.yaml").vision.registration
+    )
+    self.assertIsNone(
+      load_app_config("configs/lab_bb_01/app_config.yaml").vision.registration
+    )
+
   def test_omitted_grasp_section_defaults_to_cuboid_center(self):
     raw = yaml.safe_load(
       pathlib.Path("configs/omts/app_config.yaml").read_text(encoding="utf-8")

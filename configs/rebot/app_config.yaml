@@ -26,9 +26,9 @@ vision:
   camera_name: "orbbec_camera"
   perception_service_name: "nvidia_pose_estimator_service"
   # Registered with the prompt "object on a table" at confidence_threshold 0.25
-  # (research/REBOT_OMTS_APP.md, quick start step 4): SAM 3 proposes the
-  # object-like regions and the estimator returns them best mesh fit first, so
-  # the vision adapter's first estimate is the part, whatever it is called.
+  # (`registration` below): SAM 3 proposes the object-like regions and the
+  # estimator returns them best mesh fit first, so the vision adapter's first
+  # estimate is the part, whatever it is called.
   pose_estimator_id: "ai.intrinsic.rebot_printed_part_on_table_025"
   scene_object_id: "ai.intrinsic.rebot_printed_part"
   sensor_ids: [1, 4]
@@ -36,6 +36,18 @@ vision:
   infeed_mode: "perception"
   # The Prusa's bed top is at z = 0.1434 and the part's centre 15 mm above it.
   min_safe_z: 0.13
+  # The perception step first registers the estimator with the
+  # ai.omts.register_pose_estimator skill, which does nothing if it is already
+  # registered. A deploy removes the registration (about a minute to redo), so
+  # this replaces registering by hand after every deploy. Registering again
+  # under an existing id keeps the old settings (research/REBOT_OMTS_APP.md):
+  # to change one of these, change pose_estimator_id too.
+  registration:
+    train_service_name: "train_service"
+    text_prompt: "object on a table"
+    confidence_threshold: 0.25
+    visibility_threshold: 0.15
+    refinement_iters: 5
 
 frames:
   parent_object: "root"
