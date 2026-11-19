@@ -306,6 +306,9 @@ intrinsic_solution(
     ] + select({
         ":with_test_parts": ["//configs:rebot/test_parts.updates.pbtxt"],
         "//conditions:default": [],
+    }) + select({
+        "//models/printer:door_open": ["//configs:rebot/printer_door_open.updates.pbtxt"],
+        "//models/printer:door_closed": ["//configs:rebot/printer_door_closed.updates.pbtxt"],
     }),
 )
 
