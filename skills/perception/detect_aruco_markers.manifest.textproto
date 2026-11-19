@@ -1,0 +1,43 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# proto-file: intrinsic/skills/proto/skill_manifest.proto
+# proto-message: intrinsic_proto.skills.SkillManifest
+
+id { package: "ai.omts" name: "detect_aruco_markers" }
+display_name: "Detect ArUco markers"
+vendor { display_name: "OMTS" }
+documentation { description: "Captures one RGB frame, finds DICT_4X4_50 markers and returns their poses in the root frame; with the markers' printer-frame poses it also returns the printer's pose. Never moves a robot and never writes the world." }
+options {
+  supports_cancellation: false
+  python_config {
+    skill_module: "skills.perception.aruco_skills"
+    proto_module: "skills.perception.detect_aruco_markers_pb2"
+    create_skill: "skills.perception.aruco_skills.DetectArucoMarkers"
+  }
+}
+dependencies {
+  required_equipment {
+    key: "camera"
+    value {
+      capability_names: "CameraConfig"
+    }
+  }
+}
+parameter { message_full_name: "omts.perception.DetectArucoMarkersParams" }
+return_type { message_full_name: "omts.perception.DetectArucoMarkersResult" }
+status_info { code: 2001 title: "Invalid detect_aruco_markers parameters" }
+status_info { code: 2002 title: "Camera capture failed or sensor missing" }
+status_info { code: 2003 title: "A requested marker was not found" }
+status_info { code: 2004 title: "A marker failed the viewing rule" }

@@ -1428,6 +1428,41 @@ existing unload cycle. Closing the door is out of scope. Plan and decisions
   stack (`Cannot convert [...] to JointVec`); `open_door --mode=look` stores a
   named joint configuration and moves to it instead.
 
+### 5e.7: the printer is found by its markers and the belief follows (done, simulation)
+
+* Skill `ai.omts.detect_aruco_markers` (`skills/perception/`, stateless, never
+  writes the world): captures the RGB sensor through a `camera` equipment slot,
+  finds DICT_4X4_50 markers, applies the viewing rule, returns each marker's
+  `root_t_marker`; with each marker's `printer_t_marker` it also returns
+  `root_t_printer` (one joint PnP of all corners, upright: roll and pitch
+  zero). It raises on a missing id (2003) or a viewing-rule failure (2004).
+  Registered in `rebot_solution`; `bazel/patches/printer_skill_dependencies.patch`
+  also allowlists its manifest (manifest deps are still allowlisted at this
+  pin).
+* `open_door --mode=detect` runs it and compares with the belief world;
+  `--mode=discover` runs, in one behavior tree, `detect` then
+  `update_world(update_transform root -> printer)` with the skill result bound
+  into `a_t_b` through the blackboard.
+* **Demo (Gazebo):** the printer's true pose in Gazebo was (0.675, 0.000) while
+  the belief world still said (0.5895, -0.0064). `--mode=discover` from the
+  look pose measured (0.6749, 0.0001, -0.0001), yaw error 0.04 deg, joint
+  reprojection 0.67 px, and wrote it: belief printer after = (0.6749, 0.0001,
+  -0.0001). Error against Gazebo about 0.1 mm.
+* **Resolved:** a `BlackboardValue` (`detect_action.result.root_t_printer`)
+  binds into the nested `a_t_b` of `update_world.UpdateTransformRequest` when
+  built with the skill's wrapper classes
+  (`skills.intrinsic.update_world.intrinsic_proto.world.*`).
+* Tests: `test_detect_aruco_markers` (synthetic two-marker image: printer pose
+  within 3 mm and 1 deg; missing id, viewing-rule failure and bad parameters
+  raise; no printer pose without `printer_t_marker`).
+* **Not done (plan D14, D17, D26):** the closed-door check (depth plane of an
+  opaque frame face against marker 2; discovery here trusts theta = 0), the
+  second-view gate and the prior write-back on failure, and look-pose
+  fallbacks over several poses. The simulation door is closed in every run.
+* **OMTS cell:** not run for this step either (`omts_solution` +
+  `omts_app`); the SDF changed (frames, marker tiles) and it should be run
+  before this branch is merged.
+
 ## 6. Findings
 
 ### 6.1 reBot top-down reach (checked offline, 2026-10-20)

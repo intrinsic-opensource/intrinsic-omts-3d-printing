@@ -102,6 +102,22 @@ py_test(
 )
 
 py_test(
+    name = "test_detect_aruco_markers",
+    srcs = ["test_detect_aruco_markers.py"],
+    deps = [
+        "//skills/perception:aruco_pose",
+        "//skills/perception:aruco_skills",
+        "//skills/perception:detect_aruco_markers_py_pb2",
+        "//src/core:door",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:proto_conversion",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
+    ],
+)
+
+py_test(
     name = "test_tray",
     srcs = ["test_tray.py"],
     deps = [

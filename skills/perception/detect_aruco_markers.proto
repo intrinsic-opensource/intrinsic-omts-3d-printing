@@ -1,0 +1,54 @@
+// Copyright 2026 Intrinsic Innovation LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package omts.perception;
+
+import "intrinsic/math/proto/pose.proto";
+
+message DetectArucoMarkersParams {
+  // Sensor name of the camera's RGB image. Default "rgb".
+  string rgb_sensor = 1;
+  // Required. Every id must be found and pass the viewing rule.
+  repeated int32 marker_ids = 2;
+  // Required. Black square side, meters.
+  double marker_size_m = 3;
+  // Viewing rule. 0 selects the default (60 deg, 50 px, 1 px, ratio 1).
+  double max_incidence_deg = 4;
+  double min_side_px = 5;
+  double max_reprojection_px = 6;
+  double min_ippe_ratio = 7;
+  // Optional, one per marker_ids entry, same order: where each marker sits in
+  // the printer's frame. With it the result also holds the printer's pose.
+  repeated intrinsic_proto.Pose printer_t_marker = 8;
+}
+
+message MarkerPose {
+  int32 id = 1;
+  intrinsic_proto.Pose root_t_marker = 2;
+  intrinsic_proto.Pose camera_t_marker = 3;
+  double reprojection_px = 4;
+  double side_px = 5;
+  double ippe_ratio = 6;
+  double incidence_deg = 7;
+}
+
+message DetectArucoMarkersResult {
+  repeated MarkerPose markers = 1;
+  // Set when printer_t_marker is given: the printer's pose in the root frame,
+  // upright (roll and pitch zero), from one joint solve of all markers.
+  intrinsic_proto.Pose root_t_printer = 2;
+  double joint_reprojection_px = 3;
+}
