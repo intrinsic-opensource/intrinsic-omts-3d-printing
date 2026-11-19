@@ -1463,6 +1463,60 @@ existing unload cycle. Closing the door is out of scope. Plan and decisions
   `omts_app`); the SDF changed (frames, marker tiles) and it should be run
   before this branch is merged.
 
+### 5e.8-5e.10: the arm opens the door in Gazebo (partly done, simulation)
+
+What runs: `open_door --mode=approach|pull` (after `--mode=discover`) with the
+printer at d = 0.675 and the passive hinge:
+
+```bash
+bazel run //:rebot_solution -c opt --//models/printer:door=closed \
+  --//models/printer:hinge=passive -- --address=localhost:17080
+# printer at d = 0.675, door closed, Gazebo synced:
+bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \
+  --files <printer.updates.pbtxt with x: 0.675, y: 0> --reset_sim
+bazel run //tools/printer:open_door -- --address=localhost:17080 --mode=look \
+  --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
+bazel run //tools/printer:open_door -- --address=localhost:17080 --mode=discover
+bazel run //tools/printer:open_door -- --address=localhost:17080 --mode=pull \
+  --grasp_h=0.30 --target_deg=30 --step_deg=6
+```
+
+* `//models/printer:hinge=passive` adds a Gazebo `JointStatePublisher` plugin
+  to the model through a genrule; core then skips its default joint position
+  controller (`world_object_plugin.cc:GetGzPluginsForCollection`). The
+  `cmd_pos` topic is gone and a commanded position no longer moves the door.
+  After a deploy the sim needs `--reset_sim` to take the new model.
+* **Result (Gazebo, 25 kg printer, d = 0.675):** the tool reaches the handle
+  through the real planner (pre-grasp joint move, then a linear move with a
+  `gripper`-`printer` collision exclusion), closes the gripper on the blade,
+  and pulls along the door's arc in 6 deg waypoints. Door angle read from
+  `door_link`: pull to 30 deg gave 29.1 deg, and the door stayed there after
+  the release and retreat; a pull to 42 deg gave 41.6 deg (the waypoint at
+  48 deg failed to plan). Printer base moved 7.5 mm (30 deg) and 3.2 mm
+  (42 deg): the 1 mm exit of 5e.10 is **not** met.
+* **Findings that cost time:**
+  * Roll matters. Roll 270 (jaws closing vertically, along the blade) only
+    hooks the blade: the printer was dragged 55-95 mm and the door did not
+    open. Roll 0 (jaws across the blade's thickness, `door.WRAP_GRASP_ROT`)
+    opens it. The gripper must be opened before the approach.
+  * A grasp at h = 0.15 m (the offline optimum) ends on the front bezel's
+    LCD housing, not the blade; h = 0.30 works.
+  * `tools/jogging/move_to_joint` cannot take explicit joints (see 5e.5-5e.6).
+  * A 2500 kg printer (mass only) behaved worse (51 mm drift); the inertia
+    was left at the 25 kg value, so the test was not clean. Not pursued.
+  * A debug camera can be added to Gazebo with
+    `gz service -s /world/default/create` and an SDF with a camera sensor
+    (topic `dbg_cam/image`); a sim reset removes it. Useful to see the
+    gripper and handle; the wrist camera cannot.
+* **Not done:** the discovered pose does not yet feed the grasp frames (the
+  tool uses the belief printer pose, so `--mode=discover` must run first);
+  handle from marker 2 (5e.8 measure); no collision-checked belief arc
+  (`belief_arc`); the arc is a fixed 6 deg waypoint list of linear moves, with
+  no marker or joint theta check between them; no staged chain beyond the
+  wrap pull (side push, inner push, handover gate: 5e.11-5e.12); the
+  pull-to-push gap from the offline analysis is still open; the real-arm steps
+  (5e.14-5e.18) were not touched.
+
 ## 6. Findings
 
 ### 6.1 reBot top-down reach (checked offline, 2026-10-20)

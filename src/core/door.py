@@ -51,12 +51,13 @@ MARKERS: dict[int, tuple[Vec, Mat]] = {
 
 # Tool-tip (tool_frame) pose that wraps the handle, in the door frame: the
 # fingertips at the handle centre, 0.15 m above the printer base, approaching
-# into the pane (-y) pitched 30 deg down, roll 270 (offline pull model: pulls
-# the Core One door to about 54 deg at d 0.675, s 0). The tool +z axis is the
-# approach direction.
+# into the pane (-y) pitched 30 deg down. Roll 0: the fingers close along the
+# door's x axis, across the blade's thickness (roll 270 closes them vertically,
+# along the blade, which only hooks it). Offline pull model: about 50 deg at
+# d 0.675, s 0. The tool +z axis is the approach direction.
 WRAP_GRASP_POS: Vec = (-0.3465, 0.0145, 0.15 - HINGE_IN_PRINTER[2])
 _S3 = math.sqrt(3.0) / 2.0
-WRAP_GRASP_ROT: Mat = ((1.0, 0.0, 0.0), (0.0, -0.5, -_S3), (0.0, _S3, -0.5))
+WRAP_GRASP_ROT: Mat = ((0.0, -1.0, 0.0), (-0.5, 0.0, -_S3), (_S3, 0.0, -0.5))
 
 
 def theta_to_q(theta_deg: float) -> float:

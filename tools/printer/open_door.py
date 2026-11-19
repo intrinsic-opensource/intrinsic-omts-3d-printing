@@ -67,6 +67,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--step_deg", type=float, default=6.0)
   parser.add_argument("--pregrasp_m", type=float, default=0.06)
   parser.add_argument("--allow_contact", action="store_true")
+  parser.add_argument("--hold", action="store_true", help="No release.")
   parser.add_argument("--marker_ids", nargs="+", type=int, default=[1, 2])
   return parser.parse_args(argv)
 
@@ -266,7 +267,12 @@ def approach(solution, args) -> None:
   print(f"pre-grasp {np.round(pre[:3, 3], 3).tolist()}")
   print(f"grasp     {np.round(grasp[:3, 3], 3).tolist()}")
   pairs = [("gripper", "printer")] if args.allow_contact else None
+  gripper = PinchGripper(
+    solution=solution,
+    config=GripperConfig(type="pinch", resource_name="gripper"),
+  )
   steps = [
+    gripper.build_open_task(name="open the gripper"),
     robot.build_move_cartesian_task(
       "door_pregrasp", "root", "ANY", excluded_collision_pairs=pairs
     ),
@@ -328,6 +334,9 @@ def pull(solution, args) -> None:
     )
     if not ok:
       break
+  if args.hold:
+    print("holding the handle (--hold)")
+    return
   run(gripper.build_open_task(name="release"))
   set_frame(
     world, "door_retreat", root_t_printer @ grasp_matrix(theta, args.pregrasp_m)
