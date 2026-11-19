@@ -28,10 +28,10 @@ Reads configs/rebot/cell_params.yaml (flags override it) and writes to --out:
 It checks the values first (research/tools/cell_checks.py), and refuses to write
 if they fail, unless --force. Then it prints the commands to apply them.
 
-With --apply, the printer, the camera mount, the view and A's frames are set on
-the running cell by the `ai.omts.configure_cell` skill (skills/cell/) instead,
-in one update, and cell.updates.pbtxt holds only the rest (the target on the
-bed and the parked parts), which still goes through apply_scene_updates.
+With --apply, everything in cell.updates.pbtxt is set on the running cell by
+the `ai.omts.configure_cell` skill (skills/cell/) instead, in one update, and in
+simulation Gazebo is brought to it: no file is written but app_config.yaml, and
+no apply_scene_updates is needed. The checks run first, on the host.
 
   bazel run //research/tools:configure_cell -- --out /tmp/cell
   bazel run //research/tools:configure_cell -- --out /tmp/cell \\
@@ -92,28 +92,62 @@ def _app_config(name: str, target: dict, return_x: float) -> str:
   return config
 
 
-def _apply(address: str, distance: float, offset, tilt, half_height) -> None:
-  """Sets the printer, the camera mount, the view and A's frames with the
-  cluster's `configure_cell` skill, in one world update."""
+def _apply(
+  address: str,
+  distance: float,
+  offset,
+  tilt,
+  target_name: str,
+  half_height: float,
+  lying: bool,
+  others,
+) -> None:
+  """Sets the printer, the camera mount, the view, A's frames, the part on the
+  bed and the parked parts with the cluster's `configure_cell` skill, in one
+  world update, and in simulation brings Gazebo to that world."""
   from intrinsic.math.proto import point_pb2
   from intrinsic.solutions import behavior_tree as bt
-  from intrinsic.solutions import deployments
+  from intrinsic.solutions import deployments, worlds
 
   from skills.cell import configure_cell_pb2
+
+  def point(v):
+    return point_pb2.Point(x=v[0], y=v[1], z=v[2])
 
   solution = deployments.connect(address=address)
   action = solution.skills.ai.omts.configure_cell(
     printer_distance_m=distance,
-    camera_offset_m=point_pb2.Point(x=offset[0], y=offset[1], z=offset[2]),
+    camera_offset_m=point(offset),
     drop_off=configure_cell_pb2.DropOff(
       approach_tilt_degrees=tilt,
       radius_m=part_trial.A_RADIUS,
       bearing_degrees=part_trial.A_BEARING,
       part_half_height_m=half_height,
     ),
+    target=configure_cell_pb2.Target(
+      object_name=target_name,
+      bed_top_in_printer_m=point(cell.bed_top_local()),
+      part_half_height_m=half_height,
+      lying=lying,
+    ),
+    parked=[
+      configure_cell_pb2.ParkedObject(object_name=n, position_m=point(position))
+      for n, position in part_trial.parking_positions(others).items()
+    ],
   )
   solution.executive.run(bt.Task(action=action, name="Configure the cell"))
-  print(f"Applied the printer, camera mount, view and A's frames on {address}")
+  print(f"Applied the cell on {address}")
+  if solution.is_simulated:
+    # Gazebo changes only when the simulation is brought to the belief world,
+    # which starting an operation from it does.
+    solution.executive.run(
+      bt.BehaviorTree(
+        name="Bring the simulation to the belief world",
+        root=bt.Sequence(children=[]),
+      ),
+      start_from_world_state=worlds.EditWorldId.BELIEF,
+    )
+    print("The simulation now matches")
 
 
 def main() -> None:
@@ -137,9 +171,8 @@ def main() -> None:
   parser.add_argument(
     "--apply",
     action="store_true",
-    help="set the printer, camera mount, view and A's frames with the "
-    "configure_cell skill on the running cell, and leave them out of "
-    "cell.updates.pbtxt",
+    help="set the cell with the configure_cell skill on the running cell "
+    "instead of writing cell.updates.pbtxt, and sync the simulation",
   )
   parser.add_argument("--address", default="localhost:17080")
   parser.add_argument(
@@ -192,57 +225,65 @@ def main() -> None:
   flange_t_cam = cell.object_pose(
     cell.CONFIGS / "orbbec_gemini.updates.pbtxt", "orbbec_camera"
   )
-  frames = (
-    {}
-    if args.apply
-    else {
-      "view": view,
-      **a_frames.frames(
-        tilt,
-        part_trial.A_RADIUS,
-        part_trial.A_BEARING,
-        half_height=half_height,
-      ),
-    }
-  )
+  frames = {
+    "view": view,
+    **a_frames.frames(
+      tilt,
+      part_trial.A_RADIUS,
+      part_trial.A_BEARING,
+      half_height=half_height,
+    ),
+  }
   others = [n for n in library if n != name]
   if args.no_test_parts:
     others = [n for n in others if n == "rebot_printed_part"]
   args.out.mkdir(parents=True, exist_ok=True)
+  (args.out / "app_config.yaml").write_text(_app_config(name, target, bed[0]))
+  out = args.out.resolve()
+
+  if args.apply:
+    _apply(
+      args.address,
+      distance,
+      offset,
+      tilt,
+      name,
+      half_height,
+      lying,
+      others,
+    )
+    print(f"""The app's config for this target is in {out}/app_config.yaml.
+Nothing is left to apply by hand. From the repository root:
+
+bazel run //src:omts_app -- --address=localhost:17080 \\
+  --config={out}/app_config.yaml --num_cycles=1""")
+    return
+
   (args.out / "cell.updates.pbtxt").write_text(
     part_trial.HEADER
     + f"\n# Printer at {distance} m, camera at {offset}, target {name}.\n\n"
-    + (
-      ""
-      if args.apply
-      else _pose_update(
-        '{ object { object_name: "root" } }',
-        "printer",
-        printer[:3, 3],
-        cell.quat(printer[:3, :3]),
-      )
-      + _pose_update(
-        '{ frame { object_name: "rebot" frame_name: "flange" } }',
-        "orbbec_camera",
-        offset,
-        cell.quat(flange_t_cam[:3, :3]),
-      )
+    + _pose_update(
+      '{ object { object_name: "root" } }',
+      "printer",
+      printer[:3, 3],
+      cell.quat(printer[:3, :3]),
+    )
+    + _pose_update(
+      '{ frame { object_name: "rebot" frame_name: "flange" } }',
+      "orbbec_camera",
+      offset,
+      cell.quat(flange_t_cam[:3, :3]),
     )
     + part_trial._place(name, on_bed)
     + part_trial.parked(others)
     + "".join(part_trial._frame(n, t) for n, t in frames.items())
   )
-  (args.out / "app_config.yaml").write_text(_app_config(name, target, bed[0]))
   chosen = library if args.register_all else {name: target}
   (args.out / "register.sh").write_text(
     "#!/bin/bash\n# Run from the repository root, once per deploy.\nset -e\n"
     + "".join(_register(n, t) for n, t in chosen.items())
   )
 
-  if args.apply:
-    _apply(args.address, distance, offset, tilt, half_height)
-
-  out = args.out.resolve()
   print(f"""Written to {out}. From the repository root:
 
 bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \\

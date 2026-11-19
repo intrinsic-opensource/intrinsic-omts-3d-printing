@@ -8,7 +8,7 @@ plan against it when that branch merges. The overall project plan is
 [`HANDOFF.md`](HANDOFF.md); the way of working (spiral, a demo per step) is in
 `CLAUDE.md`.
 
-Status (2026-11-19): **C1, C2, C4a and C4b done; C3 explored and paused; C4c is next.**
+Status (2026-11-19): **C1, C2 and C4 done; C3 explored and paused.** The cluster-native steps that were not paused are finished.
 
 ---
 
@@ -31,7 +31,7 @@ installed assets.
 | D1 | The orchestrator is a host process: it builds one `BehaviorTree` in Python and calls `executive.run`. Nothing is stored on the solution. | `src/main.py`, `src/behaviors/`, `src/hardware/` | Not startable from Flowstate; a host crash or disconnect ends the run. |
 | D2 | Grasp planning is a `PythonScript` shipped into the executive; it edits the world directly and has no typed interface. | `src/utils/dynamic_frame_calculator.py`, `src/hardware/vision.py` | The grasp rule exists twice (`research/tools/cuboid_sweep.py` reimplements it, "keep them in step"). Cannot import `src.*`. |
 | D3 | Pose-estimator registration is a manual host step, repeated after every deploy (a deploy removes it). | `research/REBOT_OMTS_APP.md` quick start step 4, `configure_cell`'s `register.sh` | The cell is unusable after a deploy until someone runs a script (about a minute). The estimator id and threshold are copied by hand into three places. |
-| D4 | Cell parameters (printer distance, camera offset, target) live in host files and are applied by a host script. | `configs/rebot/cell_params.yaml`, `targets.yaml`, `research/tools/configure_cell.py` | Changing the cell means generating a pbtxt, an `app_config` copy and a shell script, then applying them from a checkout. |
+| D4 | Cell parameters (printer distance, camera offset, target) live in host files and are applied by a host script. **Closed by C4**: `configure_cell --apply` sets them on the cluster in one call. | `configs/rebot/cell_params.yaml`, `targets.yaml`, `research/tools/configure_cell.py` | Changing the cell means generating a pbtxt, an `app_config` copy and a shell script, then applying them from a checkout. |
 | D5 | World edits and simulation resets come from a host tool. | `tools/world/apply_scene_updates.py` | Dev tooling, but the only way runtime parameters change. |
 | D6 | Readiness checks, the Gazebo GUI and pose recording use `kubectl` and cluster-internal addresses. | `research/REBOT_OMTS_APP.md`, `research/tools/release_drift.py` | Operational, not architectural. |
 | D7 | No in-tree skill source to copy from: `omts_solution`'s custom skills (`hand_e_gripper_cmd`, `moveit_plan_grasp`) are prebuilt release bundles. | `BUILD`, `bazel/gh_release.bzl` | Step 1 below has to establish the pattern (proto, manifest, `py_skill`, tests). |
@@ -206,7 +206,7 @@ date. The normalized manifest was deployed and ran as before.
   version; the process's parameter interface (cell and frame names as
   parameters) and a repeat count.
 
-### Step C4: Cell configuration in the cluster (fixes D4) — C4a, C4b DONE 2026-11-19
+### Step C4: Cell configuration in the cluster (fixes D4) — DONE 2026-11-19 (C4a, C4b, C4c)
 
 **Scope, decided on 2026-11-19:** an *apply-only* skill. The checks
 (`research/tools/cell_checks.py`: reach, clearance, IK sweeps) are design-time
@@ -257,13 +257,36 @@ tool or inside a tree.
   decimals, the skill the exact values). A full cycle then ran (63 s).
   `tests/unit/test_configure_cell.py` covers moved frames, created frames,
   custom names and depth, one update with the printer group, and the bounds.
-* **C4c: the target.** Place a named object on the bed centre at its resting
-  pose (flat or lying), and park the others. It needs the bed's centre, which
-  the file tool reads from `models/printer/heatbed.obj`; a named frame on the
-  printer in the world would let the skill read it instead.
-* **Can it change the grasp target later?** In the world, yes, from C4b and C4c:
+* **C4c (done): the target and the parked parts.** The `target` group puts a
+  named object on the bed at its resting pose (upright, or lying with its model
+  z along the world x axis), and `parked` puts other objects at given places.
+  The bed comes from a **parameter**, `bed_top_in_printer_m`: the centre of the
+  heatbed's top surface in the printer's frame (the host tool reads it from
+  `models/printer/heatbed.obj` and passes it). The skill combines it with the
+  printer's pose, which it reads or sets in the same call, so a printer move
+  carries the part with it. Each object is reparented to the parent first, so a
+  part left in the gripper by a failed run is freed. The parking places are the
+  tool's convention (`part_trial.parking_positions`), not the skill's. All of it
+  is in the same single update as the other groups.
+* **`configure_cell --apply` now needs no file and no `apply_scene_updates`.**
+  It runs the host checks, calls the skill with every group, and in simulation
+  brings Gazebo to the belief world by starting a trivial operation with
+  `start_from_world_state=BELIEF` (the platform's own way, instead of
+  `apply_scene_updates --reset_sim`). The only file left is `app_config.yaml`,
+  because the tree's ids and the return area are fixed when `omts_app` builds it.
+  File mode is byte-identical to before.
+* **Result** (k3s, sim): one `--apply` call (20 s) moved the printer to 0.62 m
+  and the camera to (0.09, -0.024, 0.10); the part's pose matches the host file's
+  (0.59049, 0.00001, 0.15843 against 0.5905, 0, 0.1584), and a full cycle then
+  ran in the moved cell (61 s), with the part returned near the new bed centre.
+  Setting the defaults back through the skill returned the printer, part, A's
+  frames and view to the baseline within 0.03 mm (the committed files' rounding).
+  Not tried: a control run without the simulator sync, and a target other than
+  the default part (the test parts need a `--//:test_parts` deploy; their
+  placement is covered by the unit tests, including the lying orientation).
+* **Can it change the grasp target later?** In the world, yes (C4b and C4c):
   a call between cycles can move A's frames for a part of another height and
-  put another object on the bed. What it cannot change is what the *built
+  put another object on the bed (both done). What it cannot change is what the *built
   tree* looks for: `omts_app` fixes the part's object, scene-object id, pose
   estimator and the return area's centre when it builds the tree
   (`vision.*`, `cycle.workpiece_id`, `cycle.return_shift`). A new part needs a
@@ -271,8 +294,8 @@ tool or inside a tree.
   today, or a tree that reads those from the blackboard, as the print flow does
   (`ai.omts.register_pose_estimator`'s `return_value_key` and one world
   object per cycle). That is a separate step.
-* Not covered: the checks run in the skill, and `cell_params.yaml` as a source
-  for it (the tool still reads it for `--apply`).
+* Not covered: the checks run in the skill (they stay a host tool), and
+  `cell_params.yaml` as a source for it (the tool still reads it for `--apply`).
 
 ### Stays on the host (D5, D6)
 

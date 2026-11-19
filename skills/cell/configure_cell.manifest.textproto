@@ -18,7 +18,7 @@
 id { package: "ai.omts" name: "configure_cell" }
 display_name: "Configure cell"
 vendor { display_name: "OMTS" }
-documentation { description: "Changes the cell in the live world: moves the printer and the wrist camera, and the view frame with them so the camera still sees the printer as before, and sets the frames where the part is set down on the ground (A). Every group is optional. Applies the change in one update, so it all happens or none of it. Changes the belief world only; Gazebo follows after a simulation reset." }
+documentation { description: "Changes the cell in the live world: moves the printer and the wrist camera, and the view frame with them so the camera still sees the printer as before, sets the frames where the part is set down on the ground (A), puts a part on the bed and parks other objects. Every group is optional. Applies the change in one update, so it all happens or none of it. Changes the belief world only; Gazebo follows after a simulation reset." }
 options {
   supports_cancellation: false
   execution_timeout { seconds: 30 }

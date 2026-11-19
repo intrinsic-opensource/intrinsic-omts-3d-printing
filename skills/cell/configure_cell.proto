@@ -43,6 +43,32 @@ message DropOff {
   optional string approach_frame = 8;  // default "machine_approach"
 }
 
+// The part that is put on the printer's bed, at its resting pose: upright, or on
+// its side with its model z along the world x axis. It is moved there from
+// wherever it is, including off the robot's gripper (it is reparented to
+// `parent_object`).
+message Target {
+  // The part's world object.
+  string object_name = 1;
+  // The centre of the heatbed's top surface, in the printer's frame, in metres
+  // (`models/printer/heatbed.obj`: (0.006, 0.030, 0.143) for the Prusa Core
+  // One model). With the printer's pose in the world, which the skill reads or
+  // sets in the same call, it gives where the bed is.
+  intrinsic_proto.Point bed_top_in_printer_m = 2;
+  // The part's centre's height above the bed when it rests: half its height, or
+  // half its width when it lies.
+  double part_half_height_m = 3;
+  // On its side, model z along the world x axis; default false (upright).
+  optional bool lying = 4;
+}
+
+// An object put at a place in `parent_object`, upright, at its identity
+// rotation: parts that are not in use are parked off to the side.
+message ParkedObject {
+  string object_name = 1;
+  intrinsic_proto.Point position_m = 2;
+}
+
 // Changes the cell in the live world: the printer and the wrist camera (with the
 // `view` frame, so the camera still sees the printer as before), and A's
 // frames. Every group is optional; one that is left out stays as it is.
@@ -73,6 +99,12 @@ message ConfigureCellParams {
 
   // Sets A's frames, for a part of a given height.
   optional DropOff drop_off = 12;
+
+  // Puts a part on the bed, and parks other objects. The bed is where the
+  // printer is after this call, so a printer move in the same call carries the
+  // part with it.
+  optional Target target = 13;
+  repeated ParkedObject parked = 14;
 }
 
 message ConfigureCellResult {
@@ -85,4 +117,6 @@ message ConfigureCellResult {
   intrinsic_proto.Pose parent_t_place = 4;
   intrinsic_proto.Pose parent_t_pre_place = 5;
   intrinsic_proto.Pose parent_t_approach = 6;
+  // The part on the bed, in `parent_object`; unset if there is no `target`.
+  intrinsic_proto.Pose parent_t_part = 7;
 }

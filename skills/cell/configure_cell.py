@@ -21,6 +21,9 @@ printer moves (the camera follows it by the same distance) and when the mount
 changes (the arm's pose for `view` is solved again). It changes the belief
 world only, in one `UpdateWorldResources` call, and cannot be previewed.
 
+The target and the parked objects are reparented to the parent and placed, in
+the same update; the bed is where the printer is after the call.
+
 A's frames (`drop_off`) come from `src/core/drop_off.py`, plain geometry that a
 test keeps equal to `research/tools/a_frames.py`.
 
@@ -52,6 +55,11 @@ _MAX_CAMERA_OFFSET_M = 0.5
 _MAX_DROP_OFF_RADIUS_M = 2.0
 _MAX_PART_HALF_HEIGHT_M = 0.25
 _MAX_GRASP_DEPTH_M = 0.1
+_MAX_BED_OFFSET_M = 0.5
+_MAX_PARKING_DISTANCE_M = 3.0
+# A part on its side: model z along the world x axis, a quarter turn about y.
+_LYING = (0.0, math.sqrt(0.5), 0.0, math.sqrt(0.5))
+_UPRIGHT = (0.0, 0.0, 0.0, 1.0)
 
 
 def _optional(params, field, default):
@@ -106,6 +114,30 @@ def _create_frame(parent_name: str, frame_name: str, parent_t_frame):
             object_name=parent_name
           )
         )
+      ),
+    )
+  )
+
+
+def _reparent(object_name: str, parent_name: str):
+  """Makes the object a child of the parent, so it is not carried by whatever it
+  was attached to."""
+  return object_world_updates_pb2.ObjectWorldUpdate(
+    reparent_object=object_world_updates_pb2.ReparentObjectRequest(
+      object=object_world_refs_pb2.ObjectReference(
+        by_name=object_world_refs_pb2.ObjectReferenceByName(
+          object_name=object_name
+        )
+      ),
+      parent_object=object_world_refs_pb2.ObjectReferenceWithEntityFilter(
+        reference=object_world_refs_pb2.ObjectReference(
+          by_name=object_world_refs_pb2.ObjectReferenceByName(
+            object_name=parent_name
+          )
+        ),
+        entity_filter=object_world_refs_pb2.ObjectEntityFilter(
+          include_base_entity=True
+        ),
       ),
     )
   )
@@ -211,6 +243,8 @@ class ConfigureCell(skill_interface.Skill):
     drop = params.drop_off if params.HasField("drop_off") else None
     if drop is not None:
       self._check_drop_off(drop)
+    target = params.target if params.HasField("target") else None
+    self._check_placements(target, params.parked)
 
     world = context.object_world
     parent = _node(world, parent_name, "Parent object")
@@ -296,6 +330,47 @@ class ConfigureCell(skill_interface.Skill):
 
     if drop is not None:
       self._drop_off_updates(parent, parent_name, drop, updates, result)
+    if target is not None or params.parked:
+      for name in [target.object_name] if target is not None else []:
+        _node(world, name, "Part object")
+      for parked in params.parked:
+        _node(world, parked.object_name, "Parked object")
+    if target is not None:
+      # The bed is where the printer is after this call.
+      bed = new_parent_t_printer * _unit_pose(
+        (
+          target.bed_top_in_printer_m.x,
+          target.bed_top_in_printer_m.y,
+          target.bed_top_in_printer_m.z,
+        ),
+        _UPRIGHT,
+      )
+      position = bed.translation
+      part = _unit_pose(
+        (
+          float(position[0]),
+          float(position[1]),
+          float(position[2]) + target.part_half_height_m,
+        ),
+        _LYING if _optional(target, "lying", False) else _UPRIGHT,
+      )
+      updates.append(_reparent(target.object_name, parent_name))
+      updates.append(
+        _update(_object_ref(parent_name), _object_ref(target.object_name), part)
+      )
+      result.parent_t_part.CopyFrom(math_proto_conversion.pose_to_proto(part))
+    for parked in params.parked:
+      updates.append(_reparent(parked.object_name, parent_name))
+      updates.append(
+        _update(
+          _object_ref(parent_name),
+          _object_ref(parked.object_name),
+          _unit_pose(
+            (parked.position_m.x, parked.position_m.y, parked.position_m.z),
+            _UPRIGHT,
+          ),
+        )
+      )
 
     if updates:
       world.batch_update(
@@ -312,6 +387,45 @@ class ConfigureCell(skill_interface.Skill):
       "moved" if result.HasField("parent_t_view") else "kept",
     )
     return result
+
+  @staticmethod
+  def _check_placements(target, parked) -> None:
+    names = [p.object_name for p in parked]
+    if target is not None:
+      names.append(target.object_name)
+      if not 0.0 < target.part_half_height_m <= _MAX_PART_HALF_HEIGHT_M:
+        raise skill_interface.SkillError(
+          INVALID_INPUT,
+          f"target.part_half_height_m {target.part_half_height_m} is outside "
+          f"(0, {_MAX_PART_HALF_HEIGHT_M}] m (half the part's height)",
+        )
+      bed = target.bed_top_in_printer_m
+      if not target.HasField("bed_top_in_printer_m") or any(
+        not math.isfinite(v) or abs(v) > _MAX_BED_OFFSET_M
+        for v in (bed.x, bed.y, bed.z)
+      ):
+        raise skill_interface.SkillError(
+          INVALID_INPUT,
+          "target.bed_top_in_printer_m must be set, with each component "
+          f"within {_MAX_BED_OFFSET_M} m (the heatbed's top centre in the "
+          "printer's frame)",
+        )
+    for p in parked:
+      pos = p.position_m
+      if any(
+        not math.isfinite(v) or abs(v) > _MAX_PARKING_DISTANCE_M
+        for v in (pos.x, pos.y, pos.z)
+      ):
+        raise skill_interface.SkillError(
+          INVALID_INPUT,
+          f"parked '{p.object_name}' has a position over "
+          f"{_MAX_PARKING_DISTANCE_M} m",
+        )
+    if not all(names) or len(set(names)) != len(names):
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        "target and parked objects need different, non-empty names",
+      )
 
   @staticmethod
   def _check_drop_off(drop) -> None:

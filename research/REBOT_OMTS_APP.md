@@ -295,12 +295,22 @@ bazel run //src:omts_app -- --address=localhost:17080 \
   --config=/tmp/cell/app_config.yaml --num_cycles=1
 ```
 
-With `--apply`, the printer, the camera mount, the view and A's frames are set on
-the running cell by the `ai.omts.configure_cell` skill (`skills/cell/`), in one
-update, and `cell.updates.pbtxt` holds only the rest (the target on the bed and
-the parked parts), which still goes through `apply_scene_updates` as above. The skill
-changes the belief world; Gazebo follows after the `--reset_sim`. It moves the
-view with the printer and the mount so the camera sees the bed as before.
+With `--apply`, the whole change is made on the running cell by the
+`ai.omts.configure_cell` skill (`skills/cell/`), in one update: the printer, the
+camera mount, the view (so the camera sees the bed as before), A's frames, the
+part on the bed and the parked parts. In simulation it also brings Gazebo to
+that world. Nothing is written but `app_config.yaml`, and there is no
+`apply_scene_updates` or `register.sh` step:
+
+```bash
+bazel run //research/tools:configure_cell -- --out /tmp/cell --apply \
+  --printer_distance 0.62 --camera_offset 0.09 -0.024 0.10
+bazel run //src:omts_app -- --address=localhost:17080 \
+  --config=/tmp/cell/app_config.yaml --num_cycles=1
+```
+
+The checks run first, on the host. `app_config.yaml` is still a file because the
+tree's part and return area are fixed when `omts_app` builds it.
 
 It refuses values that fail its checks (`--force` writes them anyway). The limits
 are in `HANDOFF.md`, section 5d: printer 0.44 to 0.76 m; camera x 0.07 to 0.13, y
