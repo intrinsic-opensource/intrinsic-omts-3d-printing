@@ -8,7 +8,8 @@ plan against it when that branch merges. The overall project plan is
 [`HANDOFF.md`](HANDOFF.md); the way of working (spiral, a demo per step) is in
 `CLAUDE.md`.
 
-Status: **analysis only, nothing implemented.**
+Status (2026-11-19): **analysis done; C3 explored and paused; C1 is next.**
+Nothing in the plan is implemented on this branch.
 
 ---
 
@@ -42,7 +43,7 @@ Each step ends in a demo and leaves the `omts` and `lab_bb_01` cells building
 (`CLAUDE.md`). New behavior goes alongside the old, behind config, until it is
 proven.
 
-### Step C1: `register_pose_estimator` skill (fixes D3, sets the pattern for D7)
+### Step C1: `register_pose_estimator` skill (fixes D3, sets the pattern for D7) — NEXT
 
 * New package `skills/perception/` with the proto, manifest, `py_skill` target
   and an `absltest` test, and a `//skills/perception:register_pose_estimator_skill`
@@ -79,17 +80,85 @@ proven.
   keep those (in the skill, or as a separate small node) so behavior stays the
   same.
 
-### Step C3: Pick cycle as a process asset (fixes D1)
+### Step C3: Pick cycle as a process asset (fixes D1) — PAUSED
 
-* Save the tree `omts_app` builds as a process on the solution
-  (`solution.processes`; `ProcessAsset` in intrinsic-core), with the cell's
-  frame and object names as parameters, started from Flowstate or by a thin
-  `omts_app --run_process` call.
+**Paused on 2026-11-19 in favor of C1.** OMTS uses no processes today, and
+what a process buys (starting the cycle from Flowstate, a cycle that does not
+depend on a host process) is not needed yet; C1 and C2 fix more for less. What
+was learned is below, and the code is kept off this branch: the
+`intrinsic_process` Bazel rule, the manifest export tool and a feature request
+for Intrinsic are on `feat/process-asset-rule`. Pick C3 up again when
+starting from Flowstate matters, and choose then between shipping the manifest
+with the solution (needs that rule) and storing the tree again after each
+deploy (no rule, but a manual step like the registration C1 removes).
+
+* Keep the tree's shape: the Python builders and `app_config.yaml` stay the
+  source of truth (a solution ships one cell's tree, as `//:setup` already
+  chooses one cell). Only the destination changes: the tree is stored on the
+  solution as a process instead of being run once as an operation. Started
+  from Flowstate, or by a thin `omts_app --run_process` call.
 * Needs C1 and C2 first, so the process holds no host-side steps.
-* To check first: that the pinned intrinsic-core builds a process asset from
-  Bazel (only `process_asset.proto` and the `solution.processes` provider were
-  found), and how parameters and loops (`num_cycles`) are expressed.
+* Parameters (the cell's frame and object names) and loops (`num_cycles`) are
+  still to check.
 * **Demo:** run a cycle from Flowstate with the host disconnected.
+
+**Checked on 2026-11-19** (k3s, pinned intrinsic-core, with throwaway scripts
+that are not kept):
+
+* SBL stores a Python-built tree as an installed Process asset with
+  `tree.set_asset_metadata(id=..., vendor=..., subprocess=True)` and
+  `solution.processes.save(tree)`. It shows in `solution.processes`, and
+  `executive.run(solution.processes[id])` runs it. No Bazel needed.
+* **A deploy removes it.** After `bazel run //:rebot_solution` the stored
+  process was gone, like `rs-prusalink` and the pose-estimator registration:
+  a deploy uninstalls installed assets the solution does not declare. So a
+  tree stored after deploy has to be stored again after every deploy.
+* **A process the solution declares survives and runs.** intrinsic-core has no
+  Bazel rule for processes, so a prototype (`intrinsic_process`, branch
+  `feat/process-asset-rule`; a feature request for Intrinsic) bundled a
+  checked-in manifest of a do-nothing tree. Declared in `rebot_solution`'s
+  assets, the deploy installed it (`ai.omts.probe_process`), and it ran.
+* **The catch:** the manifest must be checked in, but the SBL builders need a
+  connected solution to resolve skills, so a hermetic Bazel build cannot
+  generate it. It has to be exported from a deployed solution.
+
+**The export route, tried the same day** (the real cell tree, built by
+`omts_app`'s own code against the cluster):
+
+* `inctl process get <id>` exports the tree as a `ProcessManifest` textproto
+  (915 lines for the reBot cycle), but **only as text**: `--process_format
+  binaryproto` is refused for process assets. The text holds the
+  `PythonScript` node's parameters as an expanded `Any` of a generated type
+  (`gen.sbl_<hash>.Params`) that exists only in the cluster's proto registry, so
+  a plain textproto parser cannot read it back ("Type ... not found in
+  descriptor pool"). Checking the text in is therefore not enough.
+* Building the manifest from SBL instead works: `solution.processes[id]` gives
+  the tree and its asset metadata, and a `ProcessManifest` written as a **binary
+  proto** (29 KB) keeps the script's parameters packed. The prototype's bundler
+  now reads `.binpb` as well as text.
+* With that binary manifest declared in `rebot_solution`'s assets, a deploy
+  installed the real cell tree, and `executive.run(solution.processes[id])`
+  started it on the executive. It got through the arm moves and into the
+  perception `Retry` before failing at `estimate_pose_multi_view` ("no healthy
+  upstream"): that deploy had no pose-estimator models
+  (`--//:perception_models`) and nothing registered. So the bundle and the tree
+  execute from storage; **a full cycle from a stored process is not yet run.**
+* So the route is: a host tool builds the tree with the cell's config, writes the
+  binary manifest to a file in the repo, and `intrinsic_process` bundles it into
+  the solution. The file must be rebuilt when the config or the builders
+  change.
+
+**The export tool** is on `feat/process-asset-rule` (`tools/cell_process/
+export_cell_process.py`, with a `build_tree()` split out of `src/main.py` that
+`omts_app` shares). It builds the cell's tree against a deployment without
+running it and writes the binary manifest. SBL names the tree, generated
+blackboard keys and a script node's parameter package with `uuid4`, so the
+tool replaces each distinct id with a same-length token; two builds are then
+byte-identical, and `--check` says whether a checked-in manifest is out of
+date. The normalized manifest was deployed and ran as before.
+* Not checked: a full cycle with the models and registration; a process
+  version; the process's parameter interface (cell and frame names as
+  parameters) and a repeat count.
 
 ### Step C4: Cell configuration in the cluster (fixes D4)
 
@@ -108,8 +177,8 @@ READMEs that they are not part of the deployed cell.
 
 ## 4. Open questions
 
-1. Does the pinned Intrinsic Core build a process asset from Bazel, and can a
-   process take parameters and a repeat count?
+1. Can a process take parameters and a repeat count? (Intrinsic Core has no
+   Bazel rule for processes; see step C3 for what was tried.)
 2. Should a skill write the grasp frames, or return them for `update_world`?
 3. Is it worth moving the vision and robot adapters' trees into processes
    (one per subtree), or is one cycle process enough?
