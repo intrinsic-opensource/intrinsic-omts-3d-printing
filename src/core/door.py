@@ -31,6 +31,9 @@ HINGE_IN_PRINTER: Vec = (0.174, 0.205, 0.279)
 # Hinge joint limits, radians.
 Q_LOWER = 0.0
 Q_UPPER = 3.14159
+# The clip housing (models/printer/3d_printer.sdf) is inserted in the handle; a
+# ball sits in its pocket on the ball joint clip_ball. Ball centre, door frame.
+BALL_POS: Vec = (-0.347, 0.0185, -0.079)
 # Faces of the pane in the door frame (outer faces the robot).
 OUTER_FACE_Y = 0.0075
 INNER_FACE_Y = 0.0025

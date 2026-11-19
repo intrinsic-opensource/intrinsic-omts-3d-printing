@@ -65,6 +65,9 @@ sdf_scene_object(
         "aruco_2.glb",
         "aruco_3.glb",
     ],
+    # The ball joint (clip_ball) is stored in the scene object's user data as a
+    # google.protobuf.Struct, whose descriptor the conversion must be given.
+    deps = ["@com_google_protobuf//:struct_proto"],
 )
 
 intrinsic_scene_object(

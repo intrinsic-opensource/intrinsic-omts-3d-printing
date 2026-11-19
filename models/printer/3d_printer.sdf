@@ -221,6 +221,91 @@
     <geometry><mesh><uri>aruco_3.glb</uri></mesh></geometry>
   </visual>
 
+  <!-- Clip housing: a solid block inserted in the handle, with a ball-shaped
+       pocket and a square slot in its top (src/core/door.py BALL_POS). Part of
+       the door, so it turns with it. -->
+  <visual name="housing_base_v">
+    <pose>-0.34700 0.01850 -0.11400 0 0 0</pose>
+    <geometry><box><size>0.03600 0.03600 0.04300</size></box></geometry>
+    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
+  </visual>
+  <collision name="housing_base_c">
+    <pose>-0.34700 0.01850 -0.11400 0 0 0</pose>
+    <geometry><box><size>0.03600 0.03600 0.04300</size></box></geometry>
+  </collision>
+  <visual name="housing_wall_left_v">
+    <pose>-0.36275 0.01850 -0.07900 0 0 0</pose>
+    <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
+    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
+  </visual>
+  <collision name="housing_wall_left_c">
+    <pose>-0.36275 0.01850 -0.07900 0 0 0</pose>
+    <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
+  </collision>
+  <visual name="housing_wall_right_v">
+    <pose>-0.33125 0.01850 -0.07900 0 0 0</pose>
+    <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
+    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
+  </visual>
+  <collision name="housing_wall_right_c">
+    <pose>-0.33125 0.01850 -0.07900 0 0 0</pose>
+    <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
+  </collision>
+  <visual name="housing_wall_front_v">
+    <pose>-0.34700 0.00275 -0.07900 0 0 0</pose>
+    <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
+    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
+  </visual>
+  <collision name="housing_wall_front_c">
+    <pose>-0.34700 0.00275 -0.07900 0 0 0</pose>
+    <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
+  </collision>
+  <visual name="housing_wall_back_v">
+    <pose>-0.34700 0.03425 -0.07900 0 0 0</pose>
+    <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
+    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
+  </visual>
+  <collision name="housing_wall_back_c">
+    <pose>-0.34700 0.03425 -0.07900 0 0 0</pose>
+    <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
+  </collision>
+  <visual name="housing_top_left_v">
+    <pose>-0.35988 0.01850 -0.06300 0 0 0</pose>
+    <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
+    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
+  </visual>
+  <collision name="housing_top_left_c">
+    <pose>-0.35988 0.01850 -0.06300 0 0 0</pose>
+    <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
+  </collision>
+  <visual name="housing_top_right_v">
+    <pose>-0.33412 0.01850 -0.06300 0 0 0</pose>
+    <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
+    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
+  </visual>
+  <collision name="housing_top_right_c">
+    <pose>-0.33412 0.01850 -0.06300 0 0 0</pose>
+    <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
+  </collision>
+  <visual name="housing_top_front_v">
+    <pose>-0.34700 0.00562 -0.06300 0 0 0</pose>
+    <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
+    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
+  </visual>
+  <collision name="housing_top_front_c">
+    <pose>-0.34700 0.00562 -0.06300 0 0 0</pose>
+    <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
+  </collision>
+  <visual name="housing_top_back_v">
+    <pose>-0.34700 0.03138 -0.06300 0 0 0</pose>
+    <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
+    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
+  </visual>
+  <collision name="housing_top_back_c">
+    <pose>-0.34700 0.03138 -0.06300 0 0 0</pose>
+    <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
+  </collision>
+
   <collision name="door_pane_col">
     <pose>-0.174 0.005 0.02 0 0 0</pose>
     <geometry><box><size>0.360 0.005 0.460</size></box></geometry>
@@ -263,5 +348,30 @@
     <frame name="aruco_3" attached_to="door_link" intrinsic:create_entity="true">
       <pose relative_to="door_link">-0.065 0.0025 0.2 -1.570796 -0.000000 0.000000</pose>
     </frame>
+  
+    <!-- A ball in the housing's pocket, free to rotate there. A ball joint
+         (kept as a real ball joint in Gazebo, fixed in the belief world). -->
+    <link name="ball_link">
+      <pose relative_to="door_link">-0.347 0.0185 -0.079 0 0 0</pose>
+      <inertial>
+        <mass>0.1</mass>
+        <inertia>
+          <ixx>0.000006</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>0.000006</iyy><iyz>0</iyz><izz>0.000006</izz>
+        </inertia>
+      </inertial>
+      <visual name="ball_v">
+        <geometry><sphere><radius>0.012</radius></sphere></geometry>
+        <material><ambient>0.2 0.8 1.0 1</ambient><diffuse>0.2 0.8 1.0 1</diffuse></material>
+      </visual>
+      <collision name="ball_c">
+        <geometry><sphere><radius>0.012</radius></sphere></geometry>
+      </collision>
+    </link>
+
+    <joint name="clip_ball" type="ball">
+      <parent>door_link</parent>
+      <child>ball_link</child>
+    </joint>
   </model>
 </sdf>

@@ -93,6 +93,18 @@ class DoorModelTest(absltest.TestCase):
 
 
 class SdfFramesTest(absltest.TestCase):
+  def test_clip_ball_matches_the_model(self):
+    text = pathlib.Path("models/printer/3d_printer.sdf").read_text()
+    link = re.search(
+      r'<link name="ball_link">\s*<pose relative_to="door_link">([^<]*)</pose>',
+      text,
+    )
+    v = [float(x) for x in link.group(1).split()]
+    for a, b in zip(v[:3], door.BALL_POS, strict=True):
+      self.assertAlmostEqual(a, b, places=6)
+    self.assertIn('<joint name="clip_ball" type="ball">', text)
+    self.assertIn('name="housing_base_c"', text)
+
   """The SDF's door frames are the ones door.py predicts."""
 
   def test_marker_frames_match_the_model(self):
