@@ -4,6 +4,6 @@
 updates {
   update_object_joints {
     object { by_name { object_name: "printer" } }
-    joint_positions: 3.141596
+    joint_positions: 3.14159
   }
 }

@@ -75,6 +75,12 @@ py_binary(
 )
 
 py_binary(
+    name = "door_angle",
+    srcs = ["door_angle.py"],
+    main = "door_angle.py",
+)
+
+py_binary(
     name = "cuboid_sweep",
     srcs = ["cuboid_sweep.py"],
     main = "cuboid_sweep.py",

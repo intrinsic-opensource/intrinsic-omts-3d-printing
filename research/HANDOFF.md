@@ -1339,6 +1339,53 @@ the edge is not a guarantee. Use the left column.
   After changing a part's mesh, restart the pose estimator's pod, which caches by
   id.
 
+## 5e. Milestone 4: The arm finds the printer and opens its door (2026-11-19)
+
+Goal: a reBot-class arm finds the printer from ArUco markers on its door,
+finds the door handle, opens the door as far as it can, then hands over to the
+existing unload cycle. Closing the door is out of scope. Plan and decisions
+(D1-D33) live in a private planning folder; the ones that bind this section:
+
+* The door plane is at least 0.47 m from the robot's base axis: printer
+  distance d >= 0.675 m on the Core One (the committed 0.5895 puts the door in
+  the arm, see 5e.2). The target printer is a Core One L: every door number
+  here is a Core One number until it is re-measured.
+* theta is the door angle: 0 closed, 180 deg fully open. The SDF joint is
+  q = pi - theta (closed = pi, open = 0), isolated in one place.
+* Handover to the unload cycle only on a marker-measured theta lower bound
+  >= 90 deg; commanded or joint theta never passes.
+* No `<static>` (it would freeze the hinge), no `.mtl`.
+* Simulation only until the real-arm steps, which need explicit consent.
+
+### 5e.1: the door line is in this branch (done)
+
+* `origin/rebot-prusa-integration` merged into `feat/printer-door` (`origin/main`
+  does not contain the door line, f88943e, so "merge main" did nothing).
+  Two BUILD conflicts, kept both sides. `bazel build --nobuild //...` and
+  `bazel test //tests/...` pass.
+* `DOOR_CLOSED_ANGLE` and the closed-door pbtxt use 3.14159, the SDF's joint
+  upper limit (it was 3.141596, above it).
+
+### 5e.2: the angle oracle, and the printer stays put (done in Gazebo)
+
+* `research/tools/door_angle.py` reads the recorded Gazebo pose topic and prints
+  theta from `door_link`'s yaw and how far the printer base moved. Record with
+  `$GZ` settings from `research/tools/README.md` and
+  `bazel run //research/tools:door_angle -- /tmp/poses.jsonl`.
+* Oracle check: DOOR `--action=set --angle=q` gives theta = 0, 44.8, 90, 180
+  for q = 3.14159, 2.36, 1.571, 0 (within 0.1 deg after settling).
+* **Finding:** at the committed distance (0.5895) the door hits the arm from
+  theta ~ 50 deg and pushes the printer base 5 mm. At d = 0.68 the base moves
+  0.04 mm for q = 1.571, 0 and 3.14159. `configure_cell --printer_distance 0.68`
+  runs the cell there (within the 0.44-0.76 limits of 5d).
+* **Finding:** `fixed_in_root` cannot be set from the SDF here: a `<joint>` with
+  parent `world` is rejected by `sdf_to_scene_object` ("Cannot convert SDF joint
+  with parent name 'world'"). Attaching the printer to `rebot_ground` through
+  `update_transform` did not stop motion either. Whether the printer needs a
+  fix is decided by the pull in 5e.10 (a 25 kg base with 13 box collisions).
+* Not run: the OMTS cell baseline (`omts_solution` + `omts_app`) for this
+  step; it is run when the shared SDF changes (5e.3 onward).
+
 ## 6. Findings
 
 ### 6.1 reBot top-down reach (checked offline, 2026-10-20)

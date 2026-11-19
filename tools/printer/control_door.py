@@ -31,7 +31,7 @@ PRINTER_OBJECT_NAME = "printer"
 
 # Hinge angles, matching configs/rebot/printer_door_{open,closed}.updates.pbtxt.
 DOOR_OPEN_ANGLE = 0.0
-DOOR_CLOSED_ANGLE = 3.141596
+DOOR_CLOSED_ANGLE = 3.14159
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
