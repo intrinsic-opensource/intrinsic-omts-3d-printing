@@ -305,11 +305,72 @@ READMEs that they are not part of the deployed cell.
 
 ## 4. Open questions
 
-1. Can a process take parameters and a repeat count? (Intrinsic Core has no
-   Bazel rule for processes; see step C3 for what was tried.)
-2. Should a skill write the grasp frames, or return them for `update_world`?
-3. Is it worth moving the vision and robot adapters' trees into processes
-   (one per subtree), or is one cycle process enough?
-4. After a deploy, can anything keep the pose-estimator registration (it is an
-   installed asset the deploy removes), or is a skill that re-registers on
-   every start the right answer?
+Revisited on 2026-11-19, after C1, C2 and C4.
+
+### Answered
+
+1. **Should a skill write the grasp frames, or return them for `update_world`?**
+   The skill writes them (C2), together with the part's pose and the height
+   check, in one place; it also returns the three poses. The costs are a
+   world-locking footprint (it must stay out of a `bt.Parallel`) and no
+   preview. Returning the poses for `update_world` would need CEL values inside
+   an `ObjectWorldUpdate`, which is untried, and nothing so far argues for it.
+   `configure_cell` made the same choice (it writes, in one batch).
+2. **After a deploy, can anything keep the pose-estimator registration?** Nothing
+   found keeps it: a deploy removes the installed assets the solution does not
+   declare, and the estimator is created by training at run time, not built.
+   The answer is the skill that registers on every start (C1). It returns at
+   once when the estimator is installed ("already installed"), and trains
+   otherwise (seconds in our runs; the run guide used to say about a minute).
+   One caveat stays: registering under an existing id keeps the old settings,
+   so a changed prompt or threshold needs a new `pose_estimator_id`.
+
+### Still open
+
+3. **Can a process take parameters and a repeat count?** Partly answered from
+   the SDK source, not run: a process can be parameterizable (a proto schema
+   for its parameters, and `tree.params`, a blackboard value that nodes read
+   through CEL). `bt.Loop(max_times=...)` takes a fixed integer, but `Loop` also
+   takes a `while_condition` and exposes a loop counter, so a count from a
+   parameter looks expressible as a condition on the counter. It matters only if
+   C3 resumes.
+4. **Should the vision and robot subtrees become processes, or is one cycle
+   process enough?** Deferred with C3. C1 and C2 already moved the two steps that
+   gain most from being on the cluster into skills; the rest is stock skills that
+   Python composes.
+5. **C3: ship the manifest with the solution, store the tree again after each
+   deploy, or neither?** It depends on whether starting from Flowstate, or a
+   cycle that does not need a host process, is wanted yet. Shipping needs the
+   `intrinsic_process` rule and the export tool (`feat/process-asset-rule`).
+6. **Should the tree read its per-run values from the cluster?** The part's
+   object, scene-object id, pose estimator and the return area's centre are fixed
+   when `omts_app` builds the tree, which is why `configure_cell --apply` still
+   writes `app_config.yaml`, the one file left. A tree that reads them from the
+   blackboard (the way the print-flow branch does) would remove it, at the cost
+   of a change to the tree.
+7. **Is the skill route acceptable without preview?** Both skills refuse
+   `preview` and `fast_preview`. Whether the script they replace works in those
+   modes was never checked, so it is not known whether anything was lost.
+8. **When can the script be retired?** `omts` and `lab_bb_01` still use the
+   `PythonScript`, and the rule exists twice (script and `grasp_math`, kept equal
+   by a test). Switching them means running those cells in simulation, which
+   needs their own deploy.
+9. **Should `omts_app` sync the simulator at the start in simulation?** After a
+   deploy that did not restart Gazebo, the first run fails with "0 detections"
+   until the simulator is reset. `configure_cell --apply` now avoids that by
+   starting an operation with `start_from_world_state=BELIEF`; `omts_app` could do
+   the same on its first operation. The cost is a simulator reset at each run;
+   what else that touches was not checked.
+10. **Per-target thresholds are not carried into `vision.registration`.**
+    `targets.yaml` has one per target, the config block has one. All are 0.25, so
+    nothing differs yet; `configure_cell` should write the target's value, or the
+    duplicate should go.
+11. **Reconciling with `feat/preload-printed-model`.** That branch has its own copy of
+    the register skill and `drop_off.py` (ported here with small comment
+    changes), and its own print-flow tree. Merging needs a choice of which
+    wins; the files that differ only in comments would conflict.
+12. **Intrinsic's side.** The `intrinsic_process` rule and the binary export are a
+    feature request (`research/feature_requests/process_asset_bazel_rule.md`),
+    not sent. Separately, `rules_oci` makes Bazel warn about the `use_repo` line
+    and suggest `bazel mod tidy`, which would break the build (explained in
+    `MODULE.bazel`).
