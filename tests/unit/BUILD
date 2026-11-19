@@ -379,10 +379,22 @@ py_test(
     deps = [
         "//skills/cell:configure_cell",
         "//skills/cell:configure_cell_py_pb2",
+        "//src/core:drop_off",
         "@com_google_absl_py//absl/testing:absltest",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:proto_conversion",
         "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
         "@intrinsic_apis//intrinsic/math/proto:point_py_pb2",
+    ],
+)
+
+py_test(
+    name = "test_drop_off",
+    srcs = ["test_drop_off.py"],
+    deps = [
+        "//research/tools:a_frames_lib",
+        "//research/tools:cell",
+        "//src/core:drop_off",
+        "@com_google_absl_py//absl/testing:absltest",
     ],
 )

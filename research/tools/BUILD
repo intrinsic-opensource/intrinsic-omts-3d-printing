@@ -118,6 +118,7 @@ py_binary(
         ":cell",
         ":cell_checks",
         ":part_trial_lib",
+        "//skills/cell:configure_cell_py_pb2",
         "@ai_intrinsic_sdks_pip_deps//numpy",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",

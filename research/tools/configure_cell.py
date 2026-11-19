@@ -28,10 +28,10 @@ Reads configs/rebot/cell_params.yaml (flags override it) and writes to --out:
 It checks the values first (research/tools/cell_checks.py), and refuses to write
 if they fail, unless --force. Then it prints the commands to apply them.
 
-With --apply, the printer, the camera mount and the view are set on the running
-cell by the `ai.omts.configure_cell` skill (skills/cell/) instead, in one
-update, and cell.updates.pbtxt holds only the rest (the target, the parked
-parts, A's frames), which still goes through apply_scene_updates.
+With --apply, the printer, the camera mount, the view and A's frames are set on
+the running cell by the `ai.omts.configure_cell` skill (skills/cell/) instead,
+in one update, and cell.updates.pbtxt holds only the rest (the target on the
+bed and the parked parts), which still goes through apply_scene_updates.
 
   bazel run //research/tools:configure_cell -- --out /tmp/cell
   bazel run //research/tools:configure_cell -- --out /tmp/cell \\
@@ -92,20 +92,28 @@ def _app_config(name: str, target: dict, return_x: float) -> str:
   return config
 
 
-def _apply(address: str, distance: float, offset) -> None:
-  """Sets the printer, the camera mount and the view with the cluster's
-  `configure_cell` skill, in one world update."""
+def _apply(address: str, distance: float, offset, tilt, half_height) -> None:
+  """Sets the printer, the camera mount, the view and A's frames with the
+  cluster's `configure_cell` skill, in one world update."""
   from intrinsic.math.proto import point_pb2
   from intrinsic.solutions import behavior_tree as bt
   from intrinsic.solutions import deployments
+
+  from skills.cell import configure_cell_pb2
 
   solution = deployments.connect(address=address)
   action = solution.skills.ai.omts.configure_cell(
     printer_distance_m=distance,
     camera_offset_m=point_pb2.Point(x=offset[0], y=offset[1], z=offset[2]),
+    drop_off=configure_cell_pb2.DropOff(
+      approach_tilt_degrees=tilt,
+      radius_m=part_trial.A_RADIUS,
+      bearing_degrees=part_trial.A_BEARING,
+      part_half_height_m=half_height,
+    ),
   )
   solution.executive.run(bt.Task(action=action, name="Configure the cell"))
-  print(f"Applied the printer, camera mount and view on {address}")
+  print(f"Applied the printer, camera mount, view and A's frames on {address}")
 
 
 def main() -> None:
@@ -129,8 +137,9 @@ def main() -> None:
   parser.add_argument(
     "--apply",
     action="store_true",
-    help="set the printer, camera mount and view with the configure_cell "
-    "skill on the running cell, and leave them out of cell.updates.pbtxt",
+    help="set the printer, camera mount, view and A's frames with the "
+    "configure_cell skill on the running cell, and leave them out of "
+    "cell.updates.pbtxt",
   )
   parser.add_argument("--address", default="localhost:17080")
   parser.add_argument(
@@ -183,12 +192,19 @@ def main() -> None:
   flange_t_cam = cell.object_pose(
     cell.CONFIGS / "orbbec_gemini.updates.pbtxt", "orbbec_camera"
   )
-  frames = {
-    **({} if args.apply else {"view": view}),
-    **a_frames.frames(
-      tilt, part_trial.A_RADIUS, part_trial.A_BEARING, half_height=half_height
-    ),
-  }
+  frames = (
+    {}
+    if args.apply
+    else {
+      "view": view,
+      **a_frames.frames(
+        tilt,
+        part_trial.A_RADIUS,
+        part_trial.A_BEARING,
+        half_height=half_height,
+      ),
+    }
+  )
   others = [n for n in library if n != name]
   if args.no_test_parts:
     others = [n for n in others if n == "rebot_printed_part"]
@@ -224,7 +240,7 @@ def main() -> None:
   )
 
   if args.apply:
-    _apply(args.address, distance, offset)
+    _apply(args.address, distance, offset, tilt, half_height)
 
   out = args.out.resolve()
   print(f"""Written to {out}. From the repository root:

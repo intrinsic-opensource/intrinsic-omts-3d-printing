@@ -34,6 +34,11 @@ py_library(
 )
 
 py_library(
+    name = "drop_off",
+    srcs = ["drop_off.py"],
+)
+
+py_library(
     name = "grasp_math",
     srcs = ["grasp_math.py"],
 )
@@ -64,6 +69,7 @@ py_library(
     srcs = ["__init__.py"],
     deps = [
         ":config",
+        ":drop_off",
         ":grasp_math",
         ":infeed",
         ":tray",

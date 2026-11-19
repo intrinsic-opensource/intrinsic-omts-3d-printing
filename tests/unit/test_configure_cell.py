@@ -25,6 +25,7 @@ from intrinsic.skills.python import skill_interface
 
 from skills.cell import configure_cell as skill
 from skills.cell import configure_cell_pb2 as pb
+from src.core import drop_off
 
 
 def _pose(position, quaternion=(0.0, 0.0, 0.0, 1.0)) -> data_types.Pose3:
@@ -42,8 +43,9 @@ def _yaw(degrees: float) -> tuple[float, float, float, float]:
 
 
 class _Node:
-  def __init__(self, name, **children):
+  def __init__(self, name, frame_names=(), **children):
     self.name = name
+    self.frame_names = list(frame_names)
     for key, value in children.items():
       setattr(self, key, value)
 
@@ -59,7 +61,7 @@ class _World:
   """Nodes with poses in the root; `get_transform` composes them. A batch of
   updates moves the nodes the way the world service would."""
 
-  def __init__(self):
+  def __init__(self, a_frames_exist=True):
     self.root_t = {
       "root": _pose((0, 0, 0)),
       "printer": _pose((0.5895, -0.0064, 0.0), _yaw(90)),
@@ -71,8 +73,14 @@ class _World:
     )
     self.root_t["tool_frame"] = self.root_t["flange"] * _pose((0, 0, 0.15))
     self.batches = []
+    self.created = []
+    a_frames = ["place_vise", "pre_place_vise", "machine_approach"]
     self._nodes = {
-      "root": _Node("root", view=_Node("view")),
+      "root": _Node(
+        "root",
+        frame_names=["view"] + (a_frames if a_frames_exist else []),
+        view=_Node("view"),
+      ),
       "printer": _Node("printer"),
       "orbbec_camera": _Node("orbbec_camera"),
       "rebot": _Node("rebot", flange=_Node("flange")),
@@ -91,6 +99,14 @@ class _World:
   def batch_update(self, updates):
     self.batches.append(updates)
     for update in updates.updates:
+      if update.HasField("create_frame"):
+        request = update.create_frame
+        parent = request.parent_object_with_filter.reference.by_name.object_name
+        self.root_t[request.new_frame_name] = self.root_t[
+          parent
+        ] * conv.pose_from_proto(request.parent_t_new_frame)
+        self.created.append(request.new_frame_name)
+        continue
       request = update.update_transform
       node_a, node_b = _ref_name(request.node_a), _ref_name(request.node_b)
       self.root_t[node_b] = self.root_t[node_a] * conv.pose_from_proto(
@@ -254,6 +270,101 @@ class ConfigureCellTest(absltest.TestCase):
       dict(printer_distance_m=0.6, view_frame="nope"),
     ):
       self.assertEqual(_code(world, **kwargs), skill.MISSING_WORLD_ENTITY)
+    self.assertEmpty(world.batches)
+
+  def _drop_off(self, **overrides):
+    values = dict(
+      approach_tilt_degrees=75.0,
+      radius_m=0.55,
+      bearing_degrees=130.0,
+      part_half_height_m=0.015,
+    )
+    values.update(overrides)
+    return pb.DropOff(**values)
+
+  def test_a_frames_are_moved_to_the_new_part_height(self):
+    world = _World()
+    _run(world, drop_off=self._drop_off(part_half_height_m=0.024))
+    self.assertEmpty(world.created)
+    expected = drop_off.drop_off_frames(75.0, 0.55, 130.0, 0.024)
+    for name in ("place_vise", "pre_place_vise", "machine_approach"):
+      position, _ = expected[name]
+      self.assertSequenceAlmostEqual(
+        list(world.root_t[name].translation), list(position)
+      )
+    # Nothing else was in the call, so nothing else moved.
+    self.assertLen(world.batches[0].updates, 3)
+    self.assertNotIn(
+      "printer",
+      [
+        u.update_transform.node_b.by_name.object.object_name
+        for u in world.batches[0].updates
+      ],
+    )
+
+  def test_missing_a_frames_are_created(self):
+    world = _World(a_frames_exist=False)
+    result = _run(world, drop_off=self._drop_off())
+    self.assertCountEqual(
+      world.created, ["place_vise", "pre_place_vise", "machine_approach"]
+    )
+    expected, _ = drop_off.drop_off_frames(75.0, 0.55, 130.0, 0.015)[
+      "place_vise"
+    ]
+    self.assertSequenceAlmostEqual(
+      list(conv.pose_from_proto(result.parent_t_place).translation),
+      list(expected),
+    )
+
+  def test_a_frames_and_the_printer_go_in_one_update(self):
+    world = _World()
+    _run(
+      world,
+      printer_distance_m=0.60,
+      drop_off=self._drop_off(),
+    )
+    self.assertLen(world.batches, 1)
+    # printer, view, and A's three frames.
+    self.assertLen(world.batches[0].updates, 5)
+
+  def test_a_frames_follow_the_requested_names_and_depth(self):
+    world = _World(a_frames_exist=False)
+    _run(
+      world,
+      drop_off=self._drop_off(
+        grasp_depth_m=0.01,
+        place_frame="a_place",
+        pre_place_frame="a_pre",
+        approach_frame="a_above",
+      ),
+    )
+    self.assertCountEqual(world.created, ["a_place", "a_pre", "a_above"])
+    expected, _ = drop_off.drop_off_frames(75.0, 0.55, 130.0, 0.015, 0.01)[
+      "place_vise"
+    ]
+    self.assertSequenceAlmostEqual(
+      list(world.root_t["a_place"].translation), list(expected)
+    )
+
+  def test_bad_a_frame_values_are_refused_before_anything_changes(self):
+    world = _World()
+    for overrides in (
+      dict(approach_tilt_degrees=90.0),
+      dict(radius_m=0.0),
+      dict(radius_m=55.0),
+      dict(part_half_height_m=0.0),
+      dict(part_half_height_m=1.5),
+      dict(grasp_depth_m=0.5),
+      dict(place_frame="x", pre_place_frame="x"),
+      dict(approach_frame=""),
+    ):
+      self.assertEqual(
+        _code(
+          world, printer_distance_m=0.6, drop_off=self._drop_off(**overrides)
+        ),
+        skill.INVALID_INPUT,
+        overrides,
+      )
     self.assertEmpty(world.batches)
 
   def test_footprint_locks_the_world_and_preview_is_refused(self):

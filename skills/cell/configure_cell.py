@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Skill: move the printer and the wrist camera, and the view with them.
+"""Skill: configure the live cell: the printer, the camera mount, the view, A.
 
 Step C4 (research/CLUSTER_NATIVE_HANDOFF.md). The geometry of
 `research/tools/configure_cell.py`, read from the live world instead of the
@@ -21,11 +21,15 @@ printer moves (the camera follows it by the same distance) and when the mount
 changes (the arm's pose for `view` is solved again). It changes the belief
 world only, in one `UpdateWorldResources` call, and cannot be previewed.
 
+A's frames (`drop_off`) come from `src/core/drop_off.py`, plain geometry that a
+test keeps equal to `research/tools/a_frames.py`.
+
 The checks of `research/tools/cell_checks.py` (reach, clearance) are design-time
 analysis and stay a host tool: run them first.
 """
 
 import logging
+import math
 
 from intrinsic.math.python import data_types
 from intrinsic.math.python import proto_conversion as math_proto_conversion
@@ -37,6 +41,7 @@ from intrinsic.world.proto import (
 )
 
 from skills.cell import configure_cell_pb2 as pb
+from src.core import drop_off
 
 INVALID_INPUT = 2201
 MISSING_WORLD_ENTITY = 2202
@@ -44,6 +49,9 @@ MISSING_WORLD_ENTITY = 2202
 # Bounds that catch a value in the wrong unit (millimetres for metres).
 _MAX_PRINTER_DISTANCE_M = 3.0
 _MAX_CAMERA_OFFSET_M = 0.5
+_MAX_DROP_OFF_RADIUS_M = 2.0
+_MAX_PART_HALF_HEIGHT_M = 0.25
+_MAX_GRASP_DEPTH_M = 0.1
 
 
 def _optional(params, field, default):
@@ -84,6 +92,32 @@ def _frame_ref(object_name: str, frame_name: str):
         object_name=object_name, frame_name=frame_name
       )
     )
+  )
+
+
+def _create_frame(parent_name: str, frame_name: str, parent_t_frame):
+  return object_world_updates_pb2.ObjectWorldUpdate(
+    create_frame=object_world_updates_pb2.CreateFrameRequest(
+      new_frame_name=frame_name,
+      parent_t_new_frame=math_proto_conversion.pose_to_proto(parent_t_frame),
+      parent_object_with_filter=object_world_refs_pb2.ObjectReferenceWithEntityFilter(
+        reference=object_world_refs_pb2.ObjectReference(
+          by_name=object_world_refs_pb2.ObjectReferenceByName(
+            object_name=parent_name
+          )
+        )
+      ),
+    )
+  )
+
+
+def _unit_pose(position, quaternion) -> data_types.Pose3:
+  """A pose from a computed quaternion, which the SDK takes only if it is a
+  unit one to within rounding."""
+  norm = sum(c * c for c in quaternion) ** 0.5
+  return data_types.Pose3(
+    data_types.Rotation3(data_types.Quaternion([c / norm for c in quaternion])),
+    [float(v) for v in position],
   )
 
 
@@ -174,6 +208,10 @@ class ConfigureCell(skill_interface.Skill):
           f"{_MAX_CAMERA_OFFSET_M} m",
         )
 
+    drop = params.drop_off if params.HasField("drop_off") else None
+    if drop is not None:
+      self._check_drop_off(drop)
+
     world = context.object_world
     parent = _node(world, parent_name, "Parent object")
     printer = _node(world, printer_name, "Printer object")
@@ -256,6 +294,9 @@ class ConfigureCell(skill_interface.Skill):
         math_proto_conversion.pose_to_proto(new_parent_t_view)
       )
 
+    if drop is not None:
+      self._drop_off_updates(parent, parent_name, drop, updates, result)
+
     if updates:
       world.batch_update(
         object_world_updates_pb2.ObjectWorldUpdates(updates=updates)
@@ -271,3 +312,71 @@ class ConfigureCell(skill_interface.Skill):
       "moved" if result.HasField("parent_t_view") else "kept",
     )
     return result
+
+  @staticmethod
+  def _check_drop_off(drop) -> None:
+    if not 0.0 <= drop.approach_tilt_degrees < 90.0:
+      raise skill_interface.SkillError(
+        INVALID_INPUT, "drop_off.approach_tilt_degrees must be in [0, 90)"
+      )
+    if not 0.0 < drop.radius_m <= _MAX_DROP_OFF_RADIUS_M:
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"drop_off.radius_m {drop.radius_m} is outside (0, "
+        f"{_MAX_DROP_OFF_RADIUS_M}] m",
+      )
+    if not math.isfinite(drop.bearing_degrees):
+      raise skill_interface.SkillError(
+        INVALID_INPUT, "drop_off.bearing_degrees must be a number"
+      )
+    if not 0.0 < drop.part_half_height_m <= _MAX_PART_HALF_HEIGHT_M:
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"drop_off.part_half_height_m {drop.part_half_height_m} is outside "
+        f"(0, {_MAX_PART_HALF_HEIGHT_M}] m (half the part's height)",
+      )
+    depth = _optional(drop, "grasp_depth_m", 0.0)
+    if abs(depth) > _MAX_GRASP_DEPTH_M:
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"drop_off.grasp_depth_m {depth} is over {_MAX_GRASP_DEPTH_M} m",
+      )
+    names = _drop_off_names(drop)
+    if not all(names) or len(set(names)) != 3:
+      raise skill_interface.SkillError(
+        INVALID_INPUT, "drop_off needs three different, non-empty frame names"
+      )
+
+  @staticmethod
+  def _drop_off_updates(parent, parent_name, drop, updates, result) -> None:
+    """Moves A's frames, or creates those that are missing, in the same batch
+    as the rest."""
+    frames = drop_off.drop_off_frames(
+      drop.approach_tilt_degrees,
+      drop.radius_m,
+      drop.bearing_degrees,
+      drop.part_half_height_m,
+      _optional(drop, "grasp_depth_m", 0.0),
+    )
+    place, pre_place, approach = _drop_off_names(drop)
+    for key, name, field in (
+      ("place_vise", place, result.parent_t_place),
+      ("pre_place_vise", pre_place, result.parent_t_pre_place),
+      ("machine_approach", approach, result.parent_t_approach),
+    ):
+      pose = _unit_pose(*frames[key])
+      if name in parent.frame_names:
+        updates.append(
+          _update(_object_ref(parent_name), _frame_ref(parent_name, name), pose)
+        )
+      else:
+        updates.append(_create_frame(parent_name, name, pose))
+      field.CopyFrom(math_proto_conversion.pose_to_proto(pose))
+
+
+def _drop_off_names(drop) -> tuple[str, str, str]:
+  return (
+    _optional(drop, "place_frame", "place_vise"),
+    _optional(drop, "pre_place_frame", "pre_place_vise"),
+    _optional(drop, "approach_frame", "machine_approach"),
+  )

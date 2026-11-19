@@ -8,7 +8,7 @@ plan against it when that branch merges. The overall project plan is
 [`HANDOFF.md`](HANDOFF.md); the way of working (spiral, a demo per step) is in
 `CLAUDE.md`.
 
-Status (2026-11-19): **C1, C2 and C4a done; C3 explored and paused; C4b is next.**
+Status (2026-11-19): **C1, C2, C4a and C4b done; C3 explored and paused; C4c is next.**
 
 ---
 
@@ -206,7 +206,7 @@ date. The normalized manifest was deployed and ran as before.
   version; the process's parameter interface (cell and frame names as
   parameters) and a repeat count.
 
-### Step C4: Cell configuration in the cluster (fixes D4) — C4a DONE 2026-11-19
+### Step C4: Cell configuration in the cluster (fixes D4) — C4a, C4b DONE 2026-11-19
 
 **Scope, decided on 2026-11-19:** an *apply-only* skill. The checks
 (`research/tools/cell_checks.py`: reach, clearance, IK sweeps) are design-time
@@ -239,13 +239,24 @@ tool or inside a tree.
   `tests/unit/test_configure_cell.py` covers the geometry with real transform
   math, including the invariant that after a mount change the camera at the
   new `view` is where it was at the old one.
-* **C4b (next): A's frames.** `place_vise`, `pre_place_vise` and
-  `machine_approach` from the tilt, A's radius and bearing and the part's
-  half height (`research/tools/a_frames.py`), so they can follow a part of a
-  different height without a file. The print flow does this per print job
-  (`src/core/drop_off.py` on `feat/preload-printed-model`, tested equal to
-  `a_frames`); the math is plain geometry and belongs in a `core/` function
-  like `grasp_math`.
+* **C4b (done): A's frames.** The `drop_off` group of the same skill sets
+  `place_vise`, `pre_place_vise` and `machine_approach` from the tilt, A's
+  radius and bearing and the part's half height, so they follow a part of
+  another height without a file. It moves a frame that exists and creates one
+  that does not, in the same single update as the printer group. The geometry is
+  `src/core/drop_off.py` (plain Python, ported from the print-flow branch with
+  its test, which keeps it equal to `research/tools/a_frames.py`);
+  `configure_cell --apply` now sends A's frames through the skill too, so its
+  file holds only the target and the parked parts. Bounds catch a value in the
+  wrong unit (radius up to 2 m, half height up to 0.25 m, depth up to 0.1 m).
+* **Result** (k3s, sim): for a part of half height 0.02 m (`test_cuboid_40x40x40`)
+  the skill's three frames match the host file's (to its 4-decimal rounding,
+  heights 0.02, 0.0407, 0.1407; orientation identical), with the view and printer
+  unchanged. Setting the default part back returned the frames to the committed
+  ones within the committed file's rounding (under 0.05 mm: the file has 4
+  decimals, the skill the exact values). A full cycle then ran (63 s).
+  `tests/unit/test_configure_cell.py` covers moved frames, created frames,
+  custom names and depth, one update with the printer group, and the bounds.
 * **C4c: the target.** Place a named object on the bed centre at its resting
   pose (flat or lying), and park the others. It needs the bed's centre, which
   the file tool reads from `models/printer/heatbed.obj`; a named frame on the

@@ -24,6 +24,7 @@ py_library(
     srcs = ["configure_cell.py"],
     deps = [
         ":configure_cell_py_pb2",
+        "//src/core:drop_off",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:proto_conversion",
         "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
