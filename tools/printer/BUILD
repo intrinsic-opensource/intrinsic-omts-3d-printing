@@ -62,3 +62,20 @@ py_binary(
         ":control_door_lib",
     ],
 )
+
+py_binary(
+    name = "open_door",
+    srcs = ["open_door.py"],
+    main = "open_door.py",
+    deps = [
+        "//skills/perception:aruco_pose",
+        "//src/core:config",
+        "//src/core:door",
+        "//src/hardware:robot",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@ai_intrinsic_sdks_pip_deps//opencv_python_headless",
+        "@intrinsic-core//intrinsic_perception/intrinsic/perception/client/v1/python/camera:cameras",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:execution",
+    ],
+)

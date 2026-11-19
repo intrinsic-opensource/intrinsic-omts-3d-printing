@@ -206,6 +206,21 @@
     </material>
   </visual>
 
+  <visual name="aruco_1_tile">
+    <pose>-0.06500 0.00800 0.20000 -1.570796 -0.000000 3.141593</pose>
+    <geometry><mesh><uri>aruco_1.glb</uri></mesh></geometry>
+  </visual>
+
+  <visual name="aruco_2_tile">
+    <pose>-0.29500 0.00800 0.02000 -1.570796 -0.000000 3.141593</pose>
+    <geometry><mesh><uri>aruco_2.glb</uri></mesh></geometry>
+  </visual>
+
+  <visual name="aruco_3_tile">
+    <pose>-0.06500 0.00200 0.20000 -1.570796 -0.000000 0.000000</pose>
+    <geometry><mesh><uri>aruco_3.glb</uri></mesh></geometry>
+  </visual>
+
   <collision name="door_pane_col">
     <pose>-0.174 0.005 0.02 0 0 0</pose>
     <geometry><box><size>0.360 0.005 0.460</size></box></geometry>

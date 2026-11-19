@@ -32,6 +32,9 @@ sdf_scene_object(
         "frame.obj",
         "heatbed.obj",
         "door.obj",
+        "aruco_1.glb",
+        "aruco_2.glb",
+        "aruco_3.glb",
     ],
 )
 

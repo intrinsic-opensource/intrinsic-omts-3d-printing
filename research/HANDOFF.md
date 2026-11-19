@@ -1400,6 +1400,34 @@ existing unload cycle. Closing the door is out of scope. Plan and decisions
   frames add no geometry); `frame_face` and `door_hook` frames come with the
   steps that use them.
 
+### 5e.5-5e.6: markers render in Gazebo and are found by `aruco_pose` (done)
+
+* `skills/perception/aruco_pose.py` (numpy + OpenCV only): DICT_4X4_50 corners,
+  IPPE pose with the two-solution error ratio, the one viewing rule
+  (incidence, side px, reprojection, ratio), a joint pose from several markers
+  (plan D23), and a synthetic renderer for tests. `test_aruco_pose`: pose within
+  4 mm and 3 deg up to 58 deg incidence on synthetic images; face-on views have
+  a lower ratio than oblique ones; a missing marker is not detected.
+* `models/printer_markers/make_markers.py` writes `models/printer/aruco_{1,2,3}.glb`
+  (a quad with an embedded PNG; the SDF material ignores texture maps). The
+  printer SDF has a visual per tile on `door_link`.
+* **Embedded-texture GLBs render in Gazebo** (this was untested): from a
+  look pose the wrist camera sees markers 1 and 2 at 105 px per side, and
+  `research/tools/gz_snapshot.py` finds both. Their centre distance is 294.7 mm
+  against the model's 292.1 mm (+2.7 mm); reprojection 0.01 px; IPPE ratio
+  300 or more. Frame from the Gazebo topic `/orbbec_camera/rgb` (trigger on
+  `/orbbec_camera/rgb/trigger`).
+* **Finding:** the pane is translucent, so the printer interior shows through
+  it behind the markers; the white quiet zone renders grey but detection is
+  unaffected.
+* **Finding:** a host tool cannot capture the camera: the resource handle's
+  address is the in-cluster `istio-ingressgateway...svc.cluster.local`, which
+  does not resolve on the host. Capture belongs in a skill (5e.7); the Gazebo
+  topic is a simulation-only stand-in.
+* **Finding:** `tools/jogging/move_to_joint` cannot take explicit joints on this
+  stack (`Cannot convert [...] to JointVec`); `open_door --mode=look` stores a
+  named joint configuration and moves to it instead.
+
 ## 6. Findings
 
 ### 6.1 reBot top-down reach (checked offline, 2026-10-20)

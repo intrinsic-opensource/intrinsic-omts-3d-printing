@@ -92,6 +92,16 @@ py_test(
 )
 
 py_test(
+    name = "test_aruco_pose",
+    srcs = ["test_aruco_pose.py"],
+    deps = [
+        "//skills/perception:aruco_pose",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
     name = "test_tray",
     srcs = ["test_tray.py"],
     deps = [

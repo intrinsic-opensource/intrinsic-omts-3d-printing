@@ -172,3 +172,15 @@ py_binary(
         "@foundationpose_perception_pipeline//:perception_pipeline",
     ],
 )
+
+py_binary(
+    name = "gz_snapshot",
+    srcs = ["gz_snapshot.py"],
+    main = "gz_snapshot.py",
+    deps = [
+        "//skills/perception:aruco_pose",
+        "//src/core:door",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@ai_intrinsic_sdks_pip_deps//opencv_python_headless",
+    ],
+)
