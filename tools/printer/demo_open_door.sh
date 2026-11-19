@@ -48,7 +48,14 @@ export GZ_RELAY
 
 OD="bazel-bin/tools/printer/open_door $A"
 $OD --mode=look --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
-$OD --mode=discover
+if $OD --mode=discover; then
+  echo ">>> Printer pose source: MEASURED (marker detected)."
+else
+  echo ">>> Printer pose source: CONFIGURED, NOT measured (no marker found)."
+  echo ">>> The arm looked at the marker's expected place and the pull is"
+  echo ">>> planned from the configured printer pose. Detection is not yet"
+  echo ">>> part of this demo's result."
+fi
 gz topic -e -t /world/default/pose/info --json-output >"$TMP/poses.jsonl" &
 REC=$!
 $OD --mode=pull --grasp_h=0.30 --target_deg="$TARGET" --step_deg=6

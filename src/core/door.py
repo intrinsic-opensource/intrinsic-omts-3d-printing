@@ -38,19 +38,18 @@ Q_UPPER = 3.14159
 BALL_POS: Vec = (-0.347, 0.0185, 0.2135)
 # Faces of the pane in the door frame (outer faces the robot).
 OUTER_FACE_Y = 0.0075
-INNER_FACE_Y = 0.0025
-# ArUco marker side (black square), meters.
-MARKER_SIZE_M = 0.050
+# ArUco marker side (black square), meters: one big marker.
+MARKER_SIZE_M = 0.080
 
 # Marker frames in the door frame: origin on the face, OpenCV convention
 # (x right and y down in the image, z into the marker) seen from the viewer.
 _OUTER_ROT: Mat = ((-1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, -1.0, 0.0))
-_INNER_ROT: Mat = ((1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, -1.0, 0.0))
-# id -> (position in the door frame, rotation, columns = marker axes).
+# id -> (position in the door frame, rotation, columns = marker axes). One
+# marker, big, top-left seen from the robot, clear of the hinge knuckles and the
+# pane's top edge (a 107 mm tile with its quiet zone). It identifies the printer
+# and gives the printer's pose as a whole.
 MARKERS: dict[int, tuple[Vec, Mat]] = {
-  1: ((-0.065, OUTER_FACE_Y, 0.200), _OUTER_ROT),
-  2: ((-0.295, OUTER_FACE_Y, 0.020), _OUTER_ROT),
-  3: ((-0.065, INNER_FACE_Y, 0.200), _INNER_ROT),
+  1: ((-0.090, OUTER_FACE_Y, 0.180), _OUTER_ROT),
 }
 
 

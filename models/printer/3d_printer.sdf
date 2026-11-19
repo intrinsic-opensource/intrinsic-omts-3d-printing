@@ -207,18 +207,8 @@
   </visual>
 
   <visual name="aruco_1_tile">
-    <pose>-0.06500 0.00800 0.20000 -1.570796 -0.000000 3.141593</pose>
+    <pose>-0.09000 0.00800 0.18000 -1.570796 -0.000000 3.141593</pose>
     <geometry><mesh><uri>aruco_1.glb</uri></mesh></geometry>
-  </visual>
-
-  <visual name="aruco_2_tile">
-    <pose>-0.29500 0.00800 0.02000 -1.570796 -0.000000 3.141593</pose>
-    <geometry><mesh><uri>aruco_2.glb</uri></mesh></geometry>
-  </visual>
-
-  <visual name="aruco_3_tile">
-    <pose>-0.06500 0.00200 0.20000 -1.570796 -0.000000 0.000000</pose>
-    <geometry><mesh><uri>aruco_3.glb</uri></mesh></geometry>
   </visual>
 
   <!-- Clip housing: a solid block inserted in the handle, with a ball-shaped
@@ -340,13 +330,7 @@
       <pose>0.174 0.205 0.279 0 0 0</pose>
     </frame>
     <frame name="aruco_1" attached_to="door_link" intrinsic:create_entity="true">
-      <pose relative_to="door_link">-0.065 0.0075 0.2 -1.570796 -0.000000 3.141593</pose>
-    </frame>
-    <frame name="aruco_2" attached_to="door_link" intrinsic:create_entity="true">
-      <pose relative_to="door_link">-0.295 0.0075 0.02 -1.570796 -0.000000 3.141593</pose>
-    </frame>
-    <frame name="aruco_3" attached_to="door_link" intrinsic:create_entity="true">
-      <pose relative_to="door_link">-0.065 0.0025 0.2 -1.570796 -0.000000 0.000000</pose>
+      <pose relative_to="door_link">-0.09 0.0075 0.18 -1.570796 -0.000000 3.141593</pose>
     </frame>
   
     <!-- A ball in the housing's pocket, free to rotate there. A ball joint

@@ -68,7 +68,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--pregrasp_m", type=float, default=0.06)
   parser.add_argument("--allow_contact", action="store_true")
   parser.add_argument("--hold", action="store_true", help="No release.")
-  parser.add_argument("--marker_ids", nargs="+", type=int, default=[1, 2])
+  parser.add_argument("--marker_ids", nargs="+", type=int, default=[1])
   return parser.parse_args(argv)
 
 
@@ -213,10 +213,22 @@ def discover(solution, args) -> None:
     ),
   )
   before = world.get_transform(world.root, world.printer).matrix4x4()
-  executive.run(tree, silence_outputs=True)
+  try:
+    executive.run(tree, silence_outputs=True)
+  except execution.ExecutionFailedError:
+    banner = "!" * 72
+    print(banner)
+    print("PRINTER NOT DETECTED: the marker was not found (or failed the")
+    print("viewing rule). The belief world keeps the CONFIGURED printer pose")
+    print(f"{np.round(before[:3, 3], 4).tolist()}; nothing was measured.")
+    print("Any motion that follows is planned from that configured pose, as if")
+    print("the printer were exactly where the config says.")
+    print(banner)
+    sys.exit(3)
   after = solution.world.get_transform(
     solution.world.root, solution.world.printer
   ).matrix4x4()
+  print("PRINTER DETECTED: pose MEASURED from the marker and written to belief")
   print(f"belief printer before {np.round(before[:3, 3], 4).tolist()}")
   print(f"belief printer after  {np.round(after[:3, 3], 4).tolist()}")
 

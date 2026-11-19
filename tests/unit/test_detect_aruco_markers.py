@@ -45,7 +45,7 @@ def pose(matrix):
 def scene(root_t_printer: np.ndarray, root_t_camera: np.ndarray):
   """A synthetic image of markers 1 and 2 on the closed door."""
   img = None
-  for marker_id in (1, 2):
+  for marker_id in (1,):
     root_t_marker = root_t_printer @ printer_t_marker(marker_id)
     cam_t_marker = np.linalg.inv(root_t_camera) @ root_t_marker
     one = aruco_pose.render_marker(
@@ -84,15 +84,12 @@ class DetectSkillTest(absltest.TestCase):
   def setUp(self):
     super().setUp()
     self.root_t_printer = printer_at(0.675, 0.0, 90.0)
-    # 0.36 m in front of the point between markers 1 and 2, looking at it.
-    centers = [
-      (self.root_t_printer @ printer_t_marker(i))[:3, 3] for i in (1, 2)
-    ]
-    target = (centers[0] + centers[1]) / 2
-    self.root_t_camera = look_at(target + [-0.36, 0.02, 0.03], target)
+    # 0.32 m in front of the marker, 0.15 m to the side (about 25 deg).
+    target = (self.root_t_printer @ printer_t_marker(1))[:3, 3]
+    self.root_t_camera = look_at(target + [-0.32, 0.15, 0.02], target)
     self.image = scene(self.root_t_printer, self.root_t_camera)
 
-  def params(self, ids=(1, 2), with_printer=True):
+  def params(self, ids=(1,), with_printer=True):
     p = pb.DetectArucoMarkersParams(
       marker_ids=list(ids), marker_size_m=SIZE, rgb_sensor="rgb"
     )
@@ -100,23 +97,28 @@ class DetectSkillTest(absltest.TestCase):
       p.printer_t_marker.extend([pose(printer_t_marker(i)) for i in ids])
     return p
 
-  def test_printer_pose_from_two_markers(self):
+  def test_printer_pose_from_one_marker(self):
     result = aruco_skills.detect(
       self.image, K, self.root_t_camera, self.params()
     )
     got = proto_conversion.pose_from_proto(result.root_t_printer).matrix4x4()
+    # One marker 0.5 m from the printer's origin: a small yaw error is a few
+    # millimetres at the origin (about 7 mm here, synthetic image).
     self.assertLess(
-      np.linalg.norm(got[:3, 3] - self.root_t_printer[:3, 3]), 0.003
+      np.linalg.norm(got[:3, 3] - self.root_t_printer[:3, 3]), 0.012
     )
     yaw = math.atan2(got[1, 0], got[0, 0])
-    self.assertAlmostEqual(math.degrees(yaw), 90.0, delta=1.0)
+    self.assertAlmostEqual(math.degrees(yaw), 90.0, delta=2.0)
     self.assertLess(result.joint_reprojection_px, 1.0)
-    self.assertLen(result.markers, 2)
+    self.assertLen(result.markers, 1)
 
   def test_missing_marker_raises(self):
     with self.assertRaises(skill_interface.SkillError) as cm:
       aruco_skills.detect(
-        self.image, K, self.root_t_camera, self.params(ids=(1, 3))
+        self.image,
+        K,
+        self.root_t_camera,
+        self.params(ids=(1, 2), with_printer=False),
       )
     self.assertIn(str(aruco_skills.NOT_FOUND), str(cm.exception))
 
@@ -133,7 +135,7 @@ class DetectSkillTest(absltest.TestCase):
     with self.assertRaises(skill_interface.SkillError):
       aruco_skills.detect(self.image, K, self.root_t_camera, p)
     p = self.params()
-    del p.printer_t_marker[1:]
+    p.marker_ids.append(2)  # two ids, one printer_t_marker
     with self.assertRaises(skill_interface.SkillError):
       aruco_skills.detect(self.image, K, self.root_t_camera, p)
 

@@ -62,8 +62,6 @@ sdf_scene_object(
         "heatbed.obj",
         "door.obj",
         "aruco_1.glb",
-        "aruco_2.glb",
-        "aruco_3.glb",
     ],
     # The ball joint (clip_ball) is stored in the scene object's user data as a
     # google.protobuf.Struct, whose descriptor the conversion must be given.

@@ -59,22 +59,20 @@ class DoorModelTest(absltest.TestCase):
       )
       self.assertAlmostEqual(det, 1.0)
 
-  def test_outer_marker_looks_out_and_inner_looks_in(self):
-    # Marker z axis points into the marker: -y_printer for the outer ones.
+  def test_there_is_one_big_marker_that_looks_out(self):
+    self.assertEqual(list(door.MARKERS), [1])
+    self.assertGreaterEqual(door.MARKER_SIZE_M, 0.08)
+    # Marker z axis points into the marker: -y_printer for the outer face.
     _, rot1 = door.marker_in_printer(1, 0.0)
-    _, rot3 = door.marker_in_printer(3, 0.0)
     self.assertAlmostEqual(rot1[1][2], -1.0)
-    self.assertAlmostEqual(rot3[1][2], 1.0)
 
   def test_marker_turns_with_the_door(self):
-    p0, _ = door.marker_in_printer(2, 0.0)
-    p90, rot90 = door.marker_in_printer(2, 90.0)
+    p0, _ = door.marker_in_printer(1, 0.0)
+    p90, _ = door.marker_in_printer(1, 90.0)
     # Distance to the hinge axis is unchanged.
     d0 = math.hypot(p0[0] - 0.174, p0[1] - 0.205)
     d90 = math.hypot(p90[0] - 0.174, p90[1] - 0.205)
     self.assertAlmostEqual(d0, d90)
-    # The outer marker's normal (-z axis) points to the printer's +x at 90.
-    self.assertAlmostEqual(-rot90[0][2], -1.0 * -1.0 * 0 + (-rot90[0][2]))
 
   def test_rpy_roundtrip(self):
     _, rot = door.MARKERS[1]
