@@ -19,7 +19,7 @@
 # grab the clip's lever on the door handle with the wrist fixed (the ball joint
 # turns instead) and swing the door open by moving the arm along its arc.
 #
-#   tools/printer/demo_open_door.sh [target_deg]     (default 42)
+#   tools/printer/demo_open_door.sh [target_deg]     (default 180)
 #
 # Watch it in the Gazebo GUI (research/REBOT_OMTS_APP.md, "Look through the
 # camera"). The last lines are the door angle and how far the printer base
@@ -28,7 +28,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 A=--address=localhost:17080
-TARGET=${1:-42}
+TARGET=${1:-180}
 TMP=$(mktemp -d)
 
 # The deploy puts the printer at the test layout with the door closed in the
@@ -51,7 +51,9 @@ GZ_RELAY=$(kubectl get pod -n app-resources rs-gazebo-simulator-0 \
 export GZ_RELAY
 
 if [ -z "${NO_GUI:-}" ] && [ -n "${DISPLAY:-}" ]; then
-  pkill -f 'gz sim -g' || true
+  # the GUI's processes are gz-sim-main -g and gz-sim-gui-client
+  pkill -f 'gz-sim-main -g' || true
+  pkill -f 'gz-sim-gui-client' || true
   sleep 1
   (nohup gz sim -g >"$TMP/gui.log" 2>&1 &)
   echo ">>> Gazebo GUI restarted (fresh scene)."

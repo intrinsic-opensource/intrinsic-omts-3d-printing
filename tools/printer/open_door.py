@@ -32,12 +32,14 @@ Simulation only (it moves the arm). Modes:
 import argparse
 import math
 import sys
+import time
 from collections.abc import Sequence
 
 import numpy as np
 from intrinsic.math.python import data_types, proto_conversion
 from intrinsic.solutions import behavior_tree as bt
 from intrinsic.solutions import deployments, execution
+from intrinsic.util.status import extended_status_pb2
 from intrinsic.world.proto import object_world_updates_pb2
 
 from src.core import door
@@ -74,6 +76,22 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--pregrasp_m", type=float, default=0.06)
   parser.add_argument("--allow_contact", action="store_true")
   parser.add_argument("--hold", action="store_true", help="No release.")
+  parser.add_argument(
+    "--path",
+    choices=["stepwise", "blended"],
+    default="stepwise",
+    help="stepwise: one move per step_deg, stopping at each; blended: one "
+    "move_robot call per chunk_deg, through waypoints every wp_deg, blended "
+    "into one smooth trajectory.",
+  )
+  parser.add_argument("--chunk_deg", type=float, default=12.0)
+  parser.add_argument("--wp_deg", type=float, default=3.0)
+  parser.add_argument(
+    "--motion", choices=["LINEAR", "JOINT", "ANY"], default="LINEAR"
+  )
+  parser.add_argument("--blend_trans", type=float, default=0.01)
+  parser.add_argument("--blend_rot", type=float, default=0.1)
+  parser.add_argument("--blend_joint", type=float, default=0.05)
   parser.add_argument("--az", type=float, default=None, help="Tool azimuth.")
   parser.add_argument(
     "--grip_z",
@@ -296,11 +314,29 @@ def set_frame(world, name: str, root_t_frame: np.ndarray) -> None:
     world.create_frame(frame_name=name, parent=world.root, parent_t_frame=pose)
 
 
+def _status_lines(status, depth: int = 0) -> list[str]:
+  """User reports of an ExtendedStatus and its context, as text lines."""
+  lines = []
+  pad = "  " * depth
+  title = status.title or status.status_code.code
+  lines.append(f"{pad}{title}")
+  if status.user_report.message:
+    lines.append(f"{pad}  {status.user_report.message}")
+  for inner in status.context:
+    lines += _status_lines(inner, depth + 1)
+  return lines
+
+
 def print_failure(solution) -> None:
   """Prints why the last operation failed (the planner's own words)."""
   try:
     err = solution.executive.operation.proto.error
-    print(str(err)[:1800])
+    for detail in err.details:
+      status = extended_status_pb2.ExtendedStatus()
+      if detail.Unpack(status):
+        print("\n".join(_status_lines(status))[:1800])
+        return
+    print(str(err.message))
   except Exception as exc:  # pylint: disable=broad-exception-caught
     print(f"(no error details: {exc})")
 
@@ -410,28 +446,70 @@ def pull(solution, args) -> None:
   elif not run(gripper.build_close_task(name="close on the grip")):
     sys.exit(1)
   theta = args.theta_deg
-  while theta < args.target_deg - 1e-9:
-    theta = min(theta + args.step_deg, args.target_deg)
-    if args.belief_door:
-      # The hinge is passive, so the belief world does not follow it: tell the
-      # planner where the door is (commanded angle) so the arm avoids it.
-      printer = world.get_kinematic_object("printer")
-      names = list(printer.joint_entity_names)
-      positions = [float(v) for v in printer.joint_positions]
-      positions[names.index("door_hinge")] = door.theta_to_q(theta)
-      world.update_joint_positions(printer, positions)
-    set_frame(world, "door_grasp_k", grasp_target(root_t_printer, args, theta))
-    ok = run(
-      robot.build_move_cartesian_task(
-        "door_grasp_k",
-        "root",
-        "LINEAR",
-        excluded_collision_pairs=pairs,
-        name=f"pull to {theta:.0f} deg",
+
+  def set_belief_door(angle_deg: float) -> None:
+    # The hinge is passive, so the belief world does not follow it: tell the
+    # planner where the door is (commanded angle) so the arm avoids it.
+    printer = world.get_kinematic_object("printer")
+    names = list(printer.joint_entity_names)
+    positions = [float(v) for v in printer.joint_positions]
+    positions[names.index("door_hinge")] = door.theta_to_q(angle_deg)
+    world.update_joint_positions(printer, positions)
+
+  started = time.time()
+  if args.path == "stepwise":
+    while theta < args.target_deg - 1e-9:
+      theta = min(theta + args.step_deg, args.target_deg)
+      if args.belief_door:
+        set_belief_door(theta)
+      set_frame(
+        world, "door_grasp_k", grasp_target(root_t_printer, args, theta)
       )
-    )
-    if not ok:
-      break
+      ok = run(
+        robot.build_move_cartesian_task(
+          "door_grasp_k",
+          "root",
+          "LINEAR",
+          excluded_collision_pairs=pairs,
+          name=f"pull to {theta:.0f} deg",
+        )
+      )
+      if not ok:
+        break
+  else:
+    while theta < args.target_deg - 1e-9:
+      end = min(theta + args.chunk_deg, args.target_deg)
+      n = max(1, round((end - theta) / args.wp_deg))
+      angles = [theta + (end - theta) * (i + 1) / n for i in range(n)]
+      if args.belief_door:
+        set_belief_door(end)
+      frames = []
+      for i, a in enumerate(angles):
+        name = f"door_arc_{i}"
+        set_frame(world, name, grasp_target(root_t_printer, args, a))
+        frames.append(("root", name))
+      blend = {}
+      if args.motion == "JOINT":
+        blend["joint_tightness_rad"] = args.blend_joint
+      else:
+        blend["corner_rounding"] = (args.blend_trans, args.blend_rot)
+      ok = run(
+        robot.build_move_blended_cartesian_task(
+          frames,
+          motion_type=args.motion,
+          excluded_collision_pairs=pairs,
+          name=f"arc {theta:.0f} -> {end:.0f} deg ({n} waypoints,"
+          f" {args.motion})",
+          **blend,
+        )
+      )
+      if not ok:
+        break
+      theta = end
+  print(
+    f"PATH {args.path} {args.motion}: reached {theta:.0f} deg of "
+    f"{args.target_deg:.0f} in {time.time() - started:.1f} s"
+  )
   if args.hold:
     print("holding the grip (--hold)")
     return

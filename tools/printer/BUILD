@@ -78,5 +78,6 @@ py_binary(
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:execution",
+        "@intrinsic_apis//intrinsic/util/status:extended_status_py_pb2",
     ],
 )

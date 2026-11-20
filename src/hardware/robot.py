@@ -319,8 +319,16 @@ class Robot:
     ) = None,
     excluded_collision_pairs: Sequence[tuple[str, str]] | None = None,
     name: str | None = None,
+    corner_rounding: tuple[float, float] | None = None,
+    joint_tightness_rad: float | None = None,
   ) -> bt.Node:
-    """Builds an SBL move_robot task for a blended multi-frame trajectory."""
+    """Builds an SBL move_robot task for a blended multi-frame trajectory.
+
+    One move_robot call, one trajectory through all frames. corner_rounding is
+    (translation m, rotation rad) of the Cartesian blend around each
+    waypoint corner (linear segments); joint_tightness_rad is the joint blend's
+    tightness (joint segments). Without either, the planner's defaults apply.
+    """
     if not target_frames:
       raise ValueError("target_frames must contain at least one target frame.")
 
@@ -365,10 +373,25 @@ class Robot:
         )
       )
 
-    skill_action = self._move_robot_skill(
-      motion_segments=motion_segments,
-      arm_part=self.arm_part,
-    )
+    skill_kwargs: dict[str, Any] = {
+      "motion_segments": motion_segments,
+      "arm_part": self.arm_part,
+    }
+    if corner_rounding is not None or joint_tightness_rad is not None:
+      ns = self._move_robot_skill.intrinsic_proto.motion_planning.v1
+      params_kwargs: dict[str, Any] = {}
+      if corner_rounding is not None:
+        params_kwargs["cartesian_blending"] = ns.CartesianBlendingParameters(
+          translation_corner_rounding=corner_rounding[0],
+          rotational_corner_rounding=corner_rounding[1],
+        )
+      if joint_tightness_rad is not None:
+        params_kwargs["joint_blending"] = ns.JointBlendingParameters(
+          desired_tightness_rad=joint_tightness_rad
+        )
+      params = ns.BlendingParameters(**params_kwargs)
+      skill_kwargs["curve_parameters"] = params
+    skill_action = self._move_robot_skill(**skill_kwargs)
     return bt.Task(action=skill_action, name=task_name)
 
   def build_move_relative_cartesian_task(
