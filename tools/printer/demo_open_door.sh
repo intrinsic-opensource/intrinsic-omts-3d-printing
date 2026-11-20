@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Simulation demo: deploy the reBot cell with a passive door hinge, put the
+# Simulation demo: deploy the reBot cell with a passive door hinge and the
 # printer at 0.70 m, shifted 0.3 m to the robot's left, look for the marker,
 # grab the clip's lever on the door handle with the wrist fixed (the ball joint
 # turns instead) and swing the door open by moving the arm along its arc.
@@ -30,22 +30,32 @@ A=--address=localhost:17080
 TARGET=${1:-90}
 TMP=$(mktemp -d)
 
+# The deploy puts the printer at the test layout with the door closed in the
+# belief world; Gazebo keeps its previous state until it is reset, so the reset
+# below syncs it. A Gazebo GUI that was open during the reset mis-draws the
+# model, so the GUI is restarted after it (set NO_GUI=1 to skip that).
 bazel run //:rebot_solution -c opt --//models/printer:door=closed \
-  --//models/printer:hinge=passive -- $A >"$TMP/deploy.log" 2>&1 \
+  --//models/printer:hinge=passive --//models/printer:layout=door_test \
+  -- $A >"$TMP/deploy.log" 2>&1 \
   || { tail -20 "$TMP/deploy.log"; exit 1; }
-bazel build //tools/world:apply_scene_updates //tools/printer:control_door \
-  //tools/printer:open_door >/dev/null
-
-sed 's/x: 0.5895/x: 0.70/; s/y: -0.0064/y: 0.3/' \
-  configs/rebot/printer.updates.pbtxt >"$TMP/printer.pbtxt"
-bazel-bin/tools/world/apply_scene_updates $A --files "$TMP/printer.pbtxt" \
-  --reset_sim >/dev/null
-bazel-bin/tools/printer/control_door $A --action=set --theta_deg=0 >/dev/null
+bazel build //tools/printer:open_door //tools/world:apply_scene_updates \
+  >/dev/null
+bazel-bin/tools/world/apply_scene_updates $A --reset_sim \
+  --files configs/rebot/printer_door_test.updates.pbtxt \
+  configs/rebot/printer_door_closed.updates.pbtxt >/dev/null
 
 export GZ_PARTITION=intrinsic_sim GZ_IP=10.42.0.1
 GZ_RELAY=$(kubectl get pod -n app-resources rs-gazebo-simulator-0 \
   -o jsonpath='{.status.podIP}')
 export GZ_RELAY
+
+if [ -z "${NO_GUI:-}" ] && [ -n "${DISPLAY:-}" ]; then
+  pkill -f 'gz sim -g' || true
+  sleep 1
+  (nohup gz sim -g >"$TMP/gui.log" 2>&1 &)
+  echo ">>> Gazebo GUI restarted (fresh scene)."
+  sleep 8
+fi
 
 OD="bazel-bin/tools/printer/open_door $A"
 $OD --mode=look --joints 0.2647 -1.1813 -1.3964 0.2152 -0.4335 -1.5709

@@ -353,13 +353,13 @@
         <geometry><sphere><radius>0.012</radius></sphere></geometry>
       </collision>
           <visual name="lever_v">
-        <pose>0 0 0.053 0 0 0</pose>
-        <geometry><cylinder><radius>0.0055</radius><length>0.090</length></cylinder></geometry>
+        <pose>0 0 0.038 0 0 0</pose>
+        <geometry><cylinder><radius>0.0055</radius><length>0.060</length></cylinder></geometry>
         <material><ambient>0.75 0.4 1.0 1</ambient><diffuse>0.75 0.4 1.0 1</diffuse></material>
       </visual>
       <collision name="lever_c">
-        <pose>0 0 0.053 0 0 0</pose>
-        <geometry><cylinder><radius>0.0055</radius><length>0.090</length></cylinder></geometry>
+        <pose>0 0 0.038 0 0 0</pose>
+        <geometry><cylinder><radius>0.0055</radius><length>0.060</length></cylinder></geometry>
       </collision>
     </link>
 

@@ -40,7 +40,7 @@ BALL_POS: Vec = (-0.347, 0.0185, 0.2135)
 # face, so the open fingers clear it, and 38 mm below the lever's top.
 # Its axis is vertical through the ball, so the grip point moves on a circle of
 # radius 0.3475 m about the hinge axis as the door turns.
-LEVER_GRIP_ABOVE_BALL_M = 0.060
+LEVER_GRIP_ABOVE_BALL_M = 0.045
 KNOB_POS: Vec = (
   BALL_POS[0],
   BALL_POS[1],

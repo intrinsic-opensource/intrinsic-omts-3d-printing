@@ -310,6 +310,9 @@ intrinsic_solution(
     }) + select({
         "//models/printer:door_open": ["//configs:rebot/printer_door_open.updates.pbtxt"],
         "//models/printer:door_closed": ["//configs:rebot/printer_door_closed.updates.pbtxt"],
+    }) + select({
+        "//models/printer:layout_door_test": ["//configs:rebot/printer_door_test.updates.pbtxt"],
+        "//conditions:default": [],
     }),
 )
 

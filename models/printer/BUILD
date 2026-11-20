@@ -6,6 +6,23 @@ package(default_visibility = ["//visibility:public"])
 
 exports_files(["3d_printer.sdf"])
 
+# layout=default: the printer where the committed cell has it. layout=door_test:
+# printer at d 0.70, shifted 0.3 m left, for the door tests (the deploy then
+# starts with the printer in place, so nothing has to be teleported later).
+string_flag(
+    name = "layout",
+    build_setting_default = "default",
+    values = [
+        "default",
+        "door_test",
+    ],
+)
+
+config_setting(
+    name = "layout_door_test",
+    flag_values = {":layout": "door_test"},
+)
+
 string_flag(
     name = "door",
     build_setting_default = "open",
