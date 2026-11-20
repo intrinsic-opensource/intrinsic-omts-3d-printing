@@ -49,10 +49,11 @@ KNOB_POS: Vec = (
   CRANK_PIVOT_POS[2] + TAB_ABOVE_PIVOT_M,
 )
 # Tool orientation, fixed in the WORLD while the door turns (the handle turns,
-# so the wrist never does): approach 45 deg to the left of straight ahead, level;
-# the fingers close horizontally across the tab. Offline (pivot.py): reaches
-# about 90 deg with the printer at d 0.70, shifted 0.3 m to the robot's left.
-KNOB_APPROACH_AZ_DEG = 45.0
+# so the wrist never does): approach straight ahead and level; the fingers close
+# horizontally across the tab. (45 deg to the left was tried first and has no
+# inverse-kinematics solution at the cell's original printer position; straight
+# ahead reaches every grip height tested there.)
+KNOB_APPROACH_AZ_DEG = 0.0
 KNOB_APPROACH_PITCH_DEG = 0.0
 # Faces of the pane in the door frame (outer faces the robot).
 OUTER_FACE_Y = 0.0075

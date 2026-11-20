@@ -14,7 +14,8 @@
 # limitations under the License.
 
 # Simulation demo: deploy the reBot cell with a passive door hinge and the
-# printer where the cell puts it (configs/rebot/printer.updates.pbtxt), look for the marker,
+# printer 8.5 cm further from the robot than the cell puts it (d 0.675, so the
+# door can swing wide), look for the marker,
 # grab the clip's lever on the door handle with the wrist fixed (the ball joint
 # turns instead) and swing the door open by moving the arm along its arc.
 #
@@ -36,12 +37,12 @@ TMP=$(mktemp -d)
 # model, so the GUI is restarted after it (set NO_GUI=1 to skip that).
 bazel run //:rebot_solution -c opt --//models/printer:door=closed \
   --//models/printer:hinge=passive \
-  -- $A >"$TMP/deploy.log" 2>&1 \
+  --//models/printer:layout=door_test -- $A >"$TMP/deploy.log" 2>&1 \
   || { tail -20 "$TMP/deploy.log"; exit 1; }
 bazel build //tools/printer:open_door //tools/world:apply_scene_updates \
   >/dev/null
 bazel-bin/tools/world/apply_scene_updates $A --reset_sim \
-  --files configs/rebot/printer.updates.pbtxt \
+  --files configs/rebot/printer_door_test.updates.pbtxt \
   configs/rebot/printer_door_closed.updates.pbtxt >/dev/null
 
 export GZ_PARTITION=intrinsic_sim GZ_IP=10.42.0.1

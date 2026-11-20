@@ -74,6 +74,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--pregrasp_m", type=float, default=0.06)
   parser.add_argument("--allow_contact", action="store_true")
   parser.add_argument("--hold", action="store_true", help="No release.")
+  parser.add_argument("--az", type=float, default=None, help="Tool azimuth.")
+  parser.add_argument(
+    "--grip_z",
+    type=float,
+    default=None,
+    help="Diagnostic: grip height in the door frame (default: the crank's).",
+  )
+  parser.add_argument("--pitch", type=float, default=None, help="Tool pitch.")
   parser.add_argument(
     "--no_close",
     action="store_true",
@@ -288,6 +296,15 @@ def set_frame(world, name: str, root_t_frame: np.ndarray) -> None:
     world.create_frame(frame_name=name, parent=world.root, parent_t_frame=pose)
 
 
+def print_failure(solution) -> None:
+  """Prints why the last operation failed (the planner's own words)."""
+  try:
+    err = solution.executive.operation.proto.error
+    print(str(err)[:1800])
+  except Exception as exc:  # pylint: disable=broad-exception-caught
+    print(f"(no error details: {exc})")
+
+
 def knob_matrix(
   root_t_printer: np.ndarray, theta_deg: float, back_m: float = 0.0
 ) -> np.ndarray:
@@ -354,6 +371,7 @@ def approach(solution, args) -> None:
       solution.executive.run(step, silence_outputs=True)
     except execution.ExecutionFailedError as e:
       print(f"[!] {e}")
+      print_failure(solution)
       sys.exit(1)
     print(f"[✓] {step.name}")
 
@@ -382,6 +400,7 @@ def pull(solution, args) -> None:
       solution.executive.run(node, silence_outputs=True)
     except execution.ExecutionFailedError as e:
       print(f"[!] {node.name}: {e}")
+      print_failure(solution)
       return False
     print(f"[✓] {node.name}")
     return True
@@ -435,6 +454,12 @@ def pull(solution, args) -> None:
 
 def main(argv: Sequence[str] | None = None) -> None:
   args = parse_args(argv)
+  if args.az is not None:
+    door.KNOB_APPROACH_AZ_DEG = args.az
+  if args.pitch is not None:
+    door.KNOB_APPROACH_PITCH_DEG = args.pitch
+  if args.grip_z is not None:
+    door.KNOB_POS = (door.KNOB_POS[0], door.KNOB_POS[1], args.grip_z)
   GRASP_HEIGHT_M[0] = args.grasp_h
   solution = deployments.connect(address=args.address)
   if args.mode == "look":

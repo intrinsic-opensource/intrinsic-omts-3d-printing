@@ -297,12 +297,12 @@
         <geometry><cylinder><radius>0.006</radius><length>0.070</length></cylinder></geometry>
       </collision>
       <visual name="tab_v">
-        <pose>0 0 0.055 0 0 -2.356194</pose>
+        <pose>0 0 0.055 0 0 -3.141593</pose>
         <geometry><box><size>0.012 0.030 0.040</size></box></geometry>
         <material><ambient>0.75 0.4 1.0 1</ambient><diffuse>0.75 0.4 1.0 1</diffuse></material>
       </visual>
       <collision name="tab_c">
-        <pose>0 0 0.055 0 0 -2.356194</pose>
+        <pose>0 0 0.055 0 0 -3.141593</pose>
         <geometry><box><size>0.012 0.030 0.040</size></box></geometry>
         <surface><friction><ode><mu>3.0</mu><mu2>3.0</mu2></ode></friction></surface>
       </collision>
