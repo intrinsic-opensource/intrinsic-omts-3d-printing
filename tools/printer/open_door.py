@@ -57,7 +57,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--address", default="localhost:17080")
   parser.add_argument(
     "--mode",
-    choices=["look", "detect", "discover", "approach", "pull", "entities"],
+    choices=[
+      "look",
+      "detect",
+      "discover",
+      "approach",
+      "pull",
+      "entities",
+      "joints",
+    ],
     required=True,
   )
   parser.add_argument("--robot_name", default="rebot")
@@ -93,6 +101,22 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--blend_rot", type=float, default=0.1)
   parser.add_argument("--blend_joint", type=float, default=0.05)
   parser.add_argument("--az", type=float, default=None, help="Tool azimuth.")
+  parser.add_argument(
+    "--az_mode",
+    choices=["radial", "fixed"],
+    default="radial",
+    help="radial: the tool points from the robot's base at the grip point "
+    "(the crank turns, so the wrist need not); fixed: --az for the whole arc.",
+  )
+  parser.add_argument(
+    "--ready",
+    nargs=6,
+    type=float,
+    default=None,
+    help="Joint configuration to move to before approaching the grip: it "
+    "decides which inverse-kinematics branch (which way the base looks) the "
+    "planner picks for the grasp.",
+  )
   parser.add_argument(
     "--grip_z",
     type=float,
@@ -342,17 +366,29 @@ def print_failure(solution) -> None:
 
 
 def knob_matrix(
-  root_t_printer: np.ndarray, theta_deg: float, back_m: float = 0.0
+  root_t_printer: np.ndarray,
+  theta_deg: float,
+  back_m: float = 0.0,
+  az_mode: str = "radial",
 ) -> np.ndarray:
-  """Root-frame 4x4 of the tool at the lever's grip point at door angle theta.
+  """Root-frame 4x4 of the tool at the crank's grip point at door angle theta.
 
-  The orientation is fixed in the world (the ball turns, not the wrist); the
-  position follows the door's arc. back_m backs off along the approach axis.
+  The position follows the door's arc. The tool is level; its azimuth is
+  either fixed (az_mode "fixed", KNOB_APPROACH_AZ_DEG) or "radial": it points
+  along the line from the robot's base to the grip point, so the arm reaches
+  straight at its target and the wrist joint stays near its centre. Because
+  the crank handle turns freely about the vertical axis, the tool's azimuth is
+  free once the handle is held. back_m backs off along the approach axis.
   """
+  centre = (root_t_printer @ np.append(door.knob_in_printer(theta_deg), 1.0))[
+    :3
+  ]
+  az = None
+  if az_mode == "radial":
+    az = math.degrees(math.atan2(centre[1], centre[0]))
   m = np.eye(4)
-  m[:3, :3] = np.array(door.knob_tool_rotation_world())
-  centre = root_t_printer @ np.append(door.knob_in_printer(theta_deg), 1.0)
-  m[:3, 3] = centre[:3] - back_m * m[:3, 2]
+  m[:3, :3] = np.array(door.knob_tool_rotation_world(az))
+  m[:3, 3] = centre - back_m * m[:3, 2]
   return m
 
 
@@ -365,12 +401,14 @@ def grasp_target(
   root_t_printer: np.ndarray, args, theta_deg: float, back_m: float = 0.0
 ) -> np.ndarray:
   if args.grip == "lever":
-    return knob_matrix(root_t_printer, theta_deg, back_m)
+    return knob_matrix(root_t_printer, theta_deg, back_m, args.az_mode)
   return root_t_printer @ grasp_matrix(theta_deg, back_m)
 
 
 def approach(solution, args) -> None:
   """Moves the tool to a pre-grasp pose, then to the handle (no pulling)."""
+  if args.ready is not None:
+    look(solution, args.robot_name, args.ready)
   world = solution.world
   robot = Robot(
     solution=solution,
@@ -548,6 +586,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     detect(solution, args)
   elif args.mode == "discover":
     discover(solution, args)
+  elif args.mode == "joints":
+    arm = solution.world.get_kinematic_object(args.robot_name)
+    print("arm joints", [round(float(v), 3) for v in arm.joint_positions])
   elif args.mode == "entities":
     printer = solution.world.get_object("printer")
     w = solution.world

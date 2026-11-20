@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Simulation demo: deploy the reBot cell with a passive door hinge and the
-# printer 8.5 cm further from the robot than the cell puts it (d 0.675, so the
+# printer 18.5 cm further from the robot than the cell puts it (d 0.775, so the
 # door can swing wide), look for the marker,
 # grab the clip's lever on the door handle with the wrist fixed (the ball joint
 # turns instead) and swing the door open by moving the arm along its arc.
@@ -73,7 +73,8 @@ fi
 gz topic -e -t /world/default/pose/info --json-output >"$TMP/poses.jsonl" &
 REC=$!
 # Any printer movement fails the run on the spot.
-$OD --mode=pull --grip=lever --target_deg="$TARGET" --step_deg=3 &
+$OD --mode=pull --grip=lever --target_deg="$TARGET" \
+  --path=blended --chunk_deg=12 --wp_deg=3 &
 PULL=$!
 tools/printer/watch_printer.sh $PULL &
 WATCH=$!

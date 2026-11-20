@@ -53,7 +53,7 @@ KNOB_POS: Vec = (
 # horizontally across the tab. (45 deg to the left was tried first and has no
 # inverse-kinematics solution at the cell's original printer position; straight
 # ahead reaches every grip height tested there.)
-KNOB_APPROACH_AZ_DEG = 0.0
+KNOB_APPROACH_AZ_DEG = -19.7
 KNOB_APPROACH_PITCH_DEG = 0.0
 # Faces of the pane in the door frame (outer faces the robot).
 OUTER_FACE_Y = 0.0075
@@ -83,9 +83,12 @@ _S3 = math.sqrt(3.0) / 2.0
 WRAP_GRASP_ROT: Mat = ((0.0, -1.0, 0.0), (-0.5, 0.0, -_S3), (_S3, 0.0, -0.5))
 
 
-def knob_tool_rotation_world() -> Mat:
-  """Fixed tool rotation (columns x, y, z = approach) in the world frame."""
-  az = math.radians(KNOB_APPROACH_AZ_DEG)
+def knob_tool_rotation_world(az_deg: float | None = None) -> Mat:
+  """Tool rotation (columns x, y, z = approach) in the world frame.
+
+  The approach is level, at azimuth az_deg (default: KNOB_APPROACH_AZ_DEG).
+  """
+  az = math.radians(KNOB_APPROACH_AZ_DEG if az_deg is None else az_deg)
   pitch = math.radians(KNOB_APPROACH_PITCH_DEG)
   z = (
     math.cos(pitch) * math.cos(az),
