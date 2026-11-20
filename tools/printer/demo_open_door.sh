@@ -14,11 +14,11 @@
 # limitations under the License.
 
 # Simulation demo: deploy the reBot cell with a passive door hinge and the
-# printer at 0.70 m, shifted 0.3 m to the robot's left, look for the marker,
+# printer where the cell puts it (configs/rebot/printer.updates.pbtxt), look for the marker,
 # grab the clip's lever on the door handle with the wrist fixed (the ball joint
 # turns instead) and swing the door open by moving the arm along its arc.
 #
-#   tools/printer/demo_open_door.sh [target_deg]     (default 90)
+#   tools/printer/demo_open_door.sh [target_deg]     (default 42)
 #
 # Watch it in the Gazebo GUI (research/REBOT_OMTS_APP.md, "Look through the
 # camera"). The last lines are the door angle and how far the printer base
@@ -27,7 +27,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 A=--address=localhost:17080
-TARGET=${1:-90}
+TARGET=${1:-42}
 TMP=$(mktemp -d)
 
 # The deploy puts the printer at the test layout with the door closed in the
@@ -35,13 +35,13 @@ TMP=$(mktemp -d)
 # below syncs it. A Gazebo GUI that was open during the reset mis-draws the
 # model, so the GUI is restarted after it (set NO_GUI=1 to skip that).
 bazel run //:rebot_solution -c opt --//models/printer:door=closed \
-  --//models/printer:hinge=passive --//models/printer:layout=door_test \
+  --//models/printer:hinge=passive \
   -- $A >"$TMP/deploy.log" 2>&1 \
   || { tail -20 "$TMP/deploy.log"; exit 1; }
 bazel build //tools/printer:open_door //tools/world:apply_scene_updates \
   >/dev/null
 bazel-bin/tools/world/apply_scene_updates $A --reset_sim \
-  --files configs/rebot/printer_door_test.updates.pbtxt \
+  --files configs/rebot/printer.updates.pbtxt \
   configs/rebot/printer_door_closed.updates.pbtxt >/dev/null
 
 export GZ_PARTITION=intrinsic_sim GZ_IP=10.42.0.1
@@ -58,7 +58,7 @@ if [ -z "${NO_GUI:-}" ] && [ -n "${DISPLAY:-}" ]; then
 fi
 
 OD="bazel-bin/tools/printer/open_door $A"
-$OD --mode=look --joints 0.2647 -1.1813 -1.3964 0.2152 -0.4335 -1.5709
+$OD --mode=look --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
 if $OD --mode=discover ${NO_WRITE:+--no_write_pose}; then
   echo ">>> Printer pose source: MEASURED (marker detected)."
 else

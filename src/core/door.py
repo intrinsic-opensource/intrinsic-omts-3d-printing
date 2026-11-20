@@ -35,7 +35,7 @@ Q_UPPER = 3.14159
 # ball sits in its pocket on the ball joint clip_ball, a lever (cylinder) rising
 # from the ball through the housing's top slot. The housing is at the top of the
 # handle (its top flush with the blade's top). Ball centre, door frame.
-BALL_POS: Vec = (-0.347, 0.0185, 0.2135)
+BALL_POS: Vec = (-0.347, 0.0335, 0.2135)
 # The gripper holds the lever 60 mm above the ball: 35 mm above the housing's top
 # face, so the open fingers clear it, and 38 mm below the lever's top.
 # Its axis is vertical through the ball, so the grip point moves on a circle of
