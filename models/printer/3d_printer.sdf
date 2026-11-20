@@ -212,89 +212,28 @@
   </visual>
 
 
-  <!-- Clip housing: a solid block inserted in the handle, with a pocket for
-       the ball (8 mm clearance) and a square slot for the lever in its top
-       (src/core/door.py BALL_POS). Part of the door, so it turns with it. -->
-  <visual name="housing_base_v">
-    <pose>-0.34700 0.03350 0.17850 0 0 0</pose>
-    <geometry><box><size>0.04900 0.04900 0.03000</size></box></geometry>
+
+  <!-- Crank arm, fixed to the door (src/core/door.py CRANK_PIVOT_POS): a bar
+       from the handle blade out to a bearing block, so the turning handle
+       sits well in front of the printer frame. The handle itself is the
+       link crank_handle on the joint crank_pivot. -->
+  <visual name="crank_arm_v">
+    <pose>-0.34700 0.02875 0.19250 0 0 0</pose>
+    <geometry><box><size>0.02400 0.04250 0.02400</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
-  <collision name="housing_base_c">
-    <pose>-0.34700 0.03350 0.17850 0 0 0</pose>
-    <geometry><box><size>0.04900 0.04900 0.03000</size></box></geometry>
+  <collision name="crank_arm_c">
+    <pose>-0.34700 0.02875 0.19250 0 0 0</pose>
+    <geometry><box><size>0.02400 0.04250 0.02400</size></box></geometry>
   </collision>
-  <visual name="housing_wall_left_v">
-    <pose>-0.36925 0.03350 0.21350 0 0 0</pose>
-    <geometry><box><size>0.00450 0.04900 0.04000</size></box></geometry>
+  <visual name="crank_block_v">
+    <pose>-0.34700 0.07000 0.19250 0 0 0</pose>
+    <geometry><box><size>0.04000 0.04000 0.04000</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
-  <collision name="housing_wall_left_c">
-    <pose>-0.36925 0.03350 0.21350 0 0 0</pose>
-    <geometry><box><size>0.00450 0.04900 0.04000</size></box></geometry>
-  </collision>
-  <visual name="housing_wall_right_v">
-    <pose>-0.32475 0.03350 0.21350 0 0 0</pose>
-    <geometry><box><size>0.00450 0.04900 0.04000</size></box></geometry>
-    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
-  </visual>
-  <collision name="housing_wall_right_c">
-    <pose>-0.32475 0.03350 0.21350 0 0 0</pose>
-    <geometry><box><size>0.00450 0.04900 0.04000</size></box></geometry>
-  </collision>
-  <visual name="housing_wall_front_v">
-    <pose>-0.34700 0.01125 0.21350 0 0 0</pose>
-    <geometry><box><size>0.04000 0.00450 0.04000</size></box></geometry>
-    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
-  </visual>
-  <collision name="housing_wall_front_c">
-    <pose>-0.34700 0.01125 0.21350 0 0 0</pose>
-    <geometry><box><size>0.04000 0.00450 0.04000</size></box></geometry>
-  </collision>
-  <visual name="housing_wall_back_v">
-    <pose>-0.34700 0.05575 0.21350 0 0 0</pose>
-    <geometry><box><size>0.04000 0.00450 0.04000</size></box></geometry>
-    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
-  </visual>
-  <collision name="housing_wall_back_c">
-    <pose>-0.34700 0.05575 0.21350 0 0 0</pose>
-    <geometry><box><size>0.04000 0.00450 0.04000</size></box></geometry>
-  </collision>
-  <visual name="housing_top_left_v">
-    <pose>-0.36475 0.03350 0.23600 0 0 0</pose>
-    <geometry><box><size>0.01350 0.04900 0.00500</size></box></geometry>
-    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
-  </visual>
-  <collision name="housing_top_left_c">
-    <pose>-0.36475 0.03350 0.23600 0 0 0</pose>
-    <geometry><box><size>0.01350 0.04900 0.00500</size></box></geometry>
-  </collision>
-  <visual name="housing_top_right_v">
-    <pose>-0.32925 0.03350 0.23600 0 0 0</pose>
-    <geometry><box><size>0.01350 0.04900 0.00500</size></box></geometry>
-    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
-  </visual>
-  <collision name="housing_top_right_c">
-    <pose>-0.32925 0.03350 0.23600 0 0 0</pose>
-    <geometry><box><size>0.01350 0.04900 0.00500</size></box></geometry>
-  </collision>
-  <visual name="housing_top_front_v">
-    <pose>-0.34700 0.01575 0.23600 0 0 0</pose>
-    <geometry><box><size>0.02200 0.01350 0.00500</size></box></geometry>
-    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
-  </visual>
-  <collision name="housing_top_front_c">
-    <pose>-0.34700 0.01575 0.23600 0 0 0</pose>
-    <geometry><box><size>0.02200 0.01350 0.00500</size></box></geometry>
-  </collision>
-  <visual name="housing_top_back_v">
-    <pose>-0.34700 0.05125 0.23600 0 0 0</pose>
-    <geometry><box><size>0.02200 0.01350 0.00500</size></box></geometry>
-    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
-  </visual>
-  <collision name="housing_top_back_c">
-    <pose>-0.34700 0.05125 0.23600 0 0 0</pose>
-    <geometry><box><size>0.02200 0.01350 0.00500</size></box></geometry>
+  <collision name="crank_block_c">
+    <pose>-0.34700 0.07000 0.19250 0 0 0</pose>
+    <geometry><box><size>0.04000 0.04000 0.04000</size></box></geometry>
   </collision>
 
   <collision name="door_pane_col">
@@ -326,18 +265,12 @@
   </axis>
 </joint>
 
-    <!-- Frames from src/core/door.py (checked by test_door_model). -->
-    <frame name="door_hinge_axis" attached_to="base_link" intrinsic:create_entity="true">
-      <pose>0.174 0.205 0.279 0 0 0</pose>
-    </frame>
-    <frame name="aruco_1" attached_to="door_link" intrinsic:create_entity="true">
-      <pose relative_to="door_link">-0.09 0.0075 0.18 -1.570796 -0.000000 3.141593</pose>
-    </frame>
-  
-    <!-- A ball in the housing's pocket, free to rotate there. A ball joint
-         (kept as a real ball joint in Gazebo, fixed in the belief world). -->
-    <link name="ball_link">
-      <pose relative_to="door_link">-0.347 0.03350 0.21350 0 0 0</pose>
+    <!-- The crank handle: a flange, a vertical rod and a flat tab to grip. It
+         turns freely about its own vertical axis on crank_pivot, so the gripper
+         keeps its orientation while the door swings; the force goes through the
+         pivot, the bearing block and the arm to the door. -->
+    <link name="crank_handle">
+      <pose relative_to="door_link">-0.347 0.07 0.2145 0 0 0</pose>
       <inertial>
         <mass>0.1</mass>
         <inertia>
@@ -345,29 +278,39 @@
           <iyy>0.00004</iyy><iyz>0</iyz><izz>0.00004</izz>
         </inertia>
       </inertial>
-      <visual name="ball_v">
-        <geometry><sphere><radius>0.012</radius></sphere></geometry>
+      <visual name="flange_v">
+        <pose>0 0 0.002 0 0 0</pose>
+        <geometry><cylinder><radius>0.016</radius><length>0.004</length></cylinder></geometry>
         <material><ambient>0.2 0.8 1.0 1</ambient><diffuse>0.2 0.8 1.0 1</diffuse></material>
       </visual>
-      <collision name="ball_c">
-        <geometry><sphere><radius>0.012</radius></sphere></geometry>
+      <collision name="flange_c">
+        <pose>0 0 0.002 0 0 0</pose>
+        <geometry><cylinder><radius>0.016</radius><length>0.004</length></cylinder></geometry>
       </collision>
-          <visual name="lever_v">
-        <pose>0 0 0.038 0 0 0</pose>
-        <geometry><cylinder><radius>0.0055</radius><length>0.060</length></cylinder></geometry>
+      <visual name="rod_v">
+        <pose>0 0 0.035 0 0 0</pose>
+        <geometry><cylinder><radius>0.006</radius><length>0.070</length></cylinder></geometry>
         <material><ambient>0.75 0.4 1.0 1</ambient><diffuse>0.75 0.4 1.0 1</diffuse></material>
       </visual>
-      <collision name="lever_c">
-        <pose>0 0 0.038 0 0 0</pose>
-        <geometry><cylinder><radius>0.0055</radius><length>0.060</length></cylinder></geometry>
+      <collision name="rod_c">
+        <pose>0 0 0.035 0 0 0</pose>
+        <geometry><cylinder><radius>0.006</radius><length>0.070</length></cylinder></geometry>
+      </collision>
+      <visual name="tab_v">
+        <pose>0 0 0.055 0 0 -2.356194</pose>
+        <geometry><box><size>0.012 0.030 0.040</size></box></geometry>
+        <material><ambient>0.75 0.4 1.0 1</ambient><diffuse>0.75 0.4 1.0 1</diffuse></material>
+      </visual>
+      <collision name="tab_c">
+        <pose>0 0 0.055 0 0 -2.356194</pose>
+        <geometry><box><size>0.012 0.030 0.040</size></box></geometry>
+        <surface><friction><ode><mu>3.0</mu><mu2>3.0</mu2></ode></friction></surface>
       </collision>
     </link>
 
-    <!-- Crank handle: the door hinge is the fixed axis; the handle turns freely
-         about its own vertical axis, so the gripper never has to twist. -->
-    <joint name="clip_ball" type="revolute">
+    <joint name="crank_pivot" type="revolute">
       <parent>door_link</parent>
-      <child>ball_link</child>
+      <child>crank_handle</child>
       <axis>
         <xyz>0 0 1</xyz>
         <limit>
@@ -382,5 +325,14 @@
         </dynamics>
       </axis>
     </joint>
+
+    <!-- Frames from src/core/door.py (checked by test_door_model). -->
+    <frame name="door_hinge_axis" attached_to="base_link" intrinsic:create_entity="true">
+      <pose>0.174 0.205 0.279 0 0 0</pose>
+    </frame>
+    <frame name="aruco_1" attached_to="door_link" intrinsic:create_entity="true">
+      <pose relative_to="door_link">-0.09 0.0075 0.18 -1.570796 -0.000000 3.141593</pose>
+    </frame>
+  
   </model>
 </sdf>

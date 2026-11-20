@@ -91,20 +91,28 @@ class DoorModelTest(absltest.TestCase):
 
 
 class SdfFramesTest(absltest.TestCase):
-  def test_clip_ball_matches_the_model(self):
+  def test_crank_matches_the_model(self):
     text = pathlib.Path("models/printer/3d_printer.sdf").read_text()
     link = re.search(
-      r'<link name="ball_link">\s*<pose relative_to="door_link">([^<]*)</pose>',
+      r'<link name="crank_handle">\s*<pose relative_to="door_link">([^<]*)</pose>',
       text,
     )
     v = [float(x) for x in link.group(1).split()]
-    for a, b in zip(v[:3], door.BALL_POS, strict=True):
+    for a, b in zip(v[:3], door.CRANK_PIVOT_POS, strict=True):
       self.assertAlmostEqual(a, b, places=6)
-    self.assertIn('name="clip_ball"', text)
-    self.assertIn('name="housing_base_c"', text)
-    self.assertIn('name="lever_c"', text)
-
-  """The SDF's door frames are the ones door.py predicts."""
+    # the handle turns on a vertical revolute joint, a child of the door
+    joint = re.search(r'<joint name="crank_pivot"[\s\S]*?</joint>', text).group(
+      0
+    )
+    self.assertIn('type="revolute"', joint)
+    self.assertIn("<parent>door_link</parent>", joint)
+    self.assertIn("<child>crank_handle</child>", joint)
+    self.assertIn("<xyz>0 0 1</xyz>", joint)
+    self.assertNotIn("ball_link", text)
+    self.assertNotIn("clip_ball", text)
+    tab = re.search(r'<visual name="tab_v">\s*<pose>([^<]*)</pose>', text)
+    t = [float(x) for x in tab.group(1).split()]
+    self.assertAlmostEqual(t[2], door.TAB_ABOVE_PIVOT_M, places=6)
 
   def test_marker_frames_match_the_model(self):
     text = pathlib.Path("models/printer/3d_printer.sdf").read_text()

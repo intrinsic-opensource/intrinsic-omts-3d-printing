@@ -120,7 +120,7 @@ def look(solution, robot_name: str, joints: Sequence[float]) -> None:
     solution.executive.run(
       robot.build_move_joint_task(
         LOOK_CONFIG,
-        excluded_collision_pairs=[("gripper", "printer:ball_link")],
+        excluded_collision_pairs=[("gripper", "printer:crank_handle")],
       )
     )
   except execution.ExecutionFailedError as e:
@@ -305,7 +305,7 @@ def knob_matrix(
 
 def _contact_target(args) -> str:
   """What the gripper may touch: only the lever for the lever grip."""
-  return "printer:ball_link" if args.grip == "lever" else "printer"
+  return "printer:crank_handle" if args.grip == "lever" else "printer"
 
 
 def grasp_target(

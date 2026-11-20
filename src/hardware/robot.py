@@ -261,7 +261,7 @@ class Robot:
     """Builds scoped CollisionSettings for valid world object pairs.
 
     Each name is an object, or "object:entity" to name one of its entities
-    (links), for example "printer:ball_link".
+    (links), for example "printer:crank_handle".
     """
     if not excluded_collision_pairs:
       return None

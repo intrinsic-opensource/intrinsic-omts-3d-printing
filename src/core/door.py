@@ -31,24 +31,26 @@ HINGE_IN_PRINTER: Vec = (0.174, 0.205, 0.279)
 # Hinge joint limits, radians.
 Q_LOWER = 0.0
 Q_UPPER = 3.14159
-# The clip housing (models/printer/3d_printer.sdf) is inserted in the handle; a
-# ball sits in its pocket on the ball joint clip_ball, a lever (cylinder) rising
-# from the ball through the housing's top slot. The housing is at the top of the
-# handle (its top flush with the blade's top). Ball centre, door frame.
-BALL_POS: Vec = (-0.347, 0.0335, 0.2135)
-# The gripper holds the lever 60 mm above the ball: 35 mm above the housing's top
-# face, so the open fingers clear it, and 38 mm below the lever's top.
-# Its axis is vertical through the ball, so the grip point moves on a circle of
-# radius 0.3475 m about the hinge axis as the door turns.
-LEVER_GRIP_ABOVE_BALL_M = 0.045
+# The crank (models/printer/3d_printer.sdf): an arm fixed to the door's handle
+# carries a bearing block 70 mm in front of the pane; the crank handle (a rod
+# with a flat tab) turns freely about its own vertical axis on the joint
+# crank_pivot. The door hinge is the fixed axis: the arm swings the pivot on a
+# circle about it, and because the handle turns, the gripper holding the tab
+# never has to twist. Pivot centre, door frame (the top of the handle):
+CRANK_PIVOT_POS: Vec = (-0.347, 0.070, 0.2145)
+# The gripper holds the tab, 55 mm above the pivot. The arm keeps the open
+# fingers (+-50 mm across the tab) clear of the printer's frame, which matters:
+# the simulator welds a gripper to the first free (floating) body it touches,
+# and the printer's base is one.
+TAB_ABOVE_PIVOT_M = 0.055
 KNOB_POS: Vec = (
-  BALL_POS[0],
-  BALL_POS[1],
-  BALL_POS[2] + LEVER_GRIP_ABOVE_BALL_M,
+  CRANK_PIVOT_POS[0],
+  CRANK_PIVOT_POS[1],
+  CRANK_PIVOT_POS[2] + TAB_ABOVE_PIVOT_M,
 )
-# Tool orientation, fixed in the WORLD while the door turns (the ball turns, so
-# the wrist never does): approach 45 deg to the left of straight ahead, level;
-# the fingers close horizontally across the lever. Offline (pivot.py): reaches
+# Tool orientation, fixed in the WORLD while the door turns (the handle turns,
+# so the wrist never does): approach 45 deg to the left of straight ahead, level;
+# the fingers close horizontally across the tab. Offline (pivot.py): reaches
 # about 90 deg with the printer at d 0.70, shifted 0.3 m to the robot's left.
 KNOB_APPROACH_AZ_DEG = 45.0
 KNOB_APPROACH_PITCH_DEG = 0.0
