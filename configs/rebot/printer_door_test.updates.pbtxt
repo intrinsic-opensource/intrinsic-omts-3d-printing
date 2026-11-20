@@ -7,6 +7,28 @@
 # touching the arm. Applied after printer.updates and printed_part.updates, so it
 # overrides both; the part moves with the bed.
 
+# The printer is attached to the ground slab (rebot_ground, static in Gazebo) so
+# that it cannot be pushed or dragged by the arm: Gazebo then welds its base to
+# the ground. The door hinge and the crank handle stay free.
+updates {
+  reparent_object {
+    object {
+      by_name {
+        object_name: "printer"
+      }
+    }
+    new_parent {
+      reference {
+        by_name {
+          object_name: "rebot_ground"
+        }
+      }
+      entity_filter {
+        include_base_entity: true
+      }
+    }
+  }
+}
 updates {
   update_transform {
     node_a {

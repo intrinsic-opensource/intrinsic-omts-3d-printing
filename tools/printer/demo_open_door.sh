@@ -70,7 +70,17 @@ else
 fi
 gz topic -e -t /world/default/pose/info --json-output >"$TMP/poses.jsonl" &
 REC=$!
-$OD --mode=pull --grip=lever --target_deg="$TARGET" --step_deg=3
+# Any printer movement fails the run on the spot.
+$OD --mode=pull --grip=lever --target_deg="$TARGET" --step_deg=3 &
+PULL=$!
+tools/printer/watch_printer.sh $PULL &
+WATCH=$!
+FAILED=0
+wait $PULL || FAILED=1
+kill $WATCH 2>/dev/null || true
+if [ $FAILED = 1 ]; then
+  echo "RESULT: FAIL (the arm program stopped; see above)."
+fi
 sleep 3
 kill $REC 2>/dev/null || true
 echo "Gazebo, from the start of the pull to its end:"
