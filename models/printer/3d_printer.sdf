@@ -211,89 +211,90 @@
     <geometry><mesh><uri>aruco_1.glb</uri></mesh></geometry>
   </visual>
 
-  <!-- Clip housing: a solid block inserted in the handle, with a ball-shaped
-       pocket and a square slot in its top (src/core/door.py BALL_POS). Part of
-       the door, so it turns with it. -->
+
+  <!-- Clip housing: a solid block inserted in the handle, with a pocket for
+       the ball (8 mm clearance) and a square slot for the lever in its top
+       (src/core/door.py BALL_POS). Part of the door, so it turns with it. -->
   <visual name="housing_base_v">
     <pose>-0.34700 0.01850 0.17850 0 0 0</pose>
-    <geometry><box><size>0.03600 0.03600 0.04300</size></box></geometry>
+    <geometry><box><size>0.04900 0.04900 0.03000</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_base_c">
     <pose>-0.34700 0.01850 0.17850 0 0 0</pose>
-    <geometry><box><size>0.03600 0.03600 0.04300</size></box></geometry>
+    <geometry><box><size>0.04900 0.04900 0.03000</size></box></geometry>
   </collision>
   <visual name="housing_wall_left_v">
-    <pose>-0.36275 0.01850 0.21350 0 0 0</pose>
-    <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
+    <pose>-0.36925 0.01850 0.21350 0 0 0</pose>
+    <geometry><box><size>0.00450 0.04900 0.04000</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_wall_left_c">
-    <pose>-0.36275 0.01850 0.21350 0 0 0</pose>
-    <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
+    <pose>-0.36925 0.01850 0.21350 0 0 0</pose>
+    <geometry><box><size>0.00450 0.04900 0.04000</size></box></geometry>
   </collision>
   <visual name="housing_wall_right_v">
-    <pose>-0.33125 0.01850 0.21350 0 0 0</pose>
-    <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
+    <pose>-0.32475 0.01850 0.21350 0 0 0</pose>
+    <geometry><box><size>0.00450 0.04900 0.04000</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_wall_right_c">
-    <pose>-0.33125 0.01850 0.21350 0 0 0</pose>
-    <geometry><box><size>0.00450 0.03600 0.02700</size></box></geometry>
+    <pose>-0.32475 0.01850 0.21350 0 0 0</pose>
+    <geometry><box><size>0.00450 0.04900 0.04000</size></box></geometry>
   </collision>
   <visual name="housing_wall_front_v">
-    <pose>-0.34700 0.00275 0.21350 0 0 0</pose>
-    <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
+    <pose>-0.34700 -0.00375 0.21350 0 0 0</pose>
+    <geometry><box><size>0.04000 0.00450 0.04000</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_wall_front_c">
-    <pose>-0.34700 0.00275 0.21350 0 0 0</pose>
-    <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
+    <pose>-0.34700 -0.00375 0.21350 0 0 0</pose>
+    <geometry><box><size>0.04000 0.00450 0.04000</size></box></geometry>
   </collision>
   <visual name="housing_wall_back_v">
-    <pose>-0.34700 0.03425 0.21350 0 0 0</pose>
-    <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
+    <pose>-0.34700 0.04075 0.21350 0 0 0</pose>
+    <geometry><box><size>0.04000 0.00450 0.04000</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_wall_back_c">
-    <pose>-0.34700 0.03425 0.21350 0 0 0</pose>
-    <geometry><box><size>0.02700 0.00450 0.02700</size></box></geometry>
+    <pose>-0.34700 0.04075 0.21350 0 0 0</pose>
+    <geometry><box><size>0.04000 0.00450 0.04000</size></box></geometry>
   </collision>
   <visual name="housing_top_left_v">
-    <pose>-0.35988 0.01850 0.22950 0 0 0</pose>
-    <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
+    <pose>-0.36475 0.01850 0.23600 0 0 0</pose>
+    <geometry><box><size>0.01350 0.04900 0.00500</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_top_left_c">
-    <pose>-0.35988 0.01850 0.22950 0 0 0</pose>
-    <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
+    <pose>-0.36475 0.01850 0.23600 0 0 0</pose>
+    <geometry><box><size>0.01350 0.04900 0.00500</size></box></geometry>
   </collision>
   <visual name="housing_top_right_v">
-    <pose>-0.33412 0.01850 0.22950 0 0 0</pose>
-    <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
+    <pose>-0.32925 0.01850 0.23600 0 0 0</pose>
+    <geometry><box><size>0.01350 0.04900 0.00500</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_top_right_c">
-    <pose>-0.33412 0.01850 0.22950 0 0 0</pose>
-    <geometry><box><size>0.01025 0.03600 0.00500</size></box></geometry>
+    <pose>-0.32925 0.01850 0.23600 0 0 0</pose>
+    <geometry><box><size>0.01350 0.04900 0.00500</size></box></geometry>
   </collision>
   <visual name="housing_top_front_v">
-    <pose>-0.34700 0.00562 0.22950 0 0 0</pose>
-    <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
+    <pose>-0.34700 0.00075 0.23600 0 0 0</pose>
+    <geometry><box><size>0.02200 0.01350 0.00500</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_top_front_c">
-    <pose>-0.34700 0.00562 0.22950 0 0 0</pose>
-    <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
+    <pose>-0.34700 0.00075 0.23600 0 0 0</pose>
+    <geometry><box><size>0.02200 0.01350 0.00500</size></box></geometry>
   </collision>
   <visual name="housing_top_back_v">
-    <pose>-0.34700 0.03138 0.22950 0 0 0</pose>
-    <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
+    <pose>-0.34700 0.03625 0.23600 0 0 0</pose>
+    <geometry><box><size>0.02200 0.01350 0.00500</size></box></geometry>
     <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
   </visual>
   <collision name="housing_top_back_c">
-    <pose>-0.34700 0.03138 0.22950 0 0 0</pose>
-    <geometry><box><size>0.01550 0.01025 0.00500</size></box></geometry>
+    <pose>-0.34700 0.03625 0.23600 0 0 0</pose>
+    <geometry><box><size>0.02200 0.01350 0.00500</size></box></geometry>
   </collision>
 
   <collision name="door_pane_col">
@@ -319,8 +320,8 @@
       <velocity>2.0</velocity>
     </limit>
     <dynamics>
-      <damping>0.05</damping>
-      <friction>0.01</friction>
+      <damping>0.5</damping>
+      <friction>0.2</friction>
     </dynamics>
   </axis>
 </joint>
@@ -340,8 +341,8 @@
       <inertial>
         <mass>0.1</mass>
         <inertia>
-          <ixx>0.000006</ixx><ixy>0</ixy><ixz>0</ixz>
-          <iyy>0.000006</iyy><iyz>0</iyz><izz>0.000006</izz>
+          <ixx>0.00004</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>0.00004</iyy><iyz>0</iyz><izz>0.00004</izz>
         </inertia>
       </inertial>
       <visual name="ball_v">
@@ -352,13 +353,13 @@
         <geometry><sphere><radius>0.012</radius></sphere></geometry>
       </collision>
           <visual name="lever_v">
-        <pose>0 0 0.038 0 0 0</pose>
-        <geometry><cylinder><radius>0.0055</radius><length>0.060</length></cylinder></geometry>
+        <pose>0 0 0.053 0 0 0</pose>
+        <geometry><cylinder><radius>0.0055</radius><length>0.090</length></cylinder></geometry>
         <material><ambient>0.75 0.4 1.0 1</ambient><diffuse>0.75 0.4 1.0 1</diffuse></material>
       </visual>
       <collision name="lever_c">
-        <pose>0 0 0.038 0 0 0</pose>
-        <geometry><cylinder><radius>0.0055</radius><length>0.060</length></cylinder></geometry>
+        <pose>0 0 0.053 0 0 0</pose>
+        <geometry><cylinder><radius>0.0055</radius><length>0.090</length></cylinder></geometry>
       </collision>
     </link>
 

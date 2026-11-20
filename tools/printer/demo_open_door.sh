@@ -14,10 +14,11 @@
 # limitations under the License.
 
 # Simulation demo: deploy the reBot cell with a passive door hinge, put the
-# printer at 0.675 m, find it by its markers, grab the door's handle and pull
-# the door open (about 42 deg at most).
+# printer at 0.70 m, shifted 0.3 m to the robot's left, look for the marker,
+# grab the clip's lever on the door handle with the wrist fixed (the ball joint
+# turns instead) and swing the door open by moving the arm along its arc.
 #
-#   tools/printer/demo_open_door.sh [target_deg]     (default 42)
+#   tools/printer/demo_open_door.sh [target_deg]     (default 90)
 #
 # Watch it in the Gazebo GUI (research/REBOT_OMTS_APP.md, "Look through the
 # camera"). The last lines are the door angle and how far the printer base
@@ -26,7 +27,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 A=--address=localhost:17080
-TARGET=${1:-42}
+TARGET=${1:-90}
 TMP=$(mktemp -d)
 
 bazel run //:rebot_solution -c opt --//models/printer:door=closed \
@@ -35,7 +36,7 @@ bazel run //:rebot_solution -c opt --//models/printer:door=closed \
 bazel build //tools/world:apply_scene_updates //tools/printer:control_door \
   //tools/printer:open_door >/dev/null
 
-sed 's/x: 0.5895/x: 0.675/; s/y: -0.0064/y: 0/' \
+sed 's/x: 0.5895/x: 0.70/; s/y: -0.0064/y: 0.3/' \
   configs/rebot/printer.updates.pbtxt >"$TMP/printer.pbtxt"
 bazel-bin/tools/world/apply_scene_updates $A --files "$TMP/printer.pbtxt" \
   --reset_sim >/dev/null
@@ -47,8 +48,8 @@ GZ_RELAY=$(kubectl get pod -n app-resources rs-gazebo-simulator-0 \
 export GZ_RELAY
 
 OD="bazel-bin/tools/printer/open_door $A"
-$OD --mode=look --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
-if $OD --mode=discover; then
+$OD --mode=look --joints 0.2647 -1.1813 -1.3964 0.2152 -0.4335 -1.5709
+if $OD --mode=discover ${NO_WRITE:+--no_write_pose}; then
   echo ">>> Printer pose source: MEASURED (marker detected)."
 else
   echo ">>> Printer pose source: CONFIGURED, NOT measured (no marker found)."
@@ -58,7 +59,7 @@ else
 fi
 gz topic -e -t /world/default/pose/info --json-output >"$TMP/poses.jsonl" &
 REC=$!
-$OD --mode=pull --grasp_h=0.30 --target_deg="$TARGET" --step_deg=6
+$OD --mode=pull --grip=lever --target_deg="$TARGET" --step_deg=3
 sleep 3
 kill $REC 2>/dev/null || true
 echo "Gazebo, from the start of the pull to its end:"

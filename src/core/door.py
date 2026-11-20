@@ -36,6 +36,22 @@ Q_UPPER = 3.14159
 # from the ball through the housing's top slot. The housing is at the top of the
 # handle (its top flush with the blade's top). Ball centre, door frame.
 BALL_POS: Vec = (-0.347, 0.0185, 0.2135)
+# The gripper holds the lever 60 mm above the ball: 35 mm above the housing's top
+# face, so the open fingers clear it, and 38 mm below the lever's top.
+# Its axis is vertical through the ball, so the grip point moves on a circle of
+# radius 0.3475 m about the hinge axis as the door turns.
+LEVER_GRIP_ABOVE_BALL_M = 0.060
+KNOB_POS: Vec = (
+  BALL_POS[0],
+  BALL_POS[1],
+  BALL_POS[2] + LEVER_GRIP_ABOVE_BALL_M,
+)
+# Tool orientation, fixed in the WORLD while the door turns (the ball turns, so
+# the wrist never does): approach 45 deg to the left of straight ahead, level;
+# the fingers close horizontally across the lever. Offline (pivot.py): reaches
+# about 90 deg with the printer at d 0.70, shifted 0.3 m to the robot's left.
+KNOB_APPROACH_AZ_DEG = 45.0
+KNOB_APPROACH_PITCH_DEG = 0.0
 # Faces of the pane in the door frame (outer faces the robot).
 OUTER_FACE_Y = 0.0075
 # ArUco marker side (black square), meters: one big marker.
@@ -62,6 +78,31 @@ MARKERS: dict[int, tuple[Vec, Mat]] = {
 WRAP_GRASP_POS: Vec = (-0.3465, 0.0145, 0.15 - HINGE_IN_PRINTER[2])
 _S3 = math.sqrt(3.0) / 2.0
 WRAP_GRASP_ROT: Mat = ((0.0, -1.0, 0.0), (-0.5, 0.0, -_S3), (_S3, 0.0, -0.5))
+
+
+def knob_tool_rotation_world() -> Mat:
+  """Fixed tool rotation (columns x, y, z = approach) in the world frame."""
+  az = math.radians(KNOB_APPROACH_AZ_DEG)
+  pitch = math.radians(KNOB_APPROACH_PITCH_DEG)
+  z = (
+    math.cos(pitch) * math.cos(az),
+    math.cos(pitch) * math.sin(az),
+    -math.sin(pitch),
+  )
+  y = (z[1], -z[0], 0.0)  # z cross up, normalised
+  n = math.hypot(y[0], y[1])
+  y = (y[0] / n, y[1] / n, 0.0)
+  x = (
+    y[1] * z[2] - y[2] * z[1],
+    y[2] * z[0] - y[0] * z[2],
+    y[0] * z[1] - y[1] * z[0],
+  )
+  return tuple((x[i], y[i], z[i]) for i in range(3))
+
+
+def knob_in_printer(theta_deg: float) -> Vec:
+  """The lever's grip point in the printer frame at door angle theta."""
+  return point_in_printer(KNOB_POS, theta_deg)
 
 
 def theta_to_q(theta_deg: float) -> float:

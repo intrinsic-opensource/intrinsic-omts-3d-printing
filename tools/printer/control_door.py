@@ -30,6 +30,7 @@ from intrinsic.solutions import deployments
 from src.core import door
 
 PRINTER_OBJECT_NAME = "printer"
+DOOR_JOINT_NAME = "door_hinge"
 
 # Hinge angles, matching configs/rebot/printer_door_{open,closed}.updates.pbtxt.
 DOOR_OPEN_ANGLE = 0.0
@@ -116,7 +117,11 @@ def main(argv: Sequence[str] | None = None) -> None:
   else:
     target_angle = args.angle
 
-  world.update_joint_positions(printer, [target_angle])
+  # The printer may have other joints (the clip's pivot): change only the door's.
+  names = list(printer.joint_entity_names)
+  positions = [float(v) for v in printer.joint_positions]
+  positions[names.index(DOOR_JOINT_NAME)] = target_angle
+  world.update_joint_positions(printer, positions)
   print(f"[✓] Set belief world door position to {target_angle:.3f} rad.")
 
   if args.reset_sim and solution.is_simulated:

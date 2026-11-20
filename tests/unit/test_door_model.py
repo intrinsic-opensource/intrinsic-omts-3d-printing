@@ -100,7 +100,7 @@ class SdfFramesTest(absltest.TestCase):
     v = [float(x) for x in link.group(1).split()]
     for a, b in zip(v[:3], door.BALL_POS, strict=True):
       self.assertAlmostEqual(a, b, places=6)
-    self.assertIn('<joint name="clip_ball" type="ball">', text)
+    self.assertIn('name="clip_ball"', text)
     self.assertIn('name="housing_base_c"', text)
     self.assertIn('name="lever_c"', text)
 

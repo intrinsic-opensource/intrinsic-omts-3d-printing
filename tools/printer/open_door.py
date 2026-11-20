@@ -17,7 +17,7 @@
 Simulation only (it moves the arm). Modes:
 
   look    move the arm to a joint configuration (--joints q1..q6)
-  pull    approach, close on the handle, pull to --target_deg, release, retreat
+  pull    approach, close on the grip, pull to --target_deg, release, retreat
   approach  move to a pre-grasp pose and then to the handle (wrap grasp)
   discover  detect, then write the measured printer pose to the belief world
           in the same behavior tree (update_world)
@@ -55,7 +55,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--address", default="localhost:17080")
   parser.add_argument(
     "--mode",
-    choices=["look", "detect", "discover", "approach", "pull"],
+    choices=["look", "detect", "discover", "approach", "pull", "entities"],
     required=True,
   )
   parser.add_argument("--robot_name", default="rebot")
@@ -63,11 +63,34 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--marker_size_m", type=float, default=door.MARKER_SIZE_M)
   parser.add_argument("--theta_deg", type=float, default=0.0)
   parser.add_argument("--grasp_h", type=float, default=None)
+  parser.add_argument(
+    "--grip",
+    choices=["lever", "handle"],
+    default="lever",
+    help="lever: the clip's lever (fixed wrist); handle: wrap the blade.",
+  )
   parser.add_argument("--target_deg", type=float, default=30.0)
   parser.add_argument("--step_deg", type=float, default=6.0)
   parser.add_argument("--pregrasp_m", type=float, default=0.06)
   parser.add_argument("--allow_contact", action="store_true")
   parser.add_argument("--hold", action="store_true", help="No release.")
+  parser.add_argument(
+    "--no_close",
+    action="store_true",
+    help="Diagnostic: follow the whole path with the gripper left open.",
+  )
+  parser.add_argument(
+    "--no_write_pose",
+    dest="write_pose",
+    action="store_false",
+    help="discover: detect and report, but keep the configured printer pose.",
+  )
+  parser.add_argument(
+    "--no_belief_door",
+    dest="belief_door",
+    action="store_false",
+    help="Do not update the belief door angle during the pull.",
+  )
   parser.add_argument("--marker_ids", nargs="+", type=int, default=[1])
   return parser.parse_args(argv)
 
@@ -93,7 +116,13 @@ def look(solution, robot_name: str, joints: Sequence[float]) -> None:
     ),
   )
   try:
-    solution.executive.run(robot.build_move_joint_task(LOOK_CONFIG))
+    # The arm may be left touching the clip's lever by an earlier run.
+    solution.executive.run(
+      robot.build_move_joint_task(
+        LOOK_CONFIG,
+        excluded_collision_pairs=[("gripper", "printer:ball_link")],
+      )
+    )
   except execution.ExecutionFailedError as e:
     print(f"[!] Motion failed: {e}")
     sys.exit(1)
@@ -203,14 +232,11 @@ def discover(solution, args) -> None:
       )
     )
   )
+  steps = [bt.Task(action=detect_action, name="detect")]
+  if args.write_pose:
+    steps.append(bt.Task(action=update, name="write printer pose"))
   tree = bt.BehaviorTree(
-    name="Discover the printer",
-    root=bt.Sequence(
-      children=[
-        bt.Task(action=detect_action, name="detect"),
-        bt.Task(action=update, name="write printer pose"),
-      ]
-    ),
+    name="Discover the printer", root=bt.Sequence(children=steps)
   )
   before = world.get_transform(world.root, world.printer).matrix4x4()
   try:
@@ -228,7 +254,10 @@ def discover(solution, args) -> None:
   after = solution.world.get_transform(
     solution.world.root, solution.world.printer
   ).matrix4x4()
-  print("PRINTER DETECTED: pose MEASURED from the marker and written to belief")
+  print(
+    "PRINTER DETECTED: pose MEASURED from the marker"
+    + (" and written to belief" if args.write_pose else " (not written)")
+  )
   print(f"belief printer before {np.round(before[:3, 3], 4).tolist()}")
   print(f"belief printer after  {np.round(after[:3, 3], 4).tolist()}")
 
@@ -259,6 +288,34 @@ def set_frame(world, name: str, root_t_frame: np.ndarray) -> None:
     world.create_frame(frame_name=name, parent=world.root, parent_t_frame=pose)
 
 
+def knob_matrix(
+  root_t_printer: np.ndarray, theta_deg: float, back_m: float = 0.0
+) -> np.ndarray:
+  """Root-frame 4x4 of the tool at the lever's grip point at door angle theta.
+
+  The orientation is fixed in the world (the ball turns, not the wrist); the
+  position follows the door's arc. back_m backs off along the approach axis.
+  """
+  m = np.eye(4)
+  m[:3, :3] = np.array(door.knob_tool_rotation_world())
+  centre = root_t_printer @ np.append(door.knob_in_printer(theta_deg), 1.0)
+  m[:3, 3] = centre[:3] - back_m * m[:3, 2]
+  return m
+
+
+def _contact_target(args) -> str:
+  """What the gripper may touch: only the lever for the lever grip."""
+  return "printer:ball_link" if args.grip == "lever" else "printer"
+
+
+def grasp_target(
+  root_t_printer: np.ndarray, args, theta_deg: float, back_m: float = 0.0
+) -> np.ndarray:
+  if args.grip == "lever":
+    return knob_matrix(root_t_printer, theta_deg, back_m)
+  return root_t_printer @ grasp_matrix(theta_deg, back_m)
+
+
 def approach(solution, args) -> None:
   """Moves the tool to a pre-grasp pose, then to the handle (no pulling)."""
   world = solution.world
@@ -272,13 +329,13 @@ def approach(solution, args) -> None:
   )
   root_t_printer = world.get_transform(world.root, world.printer).matrix4x4()
   theta = args.theta_deg
-  pre = root_t_printer @ grasp_matrix(theta, args.pregrasp_m)
-  grasp = root_t_printer @ grasp_matrix(theta)
+  pre = grasp_target(root_t_printer, args, theta, args.pregrasp_m)
+  grasp = grasp_target(root_t_printer, args, theta)
   set_frame(world, "door_pregrasp", pre)
   set_frame(world, "door_grasp", grasp)
   print(f"pre-grasp {np.round(pre[:3, 3], 3).tolist()}")
   print(f"grasp     {np.round(grasp[:3, 3], 3).tolist()}")
-  pairs = [("gripper", "printer")] if args.allow_contact else None
+  pairs = [("gripper", _contact_target(args))] if args.allow_contact else None
   gripper = PinchGripper(
     solution=solution,
     config=GripperConfig(type="pinch", resource_name="gripper"),
@@ -302,7 +359,7 @@ def approach(solution, args) -> None:
 
 
 def pull(solution, args) -> None:
-  """Approach, close on the handle, pull along the door's arc, release."""
+  """Approach, close on the grip, pull along the door's arc, release."""
   approach(solution, args)
   world = solution.world
   robot = Robot(
@@ -318,7 +375,7 @@ def pull(solution, args) -> None:
     config=GripperConfig(type="pinch", resource_name="gripper"),
   )
   root_t_printer = world.get_transform(world.root, world.printer).matrix4x4()
-  pairs = [("gripper", "printer")]
+  pairs = [("gripper", _contact_target(args))]
 
   def run(node):
     try:
@@ -329,12 +386,22 @@ def pull(solution, args) -> None:
     print(f"[✓] {node.name}")
     return True
 
-  if not run(gripper.build_close_task(name="close on the handle")):
+  if args.no_close:
+    print("DIAGNOSTIC: the gripper stays open")
+  elif not run(gripper.build_close_task(name="close on the grip")):
     sys.exit(1)
   theta = args.theta_deg
   while theta < args.target_deg - 1e-9:
     theta = min(theta + args.step_deg, args.target_deg)
-    set_frame(world, "door_grasp_k", root_t_printer @ grasp_matrix(theta))
+    if args.belief_door:
+      # The hinge is passive, so the belief world does not follow it: tell the
+      # planner where the door is (commanded angle) so the arm avoids it.
+      printer = world.get_kinematic_object("printer")
+      names = list(printer.joint_entity_names)
+      positions = [float(v) for v in printer.joint_positions]
+      positions[names.index("door_hinge")] = door.theta_to_q(theta)
+      world.update_joint_positions(printer, positions)
+    set_frame(world, "door_grasp_k", grasp_target(root_t_printer, args, theta))
     ok = run(
       robot.build_move_cartesian_task(
         "door_grasp_k",
@@ -347,11 +414,13 @@ def pull(solution, args) -> None:
     if not ok:
       break
   if args.hold:
-    print("holding the handle (--hold)")
+    print("holding the grip (--hold)")
     return
   run(gripper.build_open_task(name="release"))
   set_frame(
-    world, "door_retreat", root_t_printer @ grasp_matrix(theta, args.pregrasp_m)
+    world,
+    "door_retreat",
+    grasp_target(root_t_printer, args, theta, args.pregrasp_m),
   )
   run(
     robot.build_move_cartesian_task(
@@ -376,6 +445,24 @@ def main(argv: Sequence[str] | None = None) -> None:
     detect(solution, args)
   elif args.mode == "discover":
     discover(solution, args)
+  elif args.mode == "entities":
+    printer = solution.world.get_object("printer")
+    w = solution.world
+    print("printer in root", w.get_transform(w.root, w.printer).translation)
+    print("joints", list(w.get_kinematic_object("printer").joint_positions))
+    print(
+      "tool in root", w.get_transform(w.root, w.gripper.tool_frame).translation
+    )
+    print([n for n in dir(printer) if not n.startswith("_")])
+    for n in (
+      "child_names",
+      "child_ids",
+      "id",
+      "joint_entity_names",
+      "joint_entity_ids",
+    ):
+      if hasattr(printer, n):
+        print(n, getattr(printer, n))
   elif args.mode == "approach":
     approach(solution, args)
   else:

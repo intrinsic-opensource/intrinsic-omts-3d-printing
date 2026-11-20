@@ -99,6 +99,7 @@ class Robot:
     self,
     joint_target: str | JointPosition | Sequence[float] | Any,
     name: str | None = None,
+    excluded_collision_pairs: Sequence[tuple[str, str]] | None = None,
   ) -> bt.Node:
     """Builds an SBL move_robot joint motion task."""
     if isinstance(joint_target, str):
@@ -114,10 +115,18 @@ class Robot:
       task_name = name or "Move Joint"
       target_pos = joint_target
 
+    segment_kwargs: dict[str, Any] = {
+      "joint_position": target_pos,
+      "motion_type": self._motion_type_enum("JOINT"),
+    }
+    collision_settings = self._build_collision_settings(
+      excluded_collision_pairs
+    )
+    if collision_settings is not None:
+      segment_kwargs["collision_settings"] = collision_settings
     motion_segment = (
       self._move_robot_skill.intrinsic_proto.skills.MotionSegment(
-        joint_position=target_pos,
-        motion_type=self._motion_type_enum("JOINT"),
+        **segment_kwargs
       )
     )
     skill_action = self._move_robot_skill(
@@ -249,42 +258,51 @@ class Robot:
     self,
     excluded_collision_pairs: Sequence[tuple[str, str]] | None,
   ) -> collision_settings_pb2.CollisionSettings | None:
-    """Builds scoped CollisionSettings for valid world object pairs."""
+    """Builds scoped CollisionSettings for valid world object pairs.
+
+    Each name is an object, or "object:entity" to name one of its entities
+    (links), for example "printer:ball_link".
+    """
     if not excluded_collision_pairs:
       return None
+
+    def split(name: str) -> tuple[str, str | None]:
+      obj, _, entity = name.partition(":")
+      return obj, entity or None
+
+    def reference(name: str) -> collision_settings_pb2.ObjectOrEntityReference:
+      obj, entity = split(name)
+      object_ref = object_world_refs_pb2.ObjectReference(
+        by_name=object_world_refs_pb2.ObjectReferenceByName(object_name=obj)
+      )
+      if entity is None:
+        return collision_settings_pb2.ObjectOrEntityReference(object=object_ref)
+      return collision_settings_pb2.ObjectOrEntityReference(
+        object_with_filter=object_world_refs_pb2.ObjectReferenceWithEntityFilter(
+          reference=object_ref,
+          entity_filter=object_world_refs_pb2.ObjectEntityFilter(
+            entity_names=[entity]
+          ),
+        )
+      )
+
     valid_pairs = [
-      (left_obj, right_obj)
-      for left_obj, right_obj in excluded_collision_pairs
-      if object_exists_in_world(self._solution, left_obj)
-      and object_exists_in_world(self._solution, right_obj)
+      (left, right)
+      for left, right in excluded_collision_pairs
+      if object_exists_in_world(self._solution, split(left)[0])
+      and object_exists_in_world(self._solution, split(right)[0])
     ]
     if not valid_pairs:
       return None
     collision_rules = [
       collision_settings_pb2.CollisionSettings.CollisionRule(
-        left=[
-          collision_settings_pb2.ObjectOrEntityReference(
-            object=object_world_refs_pb2.ObjectReference(
-              by_name=object_world_refs_pb2.ObjectReferenceByName(
-                object_name=left_obj,
-              )
-            )
-          )
-        ],
-        right=[
-          collision_settings_pb2.ObjectOrEntityReference(
-            object=object_world_refs_pb2.ObjectReference(
-              by_name=object_world_refs_pb2.ObjectReferenceByName(
-                object_name=right_obj,
-              )
-            )
-          )
-        ],
+        left=[reference(left)],
+        right=[reference(right)],
         collision_action=collision_action_pb2.CollisionAction(
           is_excluded=True,
         ),
       )
-      for left_obj, right_obj in valid_pairs
+      for left, right in valid_pairs
     ]
     return collision_settings_pb2.CollisionSettings(
       disable_collision_checking=False,
