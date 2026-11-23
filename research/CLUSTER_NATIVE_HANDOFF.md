@@ -114,9 +114,9 @@ proven.
   part's height.
 * Not supported: **preview** (`--simulation_mode=preview` or `fast_preview`).
   A skill's preview world is taken for the real one, and the frames are what
-  the following motions need, so the skill refuses it. The script is the
-  route for those modes; whether the script itself works in preview was not
-  checked.
+  the following motions need, so the skill refuses it. This lost nothing:
+  checked on 2026-11-23, the vision-guided pick cannot be previewed with the
+  script either (see the open questions, item 3 of the answered ones).
 * Known gaps: a missing part object is skipped with a warning, as the script
   did; a missing camera or parent object is now an error (the script fell
   back to the root). The script is still in the tree for `omts` and
@@ -324,33 +324,47 @@ Revisited on 2026-11-19, after C1, C2 and C4.
    otherwise (seconds in our runs; the run guide used to say about a minute).
    One caveat stays: registering under an existing id keeps the old settings,
    so a changed prompt or threshold needs a new `pose_estimator_id`.
+3. **Is the skill route acceptable without preview?** Yes: nothing was lost.
+   Checked on 2026-11-23 on the cluster, with `omts_app --simulation_mode=` set
+   to `fast_preview` and to `preview`, for the reBot config and its variants:
+
+   | Config | Result |
+   | --- | --- |
+   | skill and registration | `register_pose_estimator` refuses preview, 4 s in |
+   | script and registration | the same |
+   | script, no registration | the moves, the capture and `estimate_pose_multi_view` preview; the script fails when it reads `estimates[0]`, because a preview returns **zero estimates** |
+   | skill, no registration | the same failure, at `plan_cuboid_grasp`'s parameters |
+
+   So the vision-guided pick cannot be previewed here, with the script or the
+   skill: the failure is in what perception returns, not in how the frames are
+   computed. Preview still reaches the moves before perception. The register
+   skill's refusal only makes it fail sooner (a preview that returned the
+   default result would reach the same wall). `configure_cell` is not in the
+   tree, so its refusal does not matter.
 
 ### Still open
 
-3. **Can a process take parameters and a repeat count?** Partly answered from
+4. **Can a process take parameters and a repeat count?** Partly answered from
    the SDK source, not run: a process can be parameterizable (a proto schema
    for its parameters, and `tree.params`, a blackboard value that nodes read
    through CEL). `bt.Loop(max_times=...)` takes a fixed integer, but `Loop` also
    takes a `while_condition` and exposes a loop counter, so a count from a
    parameter looks expressible as a condition on the counter. It matters only if
    C3 resumes.
-4. **Should the vision and robot subtrees become processes, or is one cycle
+5. **Should the vision and robot subtrees become processes, or is one cycle
    process enough?** Deferred with C3. C1 and C2 already moved the two steps that
    gain most from being on the cluster into skills; the rest is stock skills that
    Python composes.
-5. **C3: ship the manifest with the solution, store the tree again after each
+6. **C3: ship the manifest with the solution, store the tree again after each
    deploy, or neither?** It depends on whether starting from Flowstate, or a
    cycle that does not need a host process, is wanted yet. Shipping needs the
    `intrinsic_process` rule and the export tool (`feat/process-asset-rule`).
-6. **Should the tree read its per-run values from the cluster?** The part's
+7. **Should the tree read its per-run values from the cluster?** The part's
    object, scene-object id, pose estimator and the return area's centre are fixed
    when `omts_app` builds the tree, which is why `configure_cell --apply` still
    writes `app_config.yaml`, the one file left. A tree that reads them from the
    blackboard (the way the print-flow branch does) would remove it, at the cost
    of a change to the tree.
-7. **Is the skill route acceptable without preview?** Both skills refuse
-   `preview` and `fast_preview`. Whether the script they replace works in those
-   modes was never checked, so it is not known whether anything was lost.
 8. **When can the script be retired?** `omts` and `lab_bb_01` still use the
    `PythonScript`, and the rule exists twice (script and `grasp_math`, kept equal
    by a test). Switching them means running those cells in simulation, which
