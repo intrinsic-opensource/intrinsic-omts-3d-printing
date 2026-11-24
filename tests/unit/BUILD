@@ -380,11 +380,22 @@ py_test(
         "//skills/cell:configure_cell",
         "//skills/cell:configure_cell_py_pb2",
         "//src/core:drop_off",
+        "//src/core:outfeed",
         "@com_google_absl_py//absl/testing:absltest",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:proto_conversion",
         "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
         "@intrinsic_apis//intrinsic/math/proto:point_py_pb2",
+    ],
+)
+
+py_test(
+    name = "test_outfeed",
+    srcs = ["test_outfeed.py"],
+    deps = [
+        "//src/core:drop_off",
+        "//src/core:outfeed",
+        "@com_google_absl_py//absl/testing:absltest",
     ],
 )
 

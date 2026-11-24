@@ -105,6 +105,7 @@ py_library(
         ":a_frames_lib",
         ":cell",
         ":kin",
+        "//src/core:outfeed",
         "@ai_intrinsic_sdks_pip_deps//numpy",
     ],
 )
@@ -118,6 +119,7 @@ py_binary(
         ":cell",
         ":cell_checks",
         ":part_trial_lib",
+        "//src/core:outfeed",
         "//skills/cell:configure_cell_py_pb2",
         "@ai_intrinsic_sdks_pip_deps//numpy",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",

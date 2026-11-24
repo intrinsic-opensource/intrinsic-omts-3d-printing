@@ -19,10 +19,12 @@ confirm the result in simulation.
 """
 
 import itertools
+import math
 
 import numpy as np
 
 from research.tools import a_frames, cell, kin
+from src.core import outfeed
 
 # Minimum distance of the arm and camera from the printer, and from each other.
 MIN_CLEARANCE = 0.01
@@ -177,4 +179,33 @@ def check_a(c: cell.Cell, half_height: float, tilt, radius, bearing, rng):
     camera = cell.box_points(goal @ c.camera, *cell.CAMERA_BOX)
     if camera[:, 2].min() < MIN_CLEARANCE:
       problems.append(f"{name}: camera {camera[:, 2].min() * 100:.1f} cm up")
+  return problems
+
+
+def check_outfeed(
+  c: cell.Cell,
+  half_height: float,
+  tilt,
+  spots: list[outfeed.Spot],
+  rng,
+):
+  """Problems at the outfeed spots, on the ground: reach, joint margins,
+  clearance from the printer and the camera above the ground, at each spot's
+  three frames."""
+  problems = []
+  for k, spot in enumerate(spots):
+    frames = a_frames.frames(
+      tilt,
+      math.hypot(spot.x, spot.y),
+      math.degrees(math.atan2(spot.y, spot.x)),
+      half_height=half_height,
+      yaw=spot.yaw_degrees,
+    )
+    for name, goal in frames.items():
+      problems += _reach(f"outfeed {k} {name}", c, goal, rng)
+      camera = cell.box_points(goal @ c.camera, *cell.CAMERA_BOX)
+      if camera[:, 2].min() < MIN_CLEARANCE:
+        problems.append(
+          f"outfeed {k} {name}: camera {camera[:, 2].min() * 100:.1f} cm up"
+        )
   return problems

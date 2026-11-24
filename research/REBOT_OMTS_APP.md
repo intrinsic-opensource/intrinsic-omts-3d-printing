@@ -310,6 +310,17 @@ bazel run //src:omts_app -- --address=localhost:17080 \
   --config=/tmp/cell/app_config.yaml --num_cycles=1
 ```
 
+The outfeed line (`research/HANDOFF.md`, section 5e) is part of the same call. The
+cycle releases the part at its first spot instead of setting it down at A and
+returning it to the bed. `outfeed` in `configs/rebot/cell_params.yaml` picks the
+layout, `line` (axis-aligned spots along x) or `arc` (spots on a circle around the
+robot, each turned with its bearing), and the count; flags override it:
+
+```bash
+bazel run //research/tools:configure_cell -- --out /tmp/cell --apply \
+  --outfeed_layout arc --outfeed_count 5
+```
+
 The checks run first, on the host. `app_config.yaml` is still a file because the
 tree's part and return area are fixed when `omts_app` builds it.
 

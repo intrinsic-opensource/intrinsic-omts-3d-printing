@@ -1400,6 +1400,24 @@ is a judgement, not a measurement: confirm it in step 1 or 2 by placing next to 
 parked part. Each spot has A's three frames (place, pre-place, approach), from the
 `a_frames` maths.
 
+**Two layouts, set in config** (2026-11-24). `configs/rebot/cell_params.yaml` has an
+`outfeed` section: `layout` (`line` or `arc`), `count`, and each layout's numbers.
+* **line:** spots along x at y = -0.50 from x = -0.10, 10 cm apart, the tool at
+  yaw -90° for every spot, so each part is set down axis aligned.
+* **arc:** spots on a circle of 0.50 m around the robot's base, from bearing
+  -100°, 12° apart (a 10 cm chord), the tool leaning
+  along each spot's bearing, so every part has the same distance from the robot
+  and the same orientation relative to it.
+
+`ai.omts.configure_cell` has an `outfeed` group that creates or moves the spots'
+frames (`outfeed_<k>_place`, `_preplace`, `_approach`) in the same update as the
+rest of the cell, and `configure_cell` writes the matching `outfeed.spots` list
+into `app_config.yaml`; `--outfeed_layout` and `--outfeed_count` override the
+file. The offline check covers every spot's three frames (reach, joint margins,
+clearance from the printer, camera height): both layouts pass for the defaults.
+Geometry: `src/core/outfeed.py`. The committed `scene.updates.pbtxt` keeps spot 0
+of the line, so a deploy without `configure_cell` still has one spot.
+
 **Steps**, each ending in a demo:
 
 1. **One fixed spot, no A.** Pick from the bed, release at spot 0, back to `view`.
@@ -1422,6 +1440,10 @@ parked part. Each spot has A's three frames (place, pre-place, approach), from t
      bearing; with the yaw fixed at -90° (second run) it ended at x -106.5,
      y -505.6, yaw -90.4°: axis aligned. Not recorded: the release itself (the pose logger lost the stream
      when the simulation restarted), so release drift at the spot is unchecked.
+   * With the layout in config (see above), on k3s after a redeploy: `configure_cell
+     --apply --target test_benchy --outfeed_layout line` then one cycle ended at
+     x -102.0, y -505.5, yaw -90.1° (spot 0 at -100, -500); with `arc` it ended at
+     x -85.6, y -498.2, yaw -99.9° (spot 0 at -86.8, -492.4, bearing -100°).
    * The existing test of the A-and-return cycle now builds its tree with
      `outfeed=None`, since the committed cell no longer runs it; a new test checks
      the outfeed cycle's shape and that nothing sets the part down at A.
