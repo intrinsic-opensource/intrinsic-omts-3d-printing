@@ -213,37 +213,45 @@
     <geometry><mesh><uri>aruco_1.glb</uri></mesh></geometry>
   </visual>
 
-  <!-- Crank arm, fixed to the door (src/core/door.py CRANK_PIVOT_POS): a bar
-       from the handle blade out to a bearing block, so the turning handle
-       sits well in front of the printer frame. The handle itself is the
-       link crank_handle on the joint crank_pivot. -->
-  <visual name="crank_arm_v">
-    <pose>-0.34700 0.02875 0.19250 0 0 0</pose>
-    <geometry><box><size>0.02400 0.04250 0.02400</size></box></geometry>
-    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
-  </visual>
-  <collision name="crank_arm_c">
-    <pose>-0.34700 0.02875 0.19250 0 0 0</pose>
-    <geometry><box><size>0.02400 0.04250 0.02400</size></box></geometry>
-  </collision>
-  <visual name="crank_block_v">
-    <pose>-0.34700 0.07000 0.19250 0 0 0</pose>
-    <geometry><box><size>0.04000 0.04000 0.04000</size></box></geometry>
-    <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
-  </visual>
-  <collision name="crank_block_c">
-    <pose>-0.34700 0.07000 0.19250 0 0 0</pose>
-    <geometry><box><size>0.04000 0.04000 0.04000</size></box></geometry>
-  </collision>
+  <!-- The fixed half of the D handle (src/core/door.py HANDLE_*): two arms in
+       the door's plane, from the pane's free edge out to rounded corners 0.10 m
+       beyond it, so the pane is never between the robot and the bar at any door
+       angle. The bar between the corners is the link crank_handle, which turns
+       on the joint crank_pivot. All handle parts share one colour. -->
+  <visual name="handle_arm_top_v"><pose>-0.399 0.016 0.235 0 1.570796 0</pose>
+    <geometry><cylinder><radius>0.006</radius><length>0.110</length></cylinder></geometry>
+    <material><ambient>0.58 0.25 0.85 1</ambient><diffuse>0.58 0.25 0.85 1</diffuse></material></visual>
+  <collision name="handle_arm_top_c"><pose>-0.399 0.016 0.235 0 1.570796 0</pose>
+    <geometry><cylinder><radius>0.006</radius><length>0.110</length></cylinder></geometry></collision>
+  <visual name="handle_arm_bottom_v"><pose>-0.399 0.016 0.115 0 1.570796 0</pose>
+    <geometry><cylinder><radius>0.006</radius><length>0.110</length></cylinder></geometry>
+    <material><ambient>0.58 0.25 0.85 1</ambient><diffuse>0.58 0.25 0.85 1</diffuse></material></visual>
+  <collision name="handle_arm_bottom_c"><pose>-0.399 0.016 0.115 0 1.570796 0</pose>
+    <geometry><cylinder><radius>0.006</radius><length>0.110</length></cylinder></geometry></collision>
+  <visual name="handle_corner_top_v"><pose>-0.454 0.016 0.235 0 0 0</pose>
+    <geometry><sphere><radius>0.008</radius></sphere></geometry>
+    <material><ambient>0.58 0.25 0.85 1</ambient><diffuse>0.58 0.25 0.85 1</diffuse></material></visual>
+  <collision name="handle_corner_top_c"><pose>-0.454 0.016 0.235 0 0 0</pose>
+    <geometry><sphere><radius>0.008</radius></sphere></geometry></collision>
+  <visual name="handle_corner_bottom_v"><pose>-0.454 0.016 0.115 0 0 0</pose>
+    <geometry><sphere><radius>0.008</radius></sphere></geometry>
+    <material><ambient>0.58 0.25 0.85 1</ambient><diffuse>0.58 0.25 0.85 1</diffuse></material></visual>
+  <collision name="handle_corner_bottom_c"><pose>-0.454 0.016 0.115 0 0 0</pose>
+    <geometry><sphere><radius>0.008</radius></sphere></geometry></collision>
+  <visual name="handle_mount_top_v"><pose>-0.350 0.01275 0.235 0 0 0</pose>
+    <geometry><box><size>0.016 0.0185 0.016</size></box></geometry>
+    <material><ambient>0.58 0.25 0.85 1</ambient><diffuse>0.58 0.25 0.85 1</diffuse></material></visual>
+  <collision name="handle_mount_top_c"><pose>-0.350 0.01275 0.235 0 0 0</pose>
+    <geometry><box><size>0.016 0.0185 0.016</size></box></geometry></collision>
+  <visual name="handle_mount_bottom_v"><pose>-0.350 0.01275 0.115 0 0 0</pose>
+    <geometry><box><size>0.016 0.0185 0.016</size></box></geometry>
+    <material><ambient>0.58 0.25 0.85 1</ambient><diffuse>0.58 0.25 0.85 1</diffuse></material></visual>
+  <collision name="handle_mount_bottom_c"><pose>-0.350 0.01275 0.115 0 0 0</pose>
+    <geometry><box><size>0.016 0.0185 0.016</size></box></geometry></collision>
 
   <collision name="door_pane_col">
     <pose>-0.174 0.005 0.02 0 0 0</pose>
     <geometry><box><size>0.360 0.005 0.460</size></box></geometry>
-  </collision>
-
-  <collision name="col_handle_rod">
-    <pose>-0.348 0.013 0.013 0 0 0.707118281</pose>
-    <geometry><box><size>0.030 0.005 0.410</size></box></geometry>
   </collision>
 </link>
 
@@ -265,45 +273,27 @@
   </axis>
 </joint>
 
-    <!-- The crank handle: a flange, a vertical rod and a flat tab to grip. It
-         turns freely about its own vertical axis on crank_pivot, so the gripper
-         keeps its orientation while the door swings; the force goes through the
-         pivot, the bearing block and the arm to the door. -->
+    <!-- The turning bar of the D handle: the straight middle part, held by the
+         gripper. It turns freely about its own vertical axis on crank_pivot, so
+         the gripper keeps its orientation while the door swings; the force goes
+         through the pivot, the corners and the arms to the door. Its collision
+         is the only one on this link (the planner's gripper exclusion is
+         "printer:crank_handle"). -->
     <link name="crank_handle">
-      <pose relative_to="door_link">-0.347 0.07 0.2145 0 0 0</pose>
+      <pose relative_to="door_link">-0.454 0.016 0.175 0 0 0</pose>
       <inertial>
         <mass>0.1</mass>
         <inertia>
-          <ixx>0.00004</ixx><ixy>0</ixy><ixz>0</ixz>
-          <iyy>0.00004</iyy><iyz>0</iyz><izz>0.00004</izz>
+          <ixx>0.000085</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>0.000085</iyy><iyz>0</iyz><izz>0.00004</izz>
         </inertia>
       </inertial>
-      <visual name="flange_v">
-        <pose>0 0 0.002 0 0 0</pose>
-        <geometry><cylinder><radius>0.016</radius><length>0.004</length></cylinder></geometry>
-        <material><ambient>0.2 0.8 1.0 1</ambient><diffuse>0.2 0.8 1.0 1</diffuse></material>
+      <visual name="bar_v">
+        <geometry><cylinder><radius>0.008</radius><length>0.120</length></cylinder></geometry>
+        <material><ambient>0.58 0.25 0.85 1</ambient><diffuse>0.58 0.25 0.85 1</diffuse></material>
       </visual>
-      <collision name="flange_c">
-        <pose>0 0 0.002 0 0 0</pose>
-        <geometry><cylinder><radius>0.016</radius><length>0.004</length></cylinder></geometry>
-      </collision>
-      <visual name="rod_v">
-        <pose>0 0 0.035 0 0 0</pose>
-        <geometry><cylinder><radius>0.006</radius><length>0.070</length></cylinder></geometry>
-        <material><ambient>0.75 0.4 1.0 1</ambient><diffuse>0.75 0.4 1.0 1</diffuse></material>
-      </visual>
-      <collision name="rod_c">
-        <pose>0 0 0.035 0 0 0</pose>
-        <geometry><cylinder><radius>0.006</radius><length>0.070</length></cylinder></geometry>
-      </collision>
-      <visual name="tab_v">
-        <pose>0 0 0.055 0 0 2.797100</pose>
-        <geometry><box><size>0.012 0.030 0.040</size></box></geometry>
-        <material><ambient>0.75 0.4 1.0 1</ambient><diffuse>0.75 0.4 1.0 1</diffuse></material>
-      </visual>
-      <collision name="tab_c">
-        <pose>0 0 0.055 0 0 2.797100</pose>
-        <geometry><box><size>0.012 0.030 0.040</size></box></geometry>
+      <collision name="bar_c">
+        <geometry><cylinder><radius>0.008</radius><length>0.100</length></cylinder></geometry>
         <surface><friction><ode><mu>3.0</mu><mu2>3.0</mu2></ode></friction></surface>
       </collision>
     </link>

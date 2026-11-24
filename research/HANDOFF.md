@@ -1671,11 +1671,11 @@ Check these before building on them.
 * **One marker.** Only id 1 (80 mm, top-left of the pane, `src/core/door.py`)
   exists; ids 2 and 3 and the 50 mm tiles of 5e.3-5e.7 are gone.
 * **Crank.** The grasp is a free-spinning handle on `door_link`
-  (`crank_pivot`, SDF link `crank_handle`). `--grip=lever` (default) grips it
-  with the radial tool azimuth (`--az_mode=radial`: the tool points from the
-  robot's base at the grip point; the crank turns, so the wrist need not).
-  `--grip=handle` is the old wrap grasp.
-* **Anchoring.** The `door_test` layout (printer at d = 0.775) attaches the
+  (`crank_pivot`, SDF link `crank_handle`), gripped with the radial tool
+  azimuth (`--az_mode=radial`: the tool points from the robot's base at the
+  grip point; the bar turns, so the wrist need not). Since 5e.12 the handle is
+  a purple D handle (below); the tab version described here is superseded.
+* **Anchoring.** The `door_test` layout (printer at d = 0.775 in 5e.11; d = 0.80 and 0.2 m to the robot's left since 5e.12) attaches the
   printer to `rebot_ground`; drift in a 36 deg pull: 0.0 mm. This replaces the
   5e.2 and 5e.10 drift findings. The printer watchdog is removed.
 * **Blended arc.** `--path=blended --chunk_deg=120 --wp_deg=3`: one
@@ -1694,3 +1694,40 @@ Check these before building on them.
   the other side is the idea for the rest), the marker-measured theta gate and
   handover to unload, real hardware, re-running the `omts` cell since the
   shared printer SDF changed (unverified).
+
+### 5e.12: D handle beyond the free edge (simulation)
+
+* The crank (red arm and block, tab on a rod) is replaced by a **D handle**,
+  one purple colour: two horizontal arms (cylinders r 6 mm, 0.12 m, on
+  `door_link`) run from the pane's free edge to sphere corners 0.11 m beyond
+  it; the straight vertical bar between the corners (r 8 mm, 0.10 m free
+  length) is the link `crank_handle` on `crank_pivot`, the gripped, spinning
+  part. Names, joint and `sync_door` are unchanged.
+* **Why beyond the edge:** a handle on the pane's front face is behind the pane
+  once the door passes 90 deg (the face turns away from the robot). Beyond the
+  free edge the pane is never between the robot and the bar (61-143 deg off the
+  line to the robot over 0-120 deg).
+* Sizes come from the open gripper's extents (+-40.7 mm tall body, 100 mm jaw):
+  bar length >= 0.097 m, standoff 0.11 m (below that the printer's side wall
+  and bezel meet the open gripper). The bar is at door height 0.175, the
+  highest at which the top arm stays inside the door mesh (top 0.248). The
+  tool goes 15 mm past the bar's axis so the bar sits on the flat finger pads.
+* The legacy wrap grasp (`--grip=handle`, `--grasp_h`, `col_handle_rod`) is
+  removed. The planner's only gripper exclusion is `printer:crank_handle`.
+* In the `door_test` layout the printer is fixed to the ground, so (read from
+  the simulator source) the gripper welds nothing and holds the bar by finger
+  friction; in the default layout touching an arm would weld `door_link`.
+* **Reach, the catch (found by running it):** the bar beyond the edge swings on
+  a circle of radius 0.354 + L about the hinge, which is 0.594 m from the
+  robot's base at the old layout, so the bar came within 0.13 m of the base at
+  about 70 deg and the planner failed at 51 deg (L = 0.11). The offline sweep
+  agreed (the best D placements stopped at 85-89 deg with the printer where it
+  was). L = 0.06 failed too: the pinch gripper always opens fully, so its
+  fingers (outer faces at +-63 mm) hit the pane edge. What works: L = 0.10 m
+  and the printer moved to d = 0.80, 0.2 m to the robot's left
+  (`configs/rebot/printer_door_test.updates.pbtxt`). New look pose
+  `0.3055 -1.2202 -1.4196 0.1996 -0.0436 -1.5708` (the old one no longer sees
+  the marker).
+* **Result (simulation, one run):** marker detected, one blended call 0 to
+  115 deg in 9.1 s, Gazebo door 114.6 deg, printer drift 0.0 mm, belief door
+  synced. Gripper-pane clearance at the closed door is small (about 10 mm).

@@ -1,10 +1,10 @@
 # proto-file: intrinsic/world/public/proto/object_world_updates.proto
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
 
-# Door test layout (//models/printer:layout=door_test): the printer moved 18.5 cm
-# straight away from the robot (d = 0.775 m, same side position), so the door
-# plane is 0.47 m from the robot's base axis and the door can swing wide without
-# touching the arm. Applied after printer.updates and printed_part.updates, so it
+# Door test layout (//models/printer:layout=door_test): the printer moved 21 cm
+# further from the robot (d = 0.80 m) and 20 cm to the robot's left, so the D
+# handle's arc (radius 0.45 m about the hinge) stays inside the arm's reach and
+# the door can swing wide without touching the arm. Applied after printer.updates and printed_part.updates, so it
 # overrides both; the part moves with the bed.
 
 # The printer is attached to the ground slab (rebot_ground, static in Gazebo) so
@@ -54,8 +54,8 @@ updates {
     }
     a_t_b {
       position {
-        x: 0.775
-        y: -0.0064
+        x: 0.8
+        y: 0.1936
         z: 0
       }
       orientation {
@@ -92,8 +92,8 @@ updates {
     }
     a_t_b {
       position {
-        x: 0.7455
-        y: 0
+        x: 0.7705
+        y: 0.2
         z: 0.1584
       }
       orientation {

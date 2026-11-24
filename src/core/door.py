@@ -31,28 +31,40 @@ HINGE_IN_PRINTER: Vec = (0.174, 0.205, 0.279)
 # Hinge joint limits, radians.
 Q_LOWER = 0.0
 Q_UPPER = 3.14159
-# The crank (models/printer/3d_printer.sdf): an arm fixed to the door's handle
-# carries a bearing block 70 mm in front of the pane; the crank handle (a rod
-# with a flat tab) turns freely about its own vertical axis on the joint
-# crank_pivot. The door hinge is the fixed axis: the arm swings the pivot on a
-# circle about it, and because the handle turns, the gripper holding the tab
-# never has to twist. Pivot centre, door frame (the top of the handle):
-CRANK_PIVOT_POS: Vec = (-0.347, 0.070, 0.2145)
-# The gripper holds the tab, 55 mm above the pivot. The arm keeps the open
-# fingers (+-50 mm across the tab) clear of the printer's frame, which matters:
-# the simulator welds a gripper to the first free (floating) body it touches,
-# and the printer's base is one.
-TAB_ABOVE_PIVOT_M = 0.055
-KNOB_POS: Vec = (
-  CRANK_PIVOT_POS[0],
-  CRANK_PIVOT_POS[1],
-  CRANK_PIVOT_POS[2] + TAB_ABOVE_PIVOT_M,
+# The D handle (models/printer/3d_printer.sdf): two arms in the door's plane run
+# from the pane's free edge out to rounded corners HANDLE_STANDOFF_M beyond it;
+# the straight vertical bar between the corners (the link crank_handle) turns
+# freely about its own axis on the joint crank_pivot. The door hinge is the
+# fixed axis: the arms swing the bar on a circle about it, and because the bar
+# turns, the gripper holding it never has to twist. Being beyond the free edge,
+# the bar is never behind the pane, whatever the door angle.
+PANE_EDGE_X = -0.354  # the pane's free edge, door frame
+HANDLE_STANDOFF_M = 0.10  # bar axis beyond the free edge
+HANDLE_PLANE_Y = 0.016  # the D's plane, in front of the pane's outer face
+HANDLE_GRIP_Z = 0.175  # bar centre height; the top arm stays inside the mesh
+HANDLE_BAR_LENGTH_M = 0.100  # free bar length between the corners
+HANDLE_BAR_RADIUS_M = 0.008
+HANDLE_ARM_RADIUS_M = 0.006
+HANDLE_GAP_M = 0.002  # bar end to corner sphere
+# Arm height above and below the bar centre.
+HANDLE_ARM_DZ_M = HANDLE_BAR_LENGTH_M / 2 + HANDLE_GAP_M + HANDLE_BAR_RADIUS_M
+# The open gripper body is +-40.7 mm tall, so the arms must clear it.
+GRIPPER_HALF_HEIGHT_M = 0.0407
+# The bar axis (centre of the pivot), door frame.
+CRANK_PIVOT_POS: Vec = (
+  PANE_EDGE_X - HANDLE_STANDOFF_M,
+  HANDLE_PLANE_Y,
+  HANDLE_GRIP_Z,
 )
+# The grip point is the bar centre. The tool goes GRIP_DEPTH_M past it so the
+# bar sits on the fingers' flat pads, not on their tips.
+KNOB_POS: Vec = CRANK_PIVOT_POS
+GRIP_DEPTH_M = 0.015
 # Tool orientation for open_door's --az_mode=fixed: level, azimuth in the world
-# frame, the fingers closing horizontally across the tab. The default radial
+# frame, the fingers closing horizontally across the bar. The default radial
 # mode points the tool from the robot's base at the grip point instead (the
-# crank turns, so the wrist need not), which reaches about 120 deg.
-KNOB_APPROACH_AZ_DEG = -19.7
+# bar turns, so the wrist need not).
+KNOB_APPROACH_AZ_DEG = -28.2
 KNOB_APPROACH_PITCH_DEG = 0.0
 # Faces of the pane in the door frame (outer faces the robot).
 OUTER_FACE_Y = 0.0075
@@ -69,17 +81,6 @@ _OUTER_ROT: Mat = ((-1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, -1.0, 0.0))
 MARKERS: dict[int, tuple[Vec, Mat]] = {
   1: ((-0.090, OUTER_FACE_Y, 0.180), _OUTER_ROT),
 }
-
-
-# Tool-tip (tool_frame) pose that wraps the handle, in the door frame: the
-# fingertips at the handle centre, 0.15 m above the printer base, approaching
-# into the pane (-y) pitched 30 deg down. Roll 0: the fingers close along the
-# door's x axis, across the blade's thickness (roll 270 closes them vertically,
-# along the blade, which only hooks it). Legacy grasp (--grip=handle). The tool
-# +z axis is the approach direction.
-WRAP_GRASP_POS: Vec = (-0.3465, 0.0145, 0.15 - HINGE_IN_PRINTER[2])
-_S3 = math.sqrt(3.0) / 2.0
-WRAP_GRASP_ROT: Mat = ((0.0, -1.0, 0.0), (-0.5, 0.0, -_S3), (_S3, 0.0, -0.5))
 
 
 def knob_tool_rotation_world(az_deg: float | None = None) -> Mat:
@@ -160,20 +161,6 @@ def marker_in_printer(marker_id: int, theta_deg: float) -> tuple[Vec, Mat]:
   """Marker pose (OpenCV axes) in the printer frame at door angle theta."""
   p, rot = MARKERS[marker_id]
   return frame_in_printer(p, rot, theta_deg)
-
-
-def wrap_grasp_in_printer(
-  theta_deg: float, back_m: float = 0.0, height_m: float | None = None
-):
-  """The wrap grasp (tool_frame) in the printer frame at door angle theta.
-
-  back_m backs the tool off along its approach axis (a pre-grasp pose);
-  height_m is the tip height above the printer base (default 0.15).
-  """
-  z = WRAP_GRASP_POS[2] if height_m is None else height_m - HINGE_IN_PRINTER[2]
-  base = (WRAP_GRASP_POS[0], WRAP_GRASP_POS[1], z)
-  pos = tuple(base[i] - back_m * WRAP_GRASP_ROT[i][2] for i in range(3))
-  return frame_in_printer(pos, WRAP_GRASP_ROT, theta_deg)
 
 
 def mat_to_rpy(m: Mat) -> Vec:

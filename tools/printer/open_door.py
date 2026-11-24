@@ -22,8 +22,8 @@ Simulation only (it moves the arm). Modes:
             in simulation)
   discover  detect, then write the measured printer pose to the belief world
             in the same behavior tree (update_world)
-  approach  move to a pre-grasp pose, then to the grip (--grip=lever: the
-            crank's tab; --grip=handle: wrap the handle)
+  approach  move to a pre-grasp pose, then to the grip (the D handle's
+            turning bar)
   pull      approach, close on the grip, pull to --target_deg, release, retreat
   entities, joints
             print the printer's world entities / belief joint positions
@@ -31,7 +31,7 @@ Simulation only (it moves the arm). Modes:
 --path=blended swings the door in one move_robot call per --chunk_deg, through
 waypoints every --wp_deg; --path=stepwise moves --step_deg at a time.
 --az_mode=radial (default) points the tool from the robot's base at the grip
-point; the crank turns, so the wrist need not. The hinge is passive in Gazebo
+point; the bar turns, so the wrist need not. The hinge is passive in Gazebo
 (--//models/printer:hinge=passive): run sync_door alongside and pass
 --no_belief_door so the belief door follows the real one.
 
@@ -82,13 +82,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--joints", nargs=6, type=float, default=None)
   parser.add_argument("--marker_size_m", type=float, default=door.MARKER_SIZE_M)
   parser.add_argument("--theta_deg", type=float, default=0.0)
-  parser.add_argument("--grasp_h", type=float, default=None)
-  parser.add_argument(
-    "--grip",
-    choices=["lever", "handle"],
-    default="lever",
-    help="lever: the crank's tab (the crank turns); handle: wrap the blade.",
-  )
   parser.add_argument("--target_deg", type=float, default=30.0)
   parser.add_argument("--step_deg", type=float, default=6.0)
   parser.add_argument("--pregrasp_m", type=float, default=0.06)
@@ -123,7 +116,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     choices=["radial", "fixed"],
     default="radial",
     help="radial: the tool points from the robot's base at the grip point "
-    "(the crank turns, so the wrist need not); fixed: --az for the whole arc.",
+    "(the bar turns, so the wrist need not); fixed: --az for the whole arc.",
   )
   parser.add_argument(
     "--ready",
@@ -138,7 +131,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     "--grip_z",
     type=float,
     default=None,
-    help="Diagnostic: grip height in the door frame (default: the crank's).",
+    help="Diagnostic: grip height in the door frame (default: the D handle's).",
   )
   parser.add_argument("--pitch", type=float, default=None, help="Tool pitch.")
   parser.add_argument(
@@ -184,7 +177,7 @@ def look(solution, robot_name: str, joints: Sequence[float]) -> None:
     ),
   )
   try:
-    # The arm may be left touching the crank's tab by an earlier run.
+    # The arm may be left touching the D handle's bar by an earlier run.
     solution.executive.run(
       robot.build_move_joint_task(
         LOOK_CONFIG,
@@ -333,18 +326,6 @@ def pose_from_matrix(m: np.ndarray) -> data_types.Pose3:
   return data_types.Pose3.from_matrix4x4(m)
 
 
-GRASP_HEIGHT_M: list[float | None] = [None]
-
-
-def grasp_matrix(theta_deg: float, back_m: float = 0.0) -> np.ndarray:
-  """Printer-frame 4x4 of the wrap grasp at door angle theta."""
-  pos, rot = door.wrap_grasp_in_printer(theta_deg, back_m, GRASP_HEIGHT_M[0])
-  m = np.eye(4)
-  m[:3, :3] = np.array(rot)
-  m[:3, 3] = pos
-  return m
-
-
 def set_frame(world, name: str, root_t_frame: np.ndarray) -> None:
   """Creates or moves a frame on the root object."""
   pose = pose_from_matrix(root_t_frame)
@@ -388,14 +369,15 @@ def knob_matrix(
   back_m: float = 0.0,
   az_mode: str = "radial",
 ) -> np.ndarray:
-  """Root-frame 4x4 of the tool at the crank's grip point at door angle theta.
+  """Root-frame 4x4 of the tool at the D handle's grip point at door angle theta.
 
   The position follows the door's arc. The tool is level; its azimuth is
   either fixed (az_mode "fixed", KNOB_APPROACH_AZ_DEG) or "radial": it points
   along the line from the robot's base to the grip point, so the arm reaches
   straight at its target and the wrist joint stays near its centre. Because
-  the crank handle turns freely about the vertical axis, the tool's azimuth is
-  free once the handle is held. back_m backs off along the approach axis.
+  the bar turns freely about the vertical axis, the tool's azimuth is
+  free once the handle is held. back_m backs off along the approach axis; the tool goes GRIP_DEPTH_M past
+  the bar's axis so the bar sits on the fingers' flat pads.
   """
   centre = (root_t_printer @ np.append(door.knob_in_printer(theta_deg), 1.0))[
     :3
@@ -405,21 +387,20 @@ def knob_matrix(
     az = math.degrees(math.atan2(centre[1], centre[0]))
   m = np.eye(4)
   m[:3, :3] = np.array(door.knob_tool_rotation_world(az))
-  m[:3, 3] = centre - back_m * m[:3, 2]
+  m[:3, 3] = centre + (door.GRIP_DEPTH_M - back_m) * m[:3, 2]
   return m
 
 
 def _contact_target(args) -> str:
-  """What the gripper may touch: only the lever for the lever grip."""
-  return "printer:crank_handle" if args.grip == "lever" else "printer"
+  """What the gripper may touch: only the D handle's turning bar."""
+  del args
+  return "printer:crank_handle"
 
 
 def grasp_target(
   root_t_printer: np.ndarray, args, theta_deg: float, back_m: float = 0.0
 ) -> np.ndarray:
-  if args.grip == "lever":
-    return knob_matrix(root_t_printer, theta_deg, back_m, args.az_mode)
-  return root_t_printer @ grasp_matrix(theta_deg, back_m)
+  return knob_matrix(root_t_printer, theta_deg, back_m, args.az_mode)
 
 
 def approach(solution, args) -> None:
@@ -593,7 +574,6 @@ def main(argv: Sequence[str] | None = None) -> None:
     door.KNOB_APPROACH_PITCH_DEG = args.pitch
   if args.grip_z is not None:
     door.KNOB_POS = (door.KNOB_POS[0], door.KNOB_POS[1], args.grip_z)
-  GRASP_HEIGHT_M[0] = args.grasp_h
   solution = deployments.connect(address=args.address)
   if args.mode == "look":
     if args.joints is None:

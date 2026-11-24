@@ -7,7 +7,8 @@ package(default_visibility = ["//visibility:public"])
 exports_files(["3d_printer.sdf"])
 
 # layout=default: the printer where the committed cell has it. layout=door_test:
-# the printer 18.5 cm further from the robot (d 0.775), for the door tests.
+# the printer 21 cm further out and 20 cm to the robot's left (d 0.80), for the
+# door tests.
 string_flag(
     name = "layout",
     build_setting_default = "default",

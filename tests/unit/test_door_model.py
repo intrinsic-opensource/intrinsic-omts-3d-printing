@@ -110,9 +110,53 @@ class SdfFramesTest(absltest.TestCase):
     self.assertIn("<xyz>0 0 1</xyz>", joint)
     self.assertNotIn("ball_link", text)
     self.assertNotIn("clip_ball", text)
-    tab = re.search(r'<visual name="tab_v">\s*<pose>([^<]*)</pose>', text)
-    t = [float(x) for x in tab.group(1).split()]
-    self.assertAlmostEqual(t[2], door.TAB_ABOVE_PIVOT_M, places=6)
+
+  def test_d_handle_matches_the_model(self):
+    text = pathlib.Path("models/printer/3d_printer.sdf").read_text()
+    # the bar is the only collision on the turning link, at the right size
+    link = re.search(r'<link name="crank_handle">[\s\S]*?</link>', text).group(
+      0
+    )
+    self.assertEqual(link.count("<collision "), 1)
+    bar = re.search(
+      r'<collision name="bar_c">[\s\S]*?</collision>', link
+    ).group(0)
+    radius = float(re.search(r"<radius>([^<]*)</radius>", bar).group(1))
+    length = float(re.search(r"<length>([^<]*)</length>", bar).group(1))
+    self.assertAlmostEqual(radius, door.HANDLE_BAR_RADIUS_M)
+    self.assertAlmostEqual(length, door.HANDLE_BAR_LENGTH_M)
+    # the arms sit above and below the bar, inside the door mesh (top 0.248)
+    zs = sorted(
+      float(
+        re.search(rf'<visual name="{n}_v"><pose>([^<]*)</pose>', text)
+        .group(1)
+        .split()[2]
+      )
+      for n in ("handle_arm_top", "handle_arm_bottom")
+    )
+    self.assertAlmostEqual(zs[0], door.HANDLE_GRIP_Z - door.HANDLE_ARM_DZ_M, 6)
+    self.assertAlmostEqual(zs[1], door.HANDLE_GRIP_Z + door.HANDLE_ARM_DZ_M, 6)
+    self.assertLess(zs[1] + 0.008, 0.248)
+    # the open gripper's body fits between the arms with margin
+    self.assertGreaterEqual(
+      door.HANDLE_BAR_LENGTH_M / 2 + door.HANDLE_GAP_M,
+      door.GRIPPER_HALF_HEIGHT_M + 0.009,
+    )
+
+  def test_d_handle_is_beyond_the_free_edge_and_one_colour(self):
+    self.assertAlmostEqual(
+      door.CRANK_PIVOT_POS[0], door.PANE_EDGE_X - door.HANDLE_STANDOFF_M
+    )
+    text = pathlib.Path("models/printer/3d_printer.sdf").read_text()
+    colours = set(
+      re.findall(
+        r'<visual name="(?:handle_[a-z_]+|bar)_v">[\s\S]*?<ambient>([^<]*)</ambient>',
+        text,
+      )
+    )
+    self.assertEqual(len(colours), 1)
+    for old in ("crank_arm", "crank_block", "col_handle_rod", "tab_v"):
+      self.assertNotIn(old, text)
 
   def test_marker_frames_match_the_model(self):
     text = pathlib.Path("models/printer/3d_printer.sdf").read_text()

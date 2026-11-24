@@ -14,10 +14,10 @@
 # limitations under the License.
 
 # Simulation demo: deploy the reBot cell with a passive door hinge and the
-# printer 18.5 cm further from the robot than the cell puts it (d 0.775, so the
-# door can swing wide), look for the marker,
-# grab the tab of the crank on the door (the crank turns on crank_pivot, so the
-# wrist need not) and swing the door open along its arc in one blended planner
+# printer 21 cm further out and 20 cm to the robot's left (d 0.80, so the D
+# handle's arc stays within the arm's reach), look for the marker,
+# grab the bar of the purple D handle on the door (the bar turns on
+# crank_pivot, so the wrist need not) and swing the door open along its arc in one blended planner
 # call. sync_door streams Gazebo's door angle into the belief world meanwhile.
 # Simulation only; real-printer behavior is unverified.
 #
@@ -74,7 +74,7 @@ if [ -z "${NO_GUI:-}" ] && [ -n "${DISPLAY:-}" ]; then
 fi
 
 OD="bazel-bin/tools/printer/open_door $A"
-$OD --mode=look --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
+$OD --mode=look --joints 0.3055 -1.2202 -1.4196 0.1996 -0.0436 -1.5708
 if $OD --mode=discover ${NO_WRITE:+--no_write_pose}; then
   echo ">>> Printer pose source: MEASURED (marker detected)."
 else
@@ -92,7 +92,7 @@ REC=$!
 # from Gazebo through sync_door, so RViz shows the door moving.
 bazel-bin/tools/printer/sync_door $A >"$TMP/sync.log" 2>&1 &
 SYNC=$!
-$OD --mode=pull --grip=lever --target_deg="$TARGET" --no_belief_door \
+$OD --mode=pull --target_deg="$TARGET" --no_belief_door \
   --path=blended --chunk_deg="${CHUNK:-115}" --wp_deg=3 || true
 sleep 3
 kill "$SYNC" 2>/dev/null || true
