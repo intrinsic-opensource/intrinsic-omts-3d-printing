@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster-native reBot cell</title>
+<!-- A standalone page: open it in a browser. The diagrams are drawn by the stock
+     mermaid, loaded from cdnjs at the end of the file (needs a network). -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+  /* Layout: one reading column; the two diagrams sit on a fixed light canvas so
+     they read the same in both themes; decisions are a list of rows, each with
+     status chips. Status is always measured against main: green is on main,
+     blue is in the branch feat/cluster-native-flow. */
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --fg: #1b1f27;
+    --muted: #596271;
+    --line: #d8dce3;
+    --accent: #1f5fbf;
+    --canvas: #fbfbfc;
+    --canvas-line: #d3d7de;
+    --main: #2f7d4a;
+    --main-bg: #dcefe1;
+    --branch: #2b5fa8;
+    --branch-bg: #dbe7f8;
+    --prop: #6b4fa3;
+    --prop-bg: #ece6f7;
+    --host: #5f6270;
+    --host-bg: #e5e6ec;
+    --decided: #1b1f27;
+    --decided-bg: #e9eaee;
+    --incl: #4a473c;
+    --incl-bg: #ecebe6;
+    --outcl: #4b5563;
+    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151b; --surface: #1a1e26; --fg: #e8eaee; --muted: #9aa3b2;
+      --line: #2b313b; --accent: #7aa8f0;
+      --main: #7fd09a; --main-bg: #1d3a28;
+      --branch: #8db6f2; --branch-bg: #1c2f4d;
+      --prop: #c3a8f0; --prop-bg: #2e2545;
+      --host: #b2b6c4; --host-bg: #2a2d38;
+      --decided: #e8eaee; --decided-bg: #2c313b;
+      --incl: #d6d2c4; --incl-bg: #34332c; --outcl: #b2b6c4;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12151b; --surface: #1a1e26; --fg: #e8eaee; --muted: #9aa3b2;
+    --line: #2b313b; --accent: #7aa8f0;
+    --main: #7fd09a; --main-bg: #1d3a28;
+    --branch: #8db6f2; --branch-bg: #1c2f4d;
+    --prop: #c3a8f0; --prop-bg: #2e2545;
+    --host: #b2b6c4; --host-bg: #2a2d38;
+    --decided: #e8eaee; --decided-bg: #2c313b;
+    --incl: #d6d2c4; --incl-bg: #34332c; --outcl: #b2b6c4;
+    color-scheme: dark;
+  }
+  html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-size: 15px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    line-height: 1.55;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 28px 56px;
+  }
+  main { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+  h1, h2, h3 { font-family: var(--font-head); text-wrap: balance; margin: 0; line-height: 1.2; }
+  h1 { font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; }
+  h2 { font-size: 1.35rem; font-weight: 600; }
+  h3 { font-size: 1.02rem; font-weight: 600; }
+  p { margin: 0; max-width: 68ch; }
+  .lede { color: var(--muted); font-size: 1.05rem; margin-top: 10px; }
+  .scope { color: var(--muted); font-size: 0.92rem; margin-top: 10px; }
+  section { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .hint { color: var(--muted); font-size: 0.9rem; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+    border-radius: 999px; font-size: 0.78rem; font-weight: 500; border: 1px solid;
+    white-space: nowrap;
+  }
+  .chip.main { background: var(--main-bg); color: var(--main); border-color: var(--main); }
+  .chip.branch { background: var(--branch-bg); color: var(--branch); border-color: var(--branch); }
+  .chip.prop { background: var(--prop-bg); color: var(--prop); border-color: var(--prop); border-style: dashed; }
+  .chip.host { background: var(--host-bg); color: var(--host); border-color: var(--host); }
+  .chip.decided { background: var(--decided-bg); color: var(--decided); border-color: var(--decided); }
+  .chip.incl { background: var(--incl-bg); color: var(--incl); border-color: var(--incl); }
+  .chip.outcl { background: transparent; color: var(--outcl); border-color: var(--outcl); border-style: dotted; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .canvas {
+    background: var(--canvas); border: 1px solid var(--canvas-line); border-radius: 8px;
+    padding: 16px; overflow-x: auto; color: #1f1f26;
+  }
+  /* One system font for the diagram text, set here as well as in the mermaid
+     theme: <pre> defaults to monospace, and a label measured in one font and
+     drawn in another is cut off. */
+  .canvas pre.mermaid {
+    margin: 0; text-align: center; min-width: 640px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+  }
+  .canvas pre.mermaid svg, .canvas pre.mermaid .nodeLabel, .canvas pre.mermaid .edgeLabel {
+    font-family: inherit;
+  }
+  .scrollx { overflow-x: auto; max-width: 100%; padding-bottom: 10px; }
+  .scrollx pre.mermaid { width: max-content; min-width: 100%; }
+  .scrollx svg .sequenceNumber { fill: #ffffff; }
+
+  .decisions { display: flex; flex-direction: column; gap: 12px; }
+  .decision {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  }
+  .decision header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 14px; }
+  .decision dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+  .decision dt { color: var(--muted); font-size: 0.82rem; font-weight: 500; padding-top: 2px; }
+  .decision dd { margin: 0; min-width: 0; }
+  @media (max-width: 560px) {
+    .decision dl { grid-template-columns: 1fr; gap: 2px; }
+    .decision dd { margin-bottom: 8px; }
+  }
+  .ask { border-left: 3px solid var(--prop); padding-left: 12px; }
+
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.86em; background: var(--host-bg); padding: 1px 5px; border-radius: 4px; }
+  ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 4px; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Cluster-native reBot cell</h1>
+    <p class="lede">How the reBot printer-tending cell moves from "a script on a laptop drives the cluster" to "the cluster holds the logic", using Intrinsic Core's own pieces: skills, services and the world. Status is measured against <code>main</code>: what is in the branch <code>feat/cluster-native-flow</code>, and what is still open.</p>
+    <p class="scope">Scope: the reBot solution's registration, grasp planning and configuration. The print-to-pick flow (a printer's job becoming a part in the cell) and the work on storing the behavior tree as a process asset are separate, on other branches, and are not covered here. Two small pieces written on the print-to-pick branches, the registration skill and the geometry of A's frames, are used here as they are.</p>
+  </header>
+
+  <section>
+    <h2>The cell now</h2>
+    <div class="legend" aria-label="Legend">
+      <span class="chip main">On main</span>
+      <span class="chip branch">In feat/cluster-native-flow</span>
+    </div>
+    <div class="legend" aria-label="Where it runs">
+      <span class="chip incl">Group: in the cluster</span>
+      <span class="chip outcl">Group: outside the cluster</span>
+    </div>
+    <div class="canvas">
+<pre class="mermaid">
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"system-ui, -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif","fontSize":"14px","lineColor":"#4b5563","primaryTextColor":"#1f1f26","clusterBkg":"#f3f4f7","clusterBorder":"#c4c9d2"},"flowchart":{"curve":"basis","htmlLabels":false,"useMaxWidth":false,"padding":14,"nodeSpacing":28,"rankSpacing":40}}}%%
+flowchart TB
+  classDef main fill:#dcefe1,stroke:#2f7d4a,color:#14301f
+  classDef branch fill:#dbe7f8,stroke:#2b5fa8,color:#10243f
+  style HOST fill:#ffffff,stroke:#6b7280,stroke-width:2px,stroke-dasharray:2 4
+  style CL fill:#ecebe6,stroke:#8a877a,stroke-width:2px
+  style OP fill:#f7f6f2,stroke:#8a877a,stroke-width:1px
+
+  subgraph HOST["Host machine, outside the cluster"]
+    direction LR
+    OA(["omts_app&lt;br/&gt;builds the tree, starts&lt;br/&gt;one operation"]):::main
+    CC(["configure_cell --apply&lt;br/&gt;checks, then one skill call,&lt;br/&gt;then resets Gazebo"]):::branch
+  end
+
+  subgraph CL["In the cluster"]
+    subgraph OP["Operation: the pick and place cycle, one behavior tree"]
+      direction TB
+      R["Register the pose estimator&lt;br/&gt;skill: ai.omts.&lt;br/&gt;register_pose_estimator"]:::branch
+      C1["Capture, then estimate the pose&lt;br/&gt;skills: capture_images,&lt;br/&gt;estimate_pose_multi_view"]:::main
+      G["The part's pose, the grasp frames&lt;br/&gt;skill: ai.omts.plan_cuboid_grasp"]:::branch
+      M["Pick, set down at A, pick, return&lt;br/&gt;skills: move_robot, update_world,&lt;br/&gt;control_pinch_gripper,&lt;br/&gt;attach_object_to_robot, detach_object"]:::main
+      R --> C1 --> G --> M
+    end
+    K["Change the cell&lt;br/&gt;skill: ai.omts.configure_cell"]:::branch
+    W[("Belief world&lt;br/&gt;printer, camera mount, view,&lt;br/&gt;A's frames, part on the bed,&lt;br/&gt;parked parts")]:::main
+    E[("Installed asset:&lt;br/&gt;the pose estimator&lt;br/&gt;(a deploy removes it)")]:::main
+    GZ["Gazebo simulation"]:::main
+  end
+
+  OA --> OP
+  CC -- "one world update" --> K
+  K --> W
+  CC -. "start_from_world_state=BELIEF" .-> GZ
+  R -. "trains, or finds it" .-> E
+  C1 -. "the estimate" .-> G
+  G -. "moves the part,&lt;br/&gt;writes grasp frames" .-> W
+</pre>
+    </div>
+    <p class="hint">Each box names the skill or service it uses, as installed on the cluster. The three <code>ai.omts</code> skills and the tool's <code>--apply</code> mode are new in the branch; everything else is on <code>main</code>: Intrinsic Core's skills and services, and the existing app. The two skills that edit the world declare a footprint that locks it, so they run in a sequence, never in a parallel node. Dashed lines carry information.</p>
+  </section>
+
+  <section>
+    <h2>Changing the cell, then running it</h2>
+    <div class="legend" aria-label="Legend">
+      <span class="chip main">On main</span>
+      <span class="chip branch">In feat/cluster-native-flow</span>
+    </div>
+    <div class="legend" aria-label="Where it runs">
+      <span class="chip incl">Box: in the cluster</span>
+      <span class="chip outcl">Box: outside the cluster</span>
+    </div>
+    <p class="hint">The times are from the cluster runs in "What was checked".</p>
+    <div class="canvas">
+    <div class="scrollx" data-scale="0.87">
+<pre class="mermaid">
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"system-ui, -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif","fontSize":"14px","primaryTextColor":"#1f1f26","lineColor":"#4b5563","actorBkg":"#ffffff","actorBorder":"#6b7280","noteBkgColor":"#fbf7e6","noteBorderColor":"#c9b873","sequenceNumberColor":"#ffffff"},"sequence":{"mirrorActors":false,"messageAlign":"left","wrap":false,"useMaxWidth":false,"actorMargin":20,"width":150,"diagramMarginX":40,"actorFontSize":14,"messageFontSize":13,"noteFontSize":13}}}%%
+sequenceDiagram
+  autonumber
+  box rgb(246,246,246) Outside the cluster
+    participant T as configure_cell tool
+    participant A as omts_app
+  end
+  box rgb(236,235,230) In the cluster
+    participant K as configure_cell skill
+    participant W as Belief world
+    participant G as Gazebo
+    participant RG as register_pose_estimator
+    participant S as Stock skills
+    participant PG as plan_cuboid_grasp
+  end
+  Note over T: Checks run on the host first
+  T->>K: Printer, camera, A, part, parked
+  K->>W: Read the live poses
+  Note over K: View and A follow the printer and part
+  K->>W: One update, all or none
+  W-->>T: Done
+  T->>G: Start an empty operation from the belief world
+  Note over T,G: The start resets the simulation: about 20 s in all
+  A->>RG: Run the cycle
+  RG->>RG: Register the estimator
+  Note left of RG: Installed: at once. Else: trains
+  S->>S: Capture, then estimate the pose
+  S->>PG: The estimate
+  PG->>W: Grasp frames
+  S->>S: Pick, set down at A, pick, return
+  Note over A,S: About 60 s for a cycle
+</pre>
+    </div>
+    </div>
+    <p class="hint">The configure tool resets the simulation as part of its call, so Gazebo matches the belief world afterwards. <code>omts_app</code> does not reset it: after a deploy that leaves Gazebo running, with no configure run, Gazebo keeps the last run's state and the first run can find no part.</p>
+  </section>
+
+  <section>
+    <h2>Decisions</h2>
+    <p class="hint">Each row has what was done, what else was considered, and why. "Decided" means the team chose it when asked; the other rows are choices made while building, open to review.</p>
+    <div class="decisions">
+
+      <article class="decision">
+        <header><h3>1. The cell registers its pose estimator itself, on every start</h3><div class="chips"><span class="chip branch">In feat/cluster-native-flow</span></div></header>
+        <dl>
+          <dt>Done</dt><dd>The skill <code>ai.omts.register_pose_estimator</code> trains and saves the estimator through the train service, and returns at once if it is installed. A new optional <code>vision.registration</code> config section puts it ahead of the perception step. The skill is declared by <code>OrbbecVision</code>, outside the retry, so a failed training is not retried three times.</dd>
+          <dt>Instead</dt><dd>The command-line registration tool, run by hand after every deploy. A deploy removes the registration, so the cell was unusable until someone ran it.</dd>
+          <dt>Why</dt><dd>Nothing found keeps the estimator across a deploy: a deploy removes installed assets the solution does not declare, and an estimator is created by training at run time, not built. Registering on every start is the answer that needs no manual step.</dd>
+          <dt>Result</dt><dd>After a deploy, with nothing registered by hand, the first run registered the estimator and finished in 62 s; the next run logged "already installed" and finished in 57 s. A part that had never been registered (the benchy) was registered during its first run.</dd>
+          <dt>Cost</dt><dd>Registering again under an existing id keeps the old settings, so a changed prompt or threshold needs a new estimator id. The config's single threshold also does not follow the per-target value in <code>targets.yaml</code>; all are 0.25 today.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <header><h3>2. A skill computes the part's pose and the grasp frames</h3><div class="chips"><span class="chip branch">In feat/cluster-native-flow</span></div></header>
+        <dl>
+          <dt>Done</dt><dd><code>ai.omts.plan_cuboid_grasp</code> takes the pose estimate, composes it with the camera's pose from the world, moves the part's world object, checks the minimum height, and creates or moves the grasp and pre-grasp frames. It also returns the three poses.</dd>
+          <dt>Instead</dt><dd>A skill that returns the frames for <code>update_world</code> to write. That needs CEL values inside a world update, which was not tried.</dd>
+          <dt>Why</dt><dd>One place does the pose, the height check and the frames, with typed parameters and a unit-testable body. A skill can be called from other trees.</dd>
+          <dt>Cost</dt><dd>It edits the belief world directly, so its footprint locks the world (it must not run in a parallel node), and it cannot be previewed (decision 4). A missing camera or parent object is an error.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <header><h3>3. The grasp rule is a plain function</h3><div class="chips"><span class="chip branch">In feat/cluster-native-flow</span></div></header>
+        <dl>
+          <dt>Done</dt><dd>The rule lives in <code>src/core/grasp_math.py</code>, which imports nothing from <code>intrinsic</code> and has unit tests. <code>cuboid_sweep</code>, which kept its own copy, now calls the function; its output is identical on a sweep of 3 sizes by 4 yaws.</dd>
+          <dt>Instead</dt><dd>A copy of the rule in each place, kept equal by a comment ("keep in step").</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <header><h3>4. The skills cannot be previewed, and the pick cannot be anyway</h3><div class="chips"><span class="chip branch">In feat/cluster-native-flow</span></div></header>
+        <dl>
+          <dt>Done</dt><dd>The two skills in the tree refuse <code>preview</code>, because a preview world is taken for the real one and these skills edit the belief world. <code>configure_cell</code> is not in the tree.</dd>
+          <dt>Checked</dt><dd>
+            <div class="tablewrap">
+            <table>
+              <thead><tr><th>Config</th><th>preview and fast_preview</th></tr></thead>
+              <tbody>
+                <tr><td>With registration</td><td>The registration skill refuses, 4 s in.</td></tr>
+                <tr><td>Without registration</td><td>The moves, the capture and <code>estimate_pose_multi_view</code> preview; <code>plan_cuboid_grasp</code> then fails reading <code>estimates[0]</code>, because a preview returns zero estimates.</td></tr>
+              </tbody>
+            </table>
+            </div>
+          </dd>
+          <dt>Result</dt><dd>The vision-guided pick cannot be previewed here: the failure is in what perception returns, and the grasp step has nothing to work from. Preview still reaches the moves before perception.</dd>
+          <dt>Ask</dt><dd class="ask">Is it expected that a preview of <code>estimate_pose_multi_view</code> returns no estimates, and is there a way to give it some?</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <header><h3>5. Changing the cell is one skill that applies, and the checks stay on the host</h3><div class="chips"><span class="chip decided">Decided</span><span class="chip branch">In feat/cluster-native-flow</span></div></header>
+        <dl>
+          <dt>Decision</dt><dd><code>ai.omts.configure_cell</code> applies a change; it does not judge it. The checks (reach, clearance, inverse-kinematics sweeps) need numpy, scipy and the arm's and printer's meshes, and stay a host tool that runs first.</dd>
+          <dt>Instead</dt><dd>Running the checks inside the skill: heavy images and the offline kinematics ported. Or no skill: the host tool applies the update itself.</dd>
+          <dt>Done</dt><dd>Every group of values is optional and independent: the printer's distance, the camera mount, the view, A's frames, the part on the bed, parked objects. They apply in one world update, so all or none. Everything is read from the live world, so the skill needs no constants from the checkout. <code>configure_cell --apply</code> runs the checks and then calls it.</dd>
+          <dt>Result</dt><dd>One call (about 20 s) replaces three generated files and a manual apply step. The printer and camera values match the file tool exactly, the part and A's frames match to its 4-decimal rounding, the view matches to rounding with its orientation within 0.1 degree. Restoring the defaults through the skill returned every pose to the baseline within 0.03 mm.</dd>
+          <dt>Cost</dt><dd>It changes the belief world only; Gazebo follows because the tool then starts an operation from the belief world, which resets it. It cannot be previewed.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <header><h3>6. The view follows the printer and the camera mount</h3><div class="chips"><span class="chip branch">In feat/cluster-native-flow</span></div></header>
+        <dl>
+          <dt>Done</dt><dd>Moving the printer moves the camera's place at the view by the same distance; changing the mount solves the arm's pose for the view again, so the camera sees the bed as it did. The skill derives this from the live camera, tool and flange poses.</dd>
+          <dt>Instead</dt><dd>The host tool's way: start from the committed view each time. Equivalent when the world is at its committed state, and not when it is not.</dd>
+          <dt>Checked</dt><dd>A unit test with real transform maths, including the invariant that after a mount change the camera at the new view is where it was at the old one.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <header><h3>7. The part's resting place comes from a parameter, relative to the printer</h3><div class="chips"><span class="chip decided">Decided</span><span class="chip branch">In feat/cluster-native-flow</span></div></header>
+        <dl>
+          <dt>Decision</dt><dd>The skill takes the bed's top-centre in the printer's frame (<code>bed_top_in_printer_m</code>), and combines it with the printer's pose, which it reads or sets in the same call. A printer move therefore carries the part with it. The host tool reads the value from the printer model's mesh and passes it.</dd>
+          <dt>Instead</dt><dd>A named bed frame on the printer model, which the skill would read. It means changing the model.</dd>
+          <dt>Done</dt><dd>Each placed object is reparented to the parent first, so a part left in the gripper by a failed run is freed. The parking places are the tool's convention; the skill places objects where it is told.</dd>
+          <dt>Result</dt><dd>With the printer at 0.62 m the part's pose matched the file tool's (0.59049, 0.00001, 0.15843 against 0.5905, 0, 0.1584), and a full cycle ran in the moved cell. A part of another shape (the 3D benchy) was placed, registered and picked in a clean deploy with test parts.</dd>
+          <dt>Cost</dt><dd>The lying orientation (model z along the world x) is covered by unit tests but was not run live.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <header><h3>8. A's frames are plain geometry that follows the part's height</h3><div class="chips"><span class="chip branch">In feat/cluster-native-flow</span></div></header>
+        <dl>
+          <dt>Done</dt><dd>A's three frames come from the tilt, A's radius and bearing and the part's half height, in <code>src/core/drop_off.py</code>, whose test keeps it equal to the research tool's numpy version. The skill moves a frame that exists and creates one that does not, in the same update as the rest.</dd>
+          <dt>Result</dt><dd>For a part of half height 0.02 m the skill's three frames matched the file tool's (heights 0.02, 0.0407, 0.1407; orientation identical).</dd>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>What was checked</h2>
+    <p class="hint">Unit tests: 27 targets, all passing, run with <code>bazel test //tests/...</code>; <code>bazel build --nobuild //...</code> and ruff are clean. Cluster runs are on a local k3s in simulation, with the pose estimator's models.</p>
+    <div class="tablewrap">
+    <table>
+      <thead><tr><th>Check</th><th>Result</th><th>Time</th></tr></thead>
+      <tbody>
+        <tr><td>Deploy, then <code>omts_app</code> with nothing registered by hand</td><td>Registered, picked, finished</td><td class="num">62 s</td></tr>
+        <tr><td>The same again</td><td>"Already installed"</td><td class="num">57 s</td></tr>
+        <tr><td>Cycle with <code>plan_cuboid_grasp</code></td><td>Grasp at the bed centre, at the part's height</td><td class="num">61 s</td></tr>
+        <tr><td>Printer to 0.62 m and a new camera mount, through the skill</td><td>Matches the file tool; cycle ran in the moved cell</td><td class="num">63 s</td></tr>
+        <tr><td>A's frames for a taller part</td><td>Match the file tool; cycle ran after restoring</td><td class="num">63 s</td></tr>
+        <tr><td>One <code>--apply</code> call: printer, camera, A's frames, part on the bed, simulation synced</td><td>Part pose matches; cycle ran, part returned near the new bed centre</td><td class="num">20 s, then 61 s</td></tr>
+        <tr><td>Restore the defaults through the skill</td><td>Every pose within 0.03 mm of the baseline</td><td class="num">about 20 s</td></tr>
+        <tr><td>A clean deploy with test parts, <code>--target test_benchy</code></td><td>Cell set up in one call; estimator registered during the run; cycle ran</td><td class="num">24 s, then 68 s</td></tr>
+        <tr><td>Preview and fast preview, with and without registration</td><td>See decision 4</td><td class="num">seconds to failure</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Open questions</h2>
+    <p class="hint">Four remain for the work above. The full list, which also covers work not described here, is in <code>research/CLUSTER_NATIVE_HANDOFF.md</code>, section 4.</p>
+    <div class="tablewrap">
+    <table>
+      <thead><tr><th>Question</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>Should the tree read its per-run values from the cluster?</td><td>The part's object, scene-object id, pose estimator and the return area's centre are fixed when the tree is built, which is why <code>app_config.yaml</code> is the one file left. Reading them from the blackboard would remove it, at the cost of a tree change.</td></tr>
+        <tr><td>Per-target thresholds are not carried into <code>vision.registration</code></td><td>All 0.25 today; a new target with another value would be registered with the wrong one.</td></tr>
+        <tr><td>Reconciling with the print-to-pick branches</td><td>They carry their own copies of the registration skill and A's-frame geometry; the files that differ only in comments would conflict.</td></tr>
+        <tr><td>The <code>rules_oci</code> import</td><td>It makes Bazel suggest <code>bazel mod tidy</code>, which would break the build (explained in <code>MODULE.bazel</code>). Needed so a Python skill has a base image.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What we would like reviewed</h2>
+    <div class="decisions">
+      <article class="decision">
+        <dl>
+          <dt>1</dt><dd class="ask">Is a skill that edits the belief world in <code>execute</code> (a footprint that locks the world, no preview) an acceptable pattern for the cell's planning and configuration steps, or should the edits go through <code>update_world</code>?</dd>
+          <dt>2</dt><dd class="ask">Registering the estimator on every start is the only answer found to a deploy removing it. Is there a way, or a plan, for a deploy to keep an installed asset the solution did not declare, or to declare a trained one?</dd>
+          <dt>3</dt><dd class="ask">A preview of <code>estimate_pose_multi_view</code> returns no estimates, so the vision-guided pick cannot be previewed. Is that expected?</dd>
+        </dl>
+      </article>
+    </div>
+  </section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+  // "loose" lets the escaped line breaks (&lt;br/&gt;) through as breaks.
+  // fontFamily here, not in the diagrams' init lines: a top-level fontFamily in
+  // one makes mermaid ignore that diagram's themeVariables. Layout measures
+  // labels in this font, so it must be the one the diagram is drawn in.
+  mermaid.initialize({ startOnLoad: false, securityLevel: "loose", fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" });
+
+  // Green is on main, blue is in this branch (the fills the legends use).
+  const FILL = { main: ["#dcefe1", "#2f7d4a"], branch: ["#dbe7f8", "#2b5fa8"] };
+  // Which sequence participant is which (by id in the diagram).
+  const ACTOR = { T: "branch", A: "main", K: "branch", W: "main",
+                  G: "main", RG: "branch", S: "main", PG: "branch" };
+
+  // Makes two clusters (subgraphs) span the same width: the union of both, with
+  // the labels re-centred. The layout puts them side by side otherwise.
+  function alignClusters(svg, idA, idB) {
+    const a = svg.querySelector('g.cluster[id="' + idA + '"]');
+    const b = svg.querySelector('g.cluster[id="' + idB + '"]');
+    if (!a || !b) return;
+    const ra = a.querySelector("rect"), rb = b.querySelector("rect");
+    const left = (r) => parseFloat(r.getAttribute("x"));
+    const right = (r) => left(r) + parseFloat(r.getAttribute("width"));
+    const x0 = Math.min(left(ra), left(rb)), x1 = Math.max(right(ra), right(rb));
+    for (const [g, r] of [[a, ra], [b, rb]]) {
+      r.setAttribute("x", x0);
+      r.setAttribute("width", x1 - x0);
+      const label = g.querySelector("g.cluster-label");
+      const m = label && /translate\(([-\d.]+),\s*([-\d.]+)\)/.exec(label.getAttribute("transform"));
+      if (m) label.setAttribute("transform", "translate(" + (x0 + (x1 - x0) / 2) + ", " + m[2] + ")");
+    }
+  }
+
+  function colourActors(svg) {
+    svg.querySelectorAll("rect.actor[name]").forEach((r) => {
+      const fill = FILL[ACTOR[r.getAttribute("name")]];
+      // Inline style: the diagram's own stylesheet overrides the attributes.
+      if (fill) { r.style.setProperty("fill", fill[0], "important"); r.style.setProperty("stroke", fill[1], "important"); }
+    });
+  }
+
+
+  // Shows each diagram at the largest size that fits its box, never above its
+  // natural size and never below MIN_SCALE; below that the box scrolls sideways.
+  // The timeline has a fixed scale instead (see data-scale).
+  const MIN_SCALE = 0.7;
+  function fitDiagrams() {
+    document.querySelectorAll("pre.mermaid svg").forEach((svg) => {
+      const box = svg.closest(".scrollx") || svg.closest(".canvas");
+      if (!box) return;
+      const vb = svg.viewBox.baseVal;
+      if (!vb || !vb.width) return;
+      const cs = getComputedStyle(box);
+      const room = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      // A box with data-scale shows its diagram at that fraction of its natural
+      // size and scrolls sideways if that is wider than the box; any other box
+      // fits its diagram, down to MIN_SCALE.
+      const fixed = parseFloat(box.getAttribute("data-scale"));
+      const k = fixed || Math.max(MIN_SCALE, Math.min(1, room / vb.width));
+      svg.style.maxWidth = "none";
+      svg.setAttribute("width", Math.round(vb.width * k));
+      svg.setAttribute("height", Math.round(vb.height * k));
+    });
+  }
+
+  mermaid.run().then(() => {
+    document.querySelectorAll("pre.mermaid svg").forEach((svg) => {
+      alignClusters(svg, "HOST", "CL");
+      colourActors(svg);
+    });
+    fitDiagrams();
+    window.addEventListener("resize", fitDiagrams);
+  });
+</script>
+</body>
+</html>

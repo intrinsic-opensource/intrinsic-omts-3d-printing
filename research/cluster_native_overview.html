@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster-native reBot cell, overview</title>
+<!-- A standalone page: open it in a browser. A short version of cluster_native.html,
+     without skill and service names. The diagram is drawn by the stock mermaid,
+     loaded from cdnjs at the end of the file (needs a network). -->
+<style>
+  :root {
+    --bg: #f4f5f7; --fg: #1b1f27; --muted: #596271; --canvas: #fbfbfc;
+    --canvas-line: #d3d7de;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12151b; --fg: #e8eaee; --muted: #9aa3b2; --canvas-line: #2b313b; color-scheme: dark; }
+  }
+  html { font-size: 16px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--muted); max-width: 66ch; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+  .chip {
+    font-size: 0.78rem; font-weight: 500; padding: 2px 10px; border-radius: 999px;
+    border: 1.5px solid; color: #1f1f26;
+  }
+  .chip { background: #fff; border-color: #6b7280; }
+  .chip.main { background: #dcefe1; border-color: #2f7d4a; }
+  .chip.branch { background: #dbe7f8; border-color: #2b5fa8; }
+  h2 { font-size: 1.15rem; margin: 32px 0 8px; }
+  ol, ul { margin: 0 0 14px; padding-left: 1.3em; color: var(--muted); max-width: 66ch; }
+  li { margin-bottom: 8px; }
+  li strong, p strong { color: var(--fg); font-weight: 600; }
+  .canvas {
+    background: var(--canvas); border: 1px solid var(--canvas-line);
+    border-radius: 10px; padding: 16px; overflow-x: auto;
+  }
+  pre.mermaid {
+    margin: 0; background: none; text-align: center;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cluster-native reBot cell, overview</h1>
+  <p>The reBot cell tends a printer: it finds the printed part on the bed, picks it, sets it
+  down at A and puts it back. The branch <code>feat/cluster-native-flow</code> moves three
+  steps from manual commands and generated files into skills. Decisions and checks are in
+  <code>cluster_native.html</code>.</p>
+  <div class="legend" aria-label="Legend">
+    <span class="chip main">On main</span>
+    <span class="chip branch">In feat/cluster-native-flow</span>
+    <span class="chip">Rounded: runs on the host</span>
+  </div>
+  <div class="canvas">
+<pre class="mermaid">
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"system-ui, -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","lineColor":"#4b5563","primaryTextColor":"#1f1f26","clusterBkg":"#f3f4f7","clusterBorder":"#c4c9d2"},"flowchart":{"curve":"basis","htmlLabels":false,"useMaxWidth":false,"padding":14,"nodeSpacing":28,"rankSpacing":38}}}%%
+flowchart TB
+  classDef main fill:#dcefe1,stroke:#2f7d4a,color:#14301f
+  classDef branch fill:#dbe7f8,stroke:#2b5fa8,color:#10243f
+  style HOST fill:#ffffff,stroke:#6b7280,stroke-width:2px,stroke-dasharray:2 4
+  style CL fill:#ecebe6,stroke:#8a877a,stroke-width:2px
+  style OP fill:#f7f6f2,stroke:#8a877a,stroke-width:1px
+
+  subgraph HOST["On the host"]
+    direction LR
+    OA(["omts_app&lt;br/&gt;build_tree, starts one operation"]):::main
+    CC(["configure_cell --apply&lt;br/&gt;host checks, then one skill call"]):::branch
+  end
+
+  subgraph CL["In the cluster"]
+    subgraph OP["Operation: the pick and place cycle"]
+      direction TB
+      R["register_pose_estimator"]:::branch
+      C1["capture_images,&lt;br/&gt;estimate_pose_multi_view"]:::main
+      C2["plan_cuboid_grasp"]:::branch
+      C3["Pick, set down at A,&lt;br/&gt;pick, return"]:::main
+      R --> C1 --> C2 --> C3
+    end
+    E[("Pose estimator&lt;br/&gt;(installed asset)")]:::main
+    K["configure_cell (skill)"]:::branch
+    W[("Belief world")]:::main
+    G["Gazebo"]:::main
+  end
+
+  OA --> OP
+  CC -- "one world update" --> K
+  K --> W
+  CC -. "empty operation from the belief world" .-> G
+  R -. "trains and saves, or finds it" .-> E
+  C2 -. "moves the part,&lt;br/&gt;writes grasp frames" .-> W
+</pre>
+  </div>
+  <h2>What changed</h2>
+  <ol>
+    <li><strong>Pose estimator registration.</strong> A deploy removes the part's registered
+    pose estimator, which meant running <code>register_using_ioc_train_service</code> by hand.
+    <code>ai.omts.register_pose_estimator</code> now trains and saves it ahead of perception,
+    and returns at once if it is already installed.</li>
+    <li><strong>Grasp planning.</strong> <code>ai.omts.plan_cuboid_grasp</code> turns the estimate into the
+    part's pose and the grasp frames. The rule is a plain function,
+    <code>grasp_math</code>, with unit tests.</li>
+    <li><strong>Cell layout.</strong> <code>ai.omts.configure_cell</code> sets the printer, camera
+    mount, <code>view</code>, A's frames, the part on the bed and the parked parts in one
+    belief-world update. <code>configure_cell --apply</code> runs the host checks first and
+    resets Gazebo after. It replaces the generated files and <code>apply_scene_updates</code>;
+    <code>app_config.yaml</code> is still written.</li>
+  </ol>
+
+  <h2>Status</h2>
+  <p>Blue is in the branch, green was already on <code>main</code>. Full cycles ran in
+  simulation on a local k3s, with the default part and the 3D benchy, in the original layout
+  and a moved one. Nothing has run on the real arm. The skills cannot be previewed, and the
+  pick could not be previewed anyway: a preview of <code>estimate_pose_multi_view</code>
+  returns no estimates. One question is open: whether the tree
+  should read its per-run values from the blackboard, which would remove
+  <code>app_config.yaml</code>.</p>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+  // "loose" lets the escaped line breaks (&lt;br/&gt;) through as breaks.
+  // fontFamily here, not in the diagrams' init lines: a top-level fontFamily in
+  // one makes mermaid ignore that diagram's themeVariables. Layout measures
+  // labels in this font, so it must be the one the diagram is drawn in.
+  mermaid.initialize({ startOnLoad: false, securityLevel: "loose", fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" });
+
+  // Makes two clusters (subgraphs) span the same width: the union of both, with
+  // the labels re-centred. The layout puts them side by side otherwise.
+  function alignClusters(svg, idA, idB) {
+    const a = svg.querySelector('g.cluster[id="' + idA + '"]');
+    const b = svg.querySelector('g.cluster[id="' + idB + '"]');
+    if (!a || !b) return;
+    const ra = a.querySelector("rect"), rb = b.querySelector("rect");
+    const left = (r) => parseFloat(r.getAttribute("x"));
+    const right = (r) => left(r) + parseFloat(r.getAttribute("width"));
+    const x0 = Math.min(left(ra), left(rb)), x1 = Math.max(right(ra), right(rb));
+    for (const [g, r] of [[a, ra], [b, rb]]) {
+      r.setAttribute("x", x0);
+      r.setAttribute("width", x1 - x0);
+      const label = g.querySelector("g.cluster-label");
+      const m = label && /translate\(([-\d.]+),\s*([-\d.]+)\)/.exec(label.getAttribute("transform"));
+      if (m) label.setAttribute("transform", "translate(" + (x0 + (x1 - x0) / 2) + ", " + m[2] + ")");
+    }
+  }
+
+
+  // Shows each diagram at the largest size that fits its box, never above its
+  // natural size and never below MIN_SCALE; below that the box scrolls sideways.
+  const MIN_SCALE = 0.7;
+  function fitDiagrams() {
+    document.querySelectorAll("pre.mermaid svg").forEach((svg) => {
+      const box = svg.closest(".scrollx") || svg.closest(".canvas");
+      if (!box) return;
+      const vb = svg.viewBox.baseVal;
+      if (!vb || !vb.width) return;
+      const cs = getComputedStyle(box);
+      const room = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const k = Math.max(MIN_SCALE, Math.min(1, room / vb.width));
+      svg.style.maxWidth = "none";
+      svg.setAttribute("width", Math.round(vb.width * k));
+      svg.setAttribute("height", Math.round(vb.height * k));
+    });
+  }
+
+  mermaid.run().then(() => {
+    document.querySelectorAll("pre.mermaid svg").forEach((svg) => alignClusters(svg, "HOST", "CL"));
+    fitDiagrams();
+    window.addEventListener("resize", fitDiagrams);
+  });
+</script>
+</body>
+</html>

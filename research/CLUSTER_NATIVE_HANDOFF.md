@@ -38,9 +38,7 @@ installed assets.
 
 ## 3. Plan
 
-Each step ends in a demo and leaves the `omts` and `lab_bb_01` cells building
-(`CLAUDE.md`). New behavior goes alongside the old, behind config, until it is
-proven.
+Each step ends in a demo.
 
 ### Step C1: `register_pose_estimator` skill (fixes D3, sets the pattern for D7) — DONE 2026-11-19
 
@@ -105,9 +103,8 @@ proven.
   and without a tool orientation) and they agree. `research/tools/cuboid_sweep`
   now calls the function instead of its own copy, and its output is identical
   on a sweep of 3 sizes by 4 yaws.
-* Selected by `vision.frame_calculator: script | skill` (default `script`, so
-  `omts` and `lab_bb_01` are unchanged; `configs/rebot/app_config.yaml` uses
-  `skill`). Not the `grasp.planner` key, which picks who owns the grasp
+* Selected by `vision.frame_calculator: script | skill` (default `script`;
+  `configs/rebot/app_config.yaml` uses `skill`). Not the `grasp.planner` key, which picks who owns the grasp
   frames, not how the part's pose is composed.
 * **Result** (k3s, sim, models): a full cycle with the skill finished (61 s), and
   the skill logged a grasp at (0.560, -0.0002, 0.160), the bed centre at the
@@ -119,9 +116,10 @@ proven.
   script either (see the open questions, item 3 of the answered ones).
 * Known gaps: a missing part object is skipped with a warning, as the script
   did; a missing camera or parent object is now an error (the script fell
-  back to the root). The script is still in the tree for `omts` and
-  `lab_bb_01`, so the rule exists twice (script and `grasp_math`) until it is
-  retired; the equivalence test is the guard.
+  back to the root). The script is still in the tree, and the default of
+  `vision.frame_calculator` still selects it, so the rule exists twice (script
+  and `grasp_math`) until the script is removed; the equivalence test is the
+  guard.
 * After a deploy that does not restart the simulator, Gazebo keeps the last
   cycle's state, and the first run fails with "0 detections" (SAM 3 sees no part).
   Run `apply_scene_updates --reset_sim` after each deploy (`REBOT_OMTS_APP.md`).
@@ -369,12 +367,18 @@ Revisited on 2026-11-19, after C1, C2 and C4.
    `PythonScript`, and the rule exists twice (script and `grasp_math`, kept equal
    by a test). Switching them means running those cells in simulation, which
    needs their own deploy.
-9. **Should `omts_app` sync the simulator at the start in simulation?** After a
-   deploy that did not restart Gazebo, the first run fails with "0 detections"
-   until the simulator is reset. `configure_cell --apply` now avoids that by
-   starting an operation with `start_from_world_state=BELIEF`; `omts_app` could do
-   the same on its first operation. The cost is a simulator reset at each run;
-   what else that touches was not checked.
+9. **Should `omts_app` reset the simulator when a run starts, and the tool's reset
+   become opt-in?** After a deploy that did not restart Gazebo, the first run
+   fails with "0 detections" until the simulator is reset. `configure_cell
+   --apply` avoids it by starting an operation with
+   `start_from_world_state=BELIEF`; `omts_app` could do the same on its first
+   operation. If both reset, a configure followed by a run resets twice, and the
+   second does nothing the first did not, so the proposal is one reset per run, in
+   `omts_app`, with the tool's own reset behind `--sync`. Measured on 2026-11-23:
+   such an operation takes 1.7 s, against 0.7 s without the reset, and the same
+   three times in a row, so the repeat is cheap, only redundant. Not checked: that
+   start on the full cell tree, and whether a reset at each run moves the arm in
+   Gazebo to the belief pose.
 10. **Per-target thresholds are not carried into `vision.registration`.**
     `targets.yaml` has one per target, the config block has one. All are 0.25, so
     nothing differs yet; `configure_cell` should write the target's value, or the
