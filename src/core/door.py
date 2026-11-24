@@ -43,11 +43,18 @@ HANDLE_STANDOFF_M = 0.10  # bar axis beyond the free edge
 HANDLE_PLANE_Y = 0.016  # the D's plane, in front of the pane's outer face
 HANDLE_GRIP_Z = 0.175  # bar centre height; the top arm stays inside the mesh
 HANDLE_BAR_LENGTH_M = 0.100  # free bar length between the corners
-HANDLE_BAR_RADIUS_M = 0.008
+# The bar is a rectangular prism: the long face points at the robot at the
+# closed door (yaw about the bar axis, door frame, for the door-test layout:
+# approach azimuth -27 deg in the world), so the fingers close flat across the
+# thin side.
+HANDLE_BAR_LONG_M = 0.040
+HANDLE_BAR_THIN_M = 0.016
+HANDLE_BAR_YAW_RAD = 1.095
 HANDLE_ARM_RADIUS_M = 0.006
 HANDLE_GAP_M = 0.002  # bar end to corner sphere
+CORNER_RADIUS_M = 0.008
 # Arm height above and below the bar centre.
-HANDLE_ARM_DZ_M = HANDLE_BAR_LENGTH_M / 2 + HANDLE_GAP_M + HANDLE_BAR_RADIUS_M
+HANDLE_ARM_DZ_M = HANDLE_BAR_LENGTH_M / 2 + HANDLE_GAP_M + CORNER_RADIUS_M
 # The open gripper body is +-40.7 mm tall, so the arms must clear it.
 GRIPPER_HALF_HEIGHT_M = 0.0407
 # The bar axis (centre of the pivot), door frame.

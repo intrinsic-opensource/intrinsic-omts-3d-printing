@@ -105,6 +105,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   )
   parser.add_argument("--wp_deg", type=float, default=3.0)
   parser.add_argument(
+    "--retry_step_deg",
+    type=float,
+    default=5.0,
+    help="blended path: when a chunk cannot be planned, retry with its end "
+    "angle lowered by this much (0: do not retry).",
+  )
+  parser.add_argument(
     "--motion", choices=["LINEAR", "JOINT", "ANY"], default="LINEAR"
   )
   parser.add_argument("--blend_trans", type=float, default=0.01)
@@ -467,12 +474,15 @@ def pull(solution, args) -> None:
   root_t_printer = world.get_transform(world.root, world.printer).matrix4x4()
   pairs = [("gripper", _contact_target(args))]
 
-  def run(node):
+  def run(node, quiet_failure=False):
     try:
       solution.executive.run(node, silence_outputs=True)
     except execution.ExecutionFailedError as e:
-      print(f"[!] {node.name}: {e}")
-      print_failure(solution)
+      if quiet_failure:
+        print(f"[-] {node.name}: not plannable")
+      else:
+        print(f"[!] {node.name}: {e}")
+        print_failure(solution)
       return False
     print(f"[✓] {node.name}")
     return True
@@ -514,34 +524,49 @@ def pull(solution, args) -> None:
         break
   else:
     while theta < args.target_deg - 1e-9:
+      # A chunk is planned whole: one unreachable sample fails all of it. When
+      # it does, retry with the end angle lowered until it plans, so the door
+      # opens as far as the arm reaches (--retry_step_deg 0 disables this).
       end = min(theta + args.chunk_deg, args.target_deg)
-      n = max(1, round((end - theta) / args.wp_deg))
-      angles = [theta + (end - theta) * (i + 1) / n for i in range(n)]
-      if args.belief_door:
-        set_belief_door(end if args.belief_door_at == "end" else theta)
-      frames = []
-      for i, a in enumerate(angles):
-        name = f"door_arc_{i}"
-        set_frame(world, name, grasp_target(root_t_printer, args, a))
-        frames.append(("root", name))
-      blend = {}
-      if args.motion == "JOINT":
-        blend["joint_tightness_rad"] = args.blend_joint
-      else:
-        blend["corner_rounding"] = (args.blend_trans, args.blend_rot)
-      ok = run(
-        robot.build_move_blended_cartesian_task(
-          frames,
-          motion_type=args.motion,
-          excluded_collision_pairs=pairs,
-          name=f"arc {theta:.0f} -> {end:.0f} deg ({n} waypoints,"
-          f" {args.motion})",
-          **blend,
+      step = args.retry_step_deg
+      floor = theta + args.wp_deg
+      done = False
+      while True:
+        n = max(1, round((end - theta) / args.wp_deg))
+        angles = [theta + (end - theta) * (i + 1) / n for i in range(n)]
+        if args.belief_door:
+          set_belief_door(end if args.belief_door_at == "end" else theta)
+        frames = []
+        for i, a in enumerate(angles):
+          name = f"door_arc_{i}"
+          set_frame(world, name, grasp_target(root_t_printer, args, a))
+          frames.append(("root", name))
+        blend = {}
+        if args.motion == "JOINT":
+          blend["joint_tightness_rad"] = args.blend_joint
+        else:
+          blend["corner_rounding"] = (args.blend_trans, args.blend_rot)
+        last_try = step <= 0 or end - step < floor - 1e-9
+        done = run(
+          robot.build_move_blended_cartesian_task(
+            frames,
+            motion_type=args.motion,
+            excluded_collision_pairs=pairs,
+            name=f"arc {theta:.0f} -> {end:.0f} deg ({n} waypoints,"
+            f" {args.motion})",
+            **blend,
+          ),
+          quiet_failure=not last_try,
         )
-      )
-      if not ok:
+        if done or last_try:
+          break
+        end -= step
+      if not done:
         break
+      lowered = end < min(theta + args.chunk_deg, args.target_deg) - 1e-9
       theta = end
+      if lowered:
+        break  # the arm's reach ends here; do not retry further chunks
   print(
     f"PATH {args.path} {args.motion}: reached {theta:.0f} deg of "
     f"{args.target_deg:.0f} in {time.time() - started:.1f} s"

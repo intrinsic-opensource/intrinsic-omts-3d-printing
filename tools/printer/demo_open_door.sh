@@ -14,8 +14,8 @@
 # limitations under the License.
 
 # Simulation demo: deploy the reBot cell with a passive door hinge and the
-# printer 21 cm further out and 20 cm to the robot's left (d 0.80, so the D
-# handle's arc stays within the arm's reach), look for the marker,
+# printer 18.5 cm further from the robot (d 0.775, in line with the arm), look
+# for the marker,
 # grab the bar of the purple D handle on the door (the bar turns on
 # crank_pivot, so the wrist need not) and swing the door open along its arc in one blended planner
 # call. sync_door streams Gazebo's door angle into the belief world meanwhile.
@@ -74,7 +74,7 @@ if [ -z "${NO_GUI:-}" ] && [ -n "${DISPLAY:-}" ]; then
 fi
 
 OD="bazel-bin/tools/printer/open_door $A"
-$OD --mode=look --joints 0.3055 -1.2202 -1.4196 0.1996 -0.0436 -1.5708
+$OD --mode=look --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
 if $OD --mode=discover ${NO_WRITE:+--no_write_pose}; then
   echo ">>> Printer pose source: MEASURED (marker detected)."
 else

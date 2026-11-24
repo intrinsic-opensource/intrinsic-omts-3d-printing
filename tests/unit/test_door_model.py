@@ -121,10 +121,17 @@ class SdfFramesTest(absltest.TestCase):
     bar = re.search(
       r'<collision name="bar_c">[\s\S]*?</collision>', link
     ).group(0)
-    radius = float(re.search(r"<radius>([^<]*)</radius>", bar).group(1))
-    length = float(re.search(r"<length>([^<]*)</length>", bar).group(1))
-    self.assertAlmostEqual(radius, door.HANDLE_BAR_RADIUS_M)
-    self.assertAlmostEqual(length, door.HANDLE_BAR_LENGTH_M)
+    size = [
+      float(v)
+      for v in re.search(r"<box><size>([^<]*)</size>", bar).group(1).split()
+    ]
+    # a rectangular prism with a longer face, turned toward the robot
+    self.assertAlmostEqual(size[0], door.HANDLE_BAR_LONG_M)
+    self.assertAlmostEqual(size[1], door.HANDLE_BAR_THIN_M)
+    self.assertAlmostEqual(size[2], door.HANDLE_BAR_LENGTH_M)
+    self.assertGreater(size[0], size[1])
+    yaw = float(re.search(r"<pose>[^<]*?([-\d.]+)</pose>", bar).group(1))
+    self.assertAlmostEqual(yaw, door.HANDLE_BAR_YAW_RAD)
     # the arms sit above and below the bar, inside the door mesh (top 0.248)
     zs = sorted(
       float(
@@ -143,18 +150,23 @@ class SdfFramesTest(absltest.TestCase):
       door.GRIPPER_HALF_HEIGHT_M + 0.009,
     )
 
-  def test_d_handle_is_beyond_the_free_edge_and_one_colour(self):
+  def test_d_handle_is_beyond_the_free_edge_and_coloured(self):
     self.assertAlmostEqual(
       door.CRANK_PIVOT_POS[0], door.PANE_EDGE_X - door.HANDLE_STANDOFF_M
     )
     text = pathlib.Path("models/printer/3d_printer.sdf").read_text()
-    colours = set(
+    fixed = set(
       re.findall(
-        r'<visual name="(?:handle_[a-z_]+|bar)_v">[\s\S]*?<ambient>([^<]*)</ambient>',
+        r'<visual name="handle_[a-z_]+_v">[\s\S]*?<ambient>([^<]*)</ambient>',
         text,
       )
     )
-    self.assertEqual(len(colours), 1)
+    bar = re.search(
+      r'<visual name="bar_v">[\s\S]*?<ambient>([^<]*)</ambient>', text
+    ).group(1)
+    # the arms, corners and mounts share one colour; the turning bar differs
+    self.assertEqual(len(fixed), 1)
+    self.assertNotIn(bar, fixed)
     for old in ("crank_arm", "crank_block", "col_handle_rod", "tab_v"):
       self.assertNotIn(old, text)
 

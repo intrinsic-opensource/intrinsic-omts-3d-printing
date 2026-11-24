@@ -1697,37 +1697,38 @@ Check these before building on them.
 
 ### 5e.12: D handle beyond the free edge (simulation)
 
-* The crank (red arm and block, tab on a rod) is replaced by a **D handle**,
-  one purple colour: two horizontal arms (cylinders r 6 mm, 0.12 m, on
-  `door_link`) run from the pane's free edge to sphere corners 0.11 m beyond
-  it; the straight vertical bar between the corners (r 8 mm, 0.10 m free
-  length) is the link `crank_handle` on `crank_pivot`, the gripped, spinning
-  part. Names, joint and `sync_door` are unchanged.
+* The crank (red arm and block, tab on a rod) is replaced by a **D handle**:
+  two horizontal arms (purple cylinders r 6 mm on `door_link`) run from the
+  pane's free edge to sphere corners 0.10 m beyond it; the straight vertical bar
+  between the corners (the link `crank_handle` on `crank_pivot`, **light blue**)
+  is the gripped, spinning part. The bar is a rectangular prism
+  (0.040 x 0.016 x 0.100 m): its long face points at the robot at the closed
+  door (yaw `door.HANDLE_BAR_YAW_RAD`), so the pinch fingers close flat across
+  the thin side. Names, joint and `sync_door` are unchanged.
 * **Why beyond the edge:** a handle on the pane's front face is behind the pane
   once the door passes 90 deg (the face turns away from the robot). Beyond the
-  free edge the pane is never between the robot and the bar (61-143 deg off the
-  line to the robot over 0-120 deg).
-* Sizes come from the open gripper's extents (+-40.7 mm tall body, 100 mm jaw):
-  bar length >= 0.097 m, standoff 0.11 m (below that the printer's side wall
-  and bezel meet the open gripper). The bar is at door height 0.175, the
-  highest at which the top arm stays inside the door mesh (top 0.248). The
-  tool goes 15 mm past the bar's axis so the bar sits on the flat finger pads.
-* The legacy wrap grasp (`--grip=handle`, `--grasp_h`, `col_handle_rod`) is
-  removed. The planner's only gripper exclusion is `printer:crank_handle`.
+  free edge the pane is never between the robot and the bar.
+* Sizes come from the open gripper's extents (+-40.7 mm tall body, 100 mm jaw;
+  the pinch gripper always opens fully, fingers' outer faces at +-63 mm): bar
+  length >= 0.097 m; stick-out 0.10 m (0.06 m failed: the fingers hit the pane
+  edge). The bar is at door height 0.175, the highest at which the top arm stays
+  inside the door mesh (top 0.248). The tool goes 15 mm past the bar's axis. The
+  legacy wrap grasp (`--grip=handle`) is removed.
 * In the `door_test` layout the printer is fixed to the ground, so (read from
-  the simulator source) the gripper welds nothing and holds the bar by finger
-  friction; in the default layout touching an arm would weld `door_link`.
-* **Reach, the catch (found by running it):** the bar beyond the edge swings on
-  a circle of radius 0.354 + L about the hinge, which is 0.594 m from the
-  robot's base at the old layout, so the bar came within 0.13 m of the base at
-  about 70 deg and the planner failed at 51 deg (L = 0.11). The offline sweep
-  agreed (the best D placements stopped at 85-89 deg with the printer where it
-  was). L = 0.06 failed too: the pinch gripper always opens fully, so its
-  fingers (outer faces at +-63 mm) hit the pane edge. What works: L = 0.10 m
-  and the printer moved to d = 0.80, 0.2 m to the robot's left
-  (`configs/rebot/printer_door_test.updates.pbtxt`). New look pose
-  `0.3055 -1.2202 -1.4196 0.1996 -0.0436 -1.5708` (the old one no longer sees
-  the marker).
-* **Result (simulation, one run):** marker detected, one blended call 0 to
-  115 deg in 9.1 s, Gazebo door 114.6 deg, printer drift 0.0 mm, belief door
-  synced. Gripper-pane clearance at the closed door is small (about 10 mm).
+  the simulator source) the gripper welds nothing and holds the bar by friction.
+* **Reach, the catch:** the bar swings on a circle of radius 0.354 + L about the
+  hinge, which is 0.594 m from the robot's base with the printer in line with
+  the arm, so the bar comes within 0.14 m of the base at about 70 deg. With the
+  printer in line (d 0.775) the real planner reached **55 deg** (48 deg
+  stepwise with a radial or fixed azimuth); moving the printer further out only
+  moves the grasp out of reach (d 0.85 fails at the pre-grasp). Moving the
+  printer 0.2 m to the robot's left and to d 0.80 reached 115 deg (marker
+  detected, 9.5 s, Gazebo 114.5 deg, 0.0 mm drift; look pose `0.3055 -1.2202
+  -1.4196 0.1996 -0.0436 -1.5708`), but the printer must stay in line with the
+  arm, so the committed layout is the aligned one and the swing stops at the
+  reach. A stick-out of 0.08 m (arc radius 0.43 m, to gain a few degrees) fails
+  at the grasp: the open gripper's finger hits the printer's front corner
+  (`gripper_right` against `printer.base_link`), and tool azimuths of 0, 15 and
+  30 deg either still collide or leave the grasp unreachable (wrist limits), so
+  0.10 m is the minimum. `open_door --retry_step_deg` (default 5) lowers a failing chunk's end
+  angle until it plans; the demo prints the angle reached.

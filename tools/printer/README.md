@@ -15,7 +15,9 @@ receives. Plan and status: `research/PRINTER_SERVICE_HANDOFF.md`.
 
 Real-printer behavior is unverified. `tools/printer/demo_open_door.sh
 [target_deg]` runs the whole sequence below (default target 115 deg; the
-arm's reach ends near 120). Tools: `open_door` (`--mode
+pull retries with a lower end angle when a swing cannot be planned and stops at
+the arm's reach, about 55 deg with the printer in line with the arm, see
+`research/HANDOFF.md` 5e.12). Tools: `open_door` (`--mode
 look|detect|discover|approach|pull|entities|joints`; `--path blended|stepwise`; `--chunk_deg`, `--wp_deg`; `--az_mode
 radial|fixed`; `--belief_door_at end|start`; `--no_belief_door`), `sync_door`
 (Gazebo's door and crank angles into the belief world; `--rate_hz`,
@@ -37,7 +39,7 @@ export GZ_PARTITION=intrinsic_sim GZ_IP=10.42.0.1
 export GZ_RELAY=$(kubectl get pod -n app-resources rs-gazebo-simulator-0 -o jsonpath='{.status.podIP}')
 A=--address=localhost:17080
 
-# 1. Deploy: door closed in the belief world, passive hinge, printer at d 0.80, 0.2 m left
+# 1. Deploy: door closed in the belief world, passive hinge, printer at d 0.775
 bazel run //:rebot_solution -c opt --//models/printer:door=closed \
   --//models/printer:hinge=passive --//models/printer:layout=door_test -- $A
 
@@ -57,7 +59,7 @@ pkill -f 'gz-sim-main -g'; pkill -f gz-sim-gui-client; sleep 1; gz sim -g
 
 # 5. Look pose
 bazel-bin/tools/printer/open_door $A --mode=look \
-  --joints 0.3055 -1.2202 -1.4196 0.1996 -0.0436 -1.5708
+  --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
 
 # 6. Find the printer from the marker: PRINTER DETECTED, or a NOT DETECTED
 #    banner and exit code 3

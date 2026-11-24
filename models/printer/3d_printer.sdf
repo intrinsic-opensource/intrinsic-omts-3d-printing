@@ -217,7 +217,7 @@
        the door's plane, from the pane's free edge out to rounded corners 0.10 m
        beyond it, so the pane is never between the robot and the bar at any door
        angle. The bar between the corners is the link crank_handle, which turns
-       on the joint crank_pivot. All handle parts share one colour. -->
+       on the joint crank_pivot. The arms and corners share one colour; the turning bar is light blue. -->
   <visual name="handle_arm_top_v"><pose>-0.399 0.016 0.235 0 1.570796 0</pose>
     <geometry><cylinder><radius>0.006</radius><length>0.110</length></cylinder></geometry>
     <material><ambient>0.58 0.25 0.85 1</ambient><diffuse>0.58 0.25 0.85 1</diffuse></material></visual>
@@ -274,26 +274,30 @@
 </joint>
 
     <!-- The turning bar of the D handle: the straight middle part, held by the
-         gripper. It turns freely about its own vertical axis on crank_pivot, so
-         the gripper keeps its orientation while the door swings; the force goes
-         through the pivot, the corners and the arms to the door. Its collision
-         is the only one on this link (the planner's gripper exclusion is
-         "printer:crank_handle"). -->
+         gripper. It is a rectangular prism (door.HANDLE_BAR_*): the 0.040 m
+         face points at the robot when the door is closed, so the fingers close
+         flat across the 0.016 m thickness. It turns freely about its own
+         vertical axis on crank_pivot, so the gripper keeps its orientation
+         while the door swings; the force goes through the pivot, the corners
+         and the arms to the door. Its collision is the only one on this link
+         (the planner's gripper exclusion is "printer:crank_handle"). -->
     <link name="crank_handle">
       <pose relative_to="door_link">-0.454 0.016 0.175 0 0 0</pose>
       <inertial>
         <mass>0.1</mass>
         <inertia>
-          <ixx>0.000085</ixx><ixy>0</ixy><ixz>0</ixz>
-          <iyy>0.000085</iyy><iyz>0</iyz><izz>0.00004</izz>
+          <ixx>0.00009</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>0.00009</iyy><iyz>0</iyz><izz>0.00004</izz>
         </inertia>
       </inertial>
       <visual name="bar_v">
-        <geometry><cylinder><radius>0.008</radius><length>0.120</length></cylinder></geometry>
-        <material><ambient>0.58 0.25 0.85 1</ambient><diffuse>0.58 0.25 0.85 1</diffuse></material>
+        <pose>0 0 0 0 0 1.095</pose>
+        <geometry><box><size>0.040 0.016 0.120</size></box></geometry>
+        <material><ambient>0.55 0.80 1.0 1</ambient><diffuse>0.55 0.80 1.0 1</diffuse></material>
       </visual>
       <collision name="bar_c">
-        <geometry><cylinder><radius>0.008</radius><length>0.100</length></cylinder></geometry>
+        <pose>0 0 0 0 0 1.095</pose>
+        <geometry><box><size>0.040 0.016 0.100</size></box></geometry>
         <surface><friction><ode><mu>3.0</mu><mu2>3.0</mu2></ode></friction></surface>
       </collision>
     </link>
