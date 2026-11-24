@@ -19,12 +19,16 @@ physics. This tool reads door_link and crank_handle from Gazebo's
 /world/default/pose/info (needs the gz CLI and the GZ_* environment of the
 simulation, as for recording poses) and writes the door_hinge and crank_pivot
 joints of the printer in the belief world, so RViz and the planner see the
-real door. Stop it with Ctrl-C (or --duration).
+real door. Simulation only: needs the gz CLI with GZ_PARTITION=intrinsic_sim,
+GZ_IP=10.42.0.1 and GZ_RELAY=<Gazebo pod IP> (see demo_open_door.sh). Only the
+joints door_hinge and crank_pivot are written, at --rate_hz, skipping changes
+under --min_change_deg. Stop it with Ctrl-C (or --duration).
 """
 
 import argparse
 import json
 import math
+import signal
 import subprocess
 import sys
 import time
@@ -59,8 +63,10 @@ def joints_from_poses(msg: dict) -> tuple[float, float] | None:
       crank_yaw = yaw(pose.get("orientation", {}))
   if door_yaw is None or crank_yaw is None:
     return None
-  theta = math.degrees(-door_yaw) % 360.0
-  q = door.theta_to_q(theta)
+  # Wrap to (-180, 180] and clamp: a door resting at the hinge limit can read
+  # a hair outside [0, 180].
+  theta = -math.degrees(math.atan2(math.sin(door_yaw), math.cos(door_yaw)))
+  q = door.theta_to_q(min(max(theta, 0.0), 180.0))
   pivot = math.atan2(
     math.sin(crank_yaw - door_yaw), math.cos(crank_yaw - door_yaw)
   )
@@ -88,6 +94,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> None:
   args = parse_args(argv)
+  # A plain kill (SIGTERM) should stop it as cleanly as Ctrl-C.
+  signal.signal(signal.SIGTERM, signal.default_int_handler)
   solution = deployments.connect(address=args.address)
   world = solution.world
   printer = world.get_kinematic_object(PRINTER_OBJECT_NAME)

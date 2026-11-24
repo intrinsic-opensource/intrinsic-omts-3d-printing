@@ -18,7 +18,8 @@ Writes the door joint in the belief world. In simulation it then resets the
 simulation so Gazebo picks the new position up, the same way
 //tools/world:apply_scene_updates --reset_sim does: a reset clones the belief
 world into Gazebo's sim_world, which the belief world update alone does not
-change.
+change. With --//models/printer:hinge=passive the belief write does not move
+the door by itself; the reset puts Gazebo at the new angle.
 """
 
 import argparse
@@ -33,8 +34,8 @@ PRINTER_OBJECT_NAME = "printer"
 DOOR_JOINT_NAME = "door_hinge"
 
 # Hinge angles, matching configs/rebot/printer_door_{open,closed}.updates.pbtxt.
-DOOR_OPEN_ANGLE = 0.0
-DOOR_CLOSED_ANGLE = 3.14159
+DOOR_OPEN_ANGLE = door.Q_LOWER
+DOOR_CLOSED_ANGLE = door.Q_UPPER
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -117,7 +118,7 @@ def main(argv: Sequence[str] | None = None) -> None:
   else:
     target_angle = args.angle
 
-  # The printer may have other joints (the clip's pivot): change only the door's.
+  # The printer may have other joints (crank_pivot): change only the door's.
   names = list(printer.joint_entity_names)
   positions = [float(v) for v in printer.joint_positions]
   positions[names.index(DOOR_JOINT_NAME)] = target_angle
@@ -135,7 +136,12 @@ def main(argv: Sequence[str] | None = None) -> None:
   printer = world.get_kinematic_object(PRINTER_OBJECT_NAME)
   print(f"Confirmed joint position: {list(printer.joint_positions)}")
   if args.theta_deg is not None or args.action in ("open", "close"):
-    check_frames(world, door.q_to_theta(float(printer.joint_positions[0])))
+    check_frames(
+      world,
+      door.q_to_theta(
+        float(printer.joint_positions[names.index(DOOR_JOINT_NAME)])
+      ),
+    )
 
 
 def check_frames(world, theta_deg: float) -> None:

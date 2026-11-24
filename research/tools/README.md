@@ -144,3 +144,9 @@ PYTHONPATH=$HOME/.local/share/omts-onnxruntime \
 
 Loading takes a few seconds, each image about 6 s and each prompt well under
 a second per image (32 CPU cores).
+
+## Door angle from a Gazebo recording
+
+`door_angle` reads recorded `/world/default/pose/info` JSON lines and prints the
+door angle theta (0 closed, 180 open) and how far the printer base moved:
+`bazel run //research/tools:door_angle -- /tmp/poses.jsonl [--every N]`.

@@ -11,6 +11,25 @@ receives. Plan and status: `research/PRINTER_SERVICE_HANDOFF.md`.
 | `gcode_to_stl.py` | `//tools/printer:gcode_to_stl` | G-code or bgcode to a compound STL. The PrusaLink service runs it on every new job; also usable by hand. |
 | `printer_skills` | `//tools/printer:printer_skills` | Runs the four printer skills through the Executive (no robot motion); `--mode=monitor` is a live screen of both read skills. |
 
+## Door (simulation only)
+
+Real-printer behavior is unverified. `tools/printer/demo_open_door.sh
+[target_deg]` deploys the reBot cell with `--//models/printer:door=closed
+--//models/printer:hinge=passive
+--//models/printer:layout=door_test`, looks at the ArUco marker (id 1), grips
+the crank handle on the door and swings the door in one blended planner call. It
+reaches about 120 deg of 180 and accepts that. Tools:
+
+* `open_door`: `--mode look|detect|discover|approach|pull`; `--grip
+  lever|handle`; `--path blended|stepwise` (`--chunk_deg`, `--wp_deg`);
+  `--az_mode radial|fixed`; `--belief_door_at end|start`; `--no_belief_door`.
+* `sync_door`: streams Gazebo's door and crank angles into the belief world
+  (`--rate_hz`, `--min_change_deg`, `--duration`).
+* `control_door`: `--action open|close|set|status`, `--theta_deg`,
+  `--reset_sim`.
+
+Design and results: `research/HANDOFF.md` 5e.
+
 ## The flow
 
 ```

@@ -91,12 +91,11 @@ def solve_marker(
   size_m: float,
   k: np.ndarray,
   dist: np.ndarray | None = None,
-  prior_normal_cam: np.ndarray | None = None,
 ) -> Detection:
   """Pose of one marker from its corners (IPPE, two solutions).
 
-  The better solution is returned with the error ratio to the other one. A
-  prior may only reject (see check_viewing_rule), never pick the solution.
+  The better solution is returned with the error ratio to the other one; a
+  viewing rule may only reject it (see check_viewing_rule), never pick it.
   """
   dist = np.zeros(5) if dist is None else dist
   obj = marker_object_points(size_m)

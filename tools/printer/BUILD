@@ -78,7 +78,17 @@ py_binary(
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:execution",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
         "@intrinsic_apis//intrinsic/util/status:extended_status_py_pb2",
+    ],
+)
+
+py_library(
+    name = "sync_door_lib",
+    srcs = ["sync_door.py"],
+    deps = [
+        "//src/core:door",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
     ],
 )
 
@@ -87,7 +97,6 @@ py_binary(
     srcs = ["sync_door.py"],
     main = "sync_door.py",
     deps = [
-        "//src/core:door",
-        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
+        ":sync_door_lib",
     ],
 )

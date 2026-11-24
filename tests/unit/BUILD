@@ -92,6 +92,16 @@ py_test(
 )
 
 py_test(
+    name = "test_sync_door",
+    srcs = ["test_sync_door.py"],
+    deps = [
+        "//src/core:door",
+        "//tools/printer:sync_door_lib",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
     name = "test_aruco_pose",
     srcs = ["test_aruco_pose.py"],
     deps = [

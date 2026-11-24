@@ -1,4 +1,3 @@
-# configs/rebot/printer_door_closed.updates.pbtxt
 # proto-file: intrinsic/world/public/proto/object_world_updates.proto
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
 updates {

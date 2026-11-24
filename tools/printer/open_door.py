@@ -12,18 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Finds the printer's door markers with the wrist camera and moves the arm.
+"""Finds the printer's door marker with the wrist camera and moves the arm.
 
 Simulation only (it moves the arm). Modes:
 
-  look    move the arm to a joint configuration (--joints q1..q6)
-  pull    approach, close on the grip, pull to --target_deg, release, retreat
-  approach  move to a pre-grasp pose and then to the handle (wrap grasp)
+  look      move the arm to a joint configuration (--joints q1..q6)
+  detect    run ai.omts.detect_aruco_markers (marker id 1), compare its pose
+            and the measured printer pose with the belief world (ground truth
+            in simulation)
   discover  detect, then write the measured printer pose to the belief world
-          in the same behavior tree (update_world)
-  detect  run ai.omts.detect_aruco_markers, compare each marker's pose and the
-          measured printer pose with the belief world (ground truth in
-          simulation)
+            in the same behavior tree (update_world)
+  approach  move to a pre-grasp pose, then to the grip (--grip=lever: the
+            crank's tab; --grip=handle: wrap the handle)
+  pull      approach, close on the grip, pull to --target_deg, release, retreat
+  entities, joints
+            print the printer's world entities / belief joint positions
+
+--path=blended swings the door in one move_robot call per --chunk_deg, through
+waypoints every --wp_deg; --path=stepwise moves --step_deg at a time.
+--az_mode=radial (default) points the tool from the robot's base at the grip
+point; the crank turns, so the wrist need not. The hinge is passive in Gazebo
+(--//models/printer:hinge=passive): run sync_door alongside and pass
+--no_belief_door so the belief door follows the real one.
 
   bazel run //tools/printer:open_door -- --address=localhost:17080 \
       --mode=detect
@@ -77,7 +87,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     "--grip",
     choices=["lever", "handle"],
     default="lever",
-    help="lever: the clip's lever (fixed wrist); handle: wrap the blade.",
+    help="lever: the crank's tab (the crank turns); handle: wrap the blade.",
   )
   parser.add_argument("--target_deg", type=float, default=30.0)
   parser.add_argument("--step_deg", type=float, default=6.0)
@@ -87,12 +97,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument(
     "--path",
     choices=["stepwise", "blended"],
-    default="stepwise",
+    default="blended",
     help="stepwise: one move per step_deg, stopping at each; blended: one "
     "move_robot call per chunk_deg, through waypoints every wp_deg, blended "
     "into one smooth trajectory.",
   )
-  parser.add_argument("--chunk_deg", type=float, default=12.0)
+  parser.add_argument("--chunk_deg", type=float, default=120.0)
   parser.add_argument(
     "--belief_door_at",
     choices=["end", "start"],
@@ -146,7 +156,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     "--no_belief_door",
     dest="belief_door",
     action="store_false",
-    help="Do not update the belief door angle during the pull.",
+    help="Do not write the belief door angle during the pull (use with "
+    "sync_door, which writes it from Gazebo; both writing would clash).",
   )
   parser.add_argument("--marker_ids", nargs="+", type=int, default=[1])
   return parser.parse_args(argv)
@@ -173,7 +184,7 @@ def look(solution, robot_name: str, joints: Sequence[float]) -> None:
     ),
   )
   try:
-    # The arm may be left touching the clip's lever by an earlier run.
+    # The arm may be left touching the crank's tab by an earlier run.
     solution.executive.run(
       robot.build_move_joint_task(
         LOOK_CONFIG,
@@ -194,7 +205,7 @@ def printer_t_marker(marker_id: int, theta_deg: float = 0.0) -> np.ndarray:
   return m
 
 
-def run_detect(solution, ids: Sequence[int], size_m: float, with_printer: bool):
+def run_detect(solution, ids: Sequence[int], size_m: float):
   """Runs ai.omts.detect_aruco_markers through the executive; the result."""
   executive = solution.executive
   if executive.has_operation and not executive.operation.done:
@@ -206,13 +217,12 @@ def run_detect(solution, ids: Sequence[int], size_m: float, with_printer: bool):
     "marker_size_m": size_m,
     "_with_recommended_config": False,
   }
-  if with_printer:
-    kwargs["printer_t_marker"] = [
-      proto_conversion.pose_to_proto(
-        data_types.Pose3.from_matrix4x4(printer_t_marker(i))
-      )
-      for i in ids
-    ]
+  kwargs["printer_t_marker"] = [
+    proto_conversion.pose_to_proto(
+      data_types.Pose3.from_matrix4x4(printer_t_marker(i))
+    )
+    for i in ids
+  ]
   action = solution.skills.ai.omts.detect_aruco_markers(**kwargs)
   tree = bt.BehaviorTree(
     name="Detect ArUco markers", root=bt.Task(action=action, name="detect")
@@ -227,7 +237,7 @@ def pose_matrix(pose_proto) -> np.ndarray:
 
 def detect(solution, args) -> None:
   ids = args.marker_ids
-  result = run_detect(solution, ids, args.marker_size_m, True)
+  result = run_detect(solution, ids, args.marker_size_m)
   world = solution.world
   printer = world.printer
   truth = world.get_transform(world.root, printer).matrix4x4()

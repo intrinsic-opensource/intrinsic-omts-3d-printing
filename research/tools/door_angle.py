@@ -16,10 +16,10 @@
 
 Reads Gazebo's /world/default/pose/info recorded as JSON lines (README.md,
 "Recording poses in Gazebo"). Prints the door angle theta (0 closed, 180 deg
-fully open) and the printer's world position for each distinct sample, then
-where the printer base went (first to last sample). door_link's pose is relative to the
-printer model; with the SDF convention q = pi - theta, theta is
-pi - (yaw(door_link) + pi), i.e. minus its yaw, wrapped to [0, 360).
+fully open) for every --every-th sample, then the last theta and where the
+printer base went (first to last sample). door_link's pose is relative to the
+printer model; with the SDF convention q = pi - theta, theta is minus its yaw,
+wrapped to (-180, 180] and clamped to [0, 180].
 
   bazel run //research/tools:door_angle -- /tmp/poses.jsonl
 """
@@ -56,7 +56,9 @@ def read(path: str) -> list[tuple[float, float, tuple[float, ...]]]:
           printer = p
       if door is None or printer is None:
         continue
-      theta = math.degrees(-yaw(door.get("orientation", {}))) % 360.0
+      a = yaw(door.get("orientation", {}))
+      theta = -math.degrees(math.atan2(math.sin(a), math.cos(a)))
+      theta = min(max(theta, 0.0), 180.0)
       pos = printer.get("position", {})
       out.append((t, theta, tuple(float(pos.get(k, 0)) for k in "xyz")))
   return out

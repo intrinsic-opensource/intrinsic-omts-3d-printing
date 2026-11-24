@@ -17,7 +17,8 @@ module(name = "omts")
 # printer_skill_dependencies.patch edits the `skill_manifest_deps` list in
 # intrinsic/assets/build_defs/allowlists.bzl, which Core plans to remove (the
 # "dependencies in the skill's parameter" model). If a pin has that model,
-# move skills/printer/*.manifest.textproto to it and delete the patch, its
+# move skills/printer/*.manifest.textproto and
+# skills/perception/detect_aruco_markers.manifest.textproto to it and delete the patch, its
 # exports_files entry in bazel/patches/BUILD and its line below.
 INTRINSIC_CORE_COMMIT = "50927e35c5c85992b2a4d0b91dabb9cf4172b2d5"
 

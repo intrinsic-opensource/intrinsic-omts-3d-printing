@@ -48,11 +48,10 @@ KNOB_POS: Vec = (
   CRANK_PIVOT_POS[1],
   CRANK_PIVOT_POS[2] + TAB_ABOVE_PIVOT_M,
 )
-# Tool orientation, fixed in the WORLD while the door turns (the handle turns,
-# so the wrist never does): approach straight ahead and level; the fingers close
-# horizontally across the tab. (45 deg to the left was tried first and has no
-# inverse-kinematics solution at the cell's original printer position; straight
-# ahead reaches every grip height tested there.)
+# Tool orientation for open_door's --az_mode=fixed: level, azimuth in the world
+# frame, the fingers closing horizontally across the tab. The default radial
+# mode points the tool from the robot's base at the grip point instead (the
+# crank turns, so the wrist need not), which reaches about 120 deg.
 KNOB_APPROACH_AZ_DEG = -19.7
 KNOB_APPROACH_PITCH_DEG = 0.0
 # Faces of the pane in the door frame (outer faces the robot).
@@ -76,8 +75,8 @@ MARKERS: dict[int, tuple[Vec, Mat]] = {
 # fingertips at the handle centre, 0.15 m above the printer base, approaching
 # into the pane (-y) pitched 30 deg down. Roll 0: the fingers close along the
 # door's x axis, across the blade's thickness (roll 270 closes them vertically,
-# along the blade, which only hooks it). Offline pull model: about 50 deg at
-# d 0.675, s 0. The tool +z axis is the approach direction.
+# along the blade, which only hooks it). Legacy grasp (--grip=handle). The tool
+# +z axis is the approach direction.
 WRAP_GRASP_POS: Vec = (-0.3465, 0.0145, 0.15 - HINGE_IN_PRINTER[2])
 _S3 = math.sqrt(3.0) / 2.0
 WRAP_GRASP_ROT: Mat = ((0.0, -1.0, 0.0), (-0.5, 0.0, -_S3), (_S3, 0.0, -0.5))

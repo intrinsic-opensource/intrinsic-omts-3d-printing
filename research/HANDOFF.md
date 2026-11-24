@@ -1357,6 +1357,14 @@ existing unload cycle. Closing the door is out of scope. Plan and decisions
 * No `<static>` (it would freeze the hinge), no `.mtl`.
 * Simulation only until the real-arm steps, which need explicit consent.
 
+Status (simulation only, real-printer behavior UNVERIFIED): the arm finds the
+printer from one ArUco marker (id 1, 80 mm), grips a free-spinning crank handle
+(`crank_pivot`) on the door and swings the door to about 120 deg of 180 in one
+blended planner call; that result is accepted. Handover to the unload cycle is
+not wired in. Sections 5e.2-5e.10 that mention markers 2 and 3, 50 mm tiles,
+the wrap grasp, the 6 deg stepwise arc or printer drift describe earlier
+states; 5e.11 is current.
+
 ### 5e.1: the door line is in this branch (done)
 
 * `origin/rebot-prusa-integration` merged into `feat/printer-door` (`origin/main`
@@ -1366,7 +1374,7 @@ existing unload cycle. Closing the door is out of scope. Plan and decisions
 * `DOOR_CLOSED_ANGLE` and the closed-door pbtxt use 3.14159, the SDF's joint
   upper limit (it was 3.141596, above it).
 
-### 5e.2: the angle oracle, and the printer stays put (done in Gazebo)
+### 5e.2: the angle oracle, and the printer stays put (done in Gazebo; drift superseded by 5e.11)
 
 * `research/tools/door_angle.py` reads the recorded Gazebo pose topic and prints
   theta from `door_link`'s yaw and how far the printer base moved. Record with
@@ -1463,7 +1471,7 @@ existing unload cycle. Closing the door is out of scope. Plan and decisions
   `omts_app`); the SDF changed (frames, marker tiles) and it should be run
   before this branch is merged.
 
-### 5e.8-5e.10: the arm opens the door in Gazebo (partly done, simulation)
+### 5e.8-5e.10: the arm opens the door in Gazebo (partly done, simulation; superseded by 5e.11)
 
 What runs: `open_door --mode=approach|pull` (after `--mode=discover`) with the
 printer at d = 0.675 and the passive hinge:
@@ -1653,3 +1661,36 @@ Check these before building on them.
   (`https://claude.ai/code/artifact/3ea4bddf-2151-46ba-b2d6-65779142ea43`),
   with only two sections filled in. The Markdown study replaces it; it can be
   deleted.
+
+### 5e.11: crank handle, anchoring, blended arc, belief sync (done, simulation)
+
+* Demo: `tools/printer/demo_open_door.sh [target_deg]` (default target 180;
+  the arm reaches about 120 and the demo accepts that). Build flags:
+  `--//models/printer:door=closed --//models/printer:hinge=passive
+  --//models/printer:layout=door_test`.
+* **One marker.** Only id 1 (80 mm, top-left of the pane, `src/core/door.py`)
+  exists; ids 2 and 3 and the 50 mm tiles of 5e.3-5e.7 are gone.
+* **Crank.** The grasp is a free-spinning handle on `door_link`
+  (`crank_pivot`, SDF link `crank_handle`). `--grip=lever` (default) grips it
+  with the radial tool azimuth (`--az_mode=radial`: the tool points from the
+  robot's base at the grip point; the crank turns, so the wrist need not).
+  `--grip=handle` is the old wrap grasp.
+* **Anchoring.** The `door_test` layout (printer at d = 0.775) attaches the
+  printer to `rebot_ground`; drift in a 36 deg pull: 0.0 mm. This replaces the
+  5e.2 and 5e.10 drift findings. The printer watchdog is removed.
+* **Blended arc.** `--path=blended --chunk_deg=120 --wp_deg=3`: one
+  `move_robot` call per chunk through waypoints every 3 deg, corners rounded by
+  the planner (`--blend_trans/_rot/_joint`). One IK failure fails the whole
+  chunk; `CHUNK=12` gives stepwise swings. `--belief_door_at {end,start}` sets
+  the planner's door angle; `--no_belief_door` leaves it alone.
+* **Belief sync.** The hinge is passive in Gazebo, so the belief joint does not
+  follow by itself. `tools/printer/sync_door.py` streams `door_link` and
+  `crank_handle` poses from `/world/default/pose/info` into the belief joints
+  `door_hinge` and `crank_pivot` (10 Hz, 0.2 deg threshold), so RViz and the
+  planner see the real door. Needs the `gz` CLI and `GZ_PARTITION`, `GZ_IP`,
+  `GZ_RELAY` (set in the demo script). Verified: after a pull to 118.7 deg the
+  belief door read 118.7 deg.
+* **Not done:** reaching 180 deg (the arm's reach stops near 120; a push from
+  the other side is the idea for the rest), the marker-measured theta gate and
+  handover to unload, real hardware, re-running the `omts` cell since the
+  shared printer SDF changed (unverified).

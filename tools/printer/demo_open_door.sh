@@ -16,10 +16,17 @@
 # Simulation demo: deploy the reBot cell with a passive door hinge and the
 # printer 18.5 cm further from the robot than the cell puts it (d 0.775, so the
 # door can swing wide), look for the marker,
-# grab the clip's lever on the door handle with the wrist fixed (the ball joint
-# turns instead) and swing the door open by moving the arm along its arc.
+# grab the tab of the crank on the door (the crank turns on crank_pivot, so the
+# wrist need not) and swing the door open along its arc in one blended planner
+# call. sync_door streams Gazebo's door angle into the belief world meanwhile.
+# Simulation only; real-printer behavior is unverified.
 #
 #   tools/printer/demo_open_door.sh [target_deg]     (default 180)
+#
+# The arm reaches about 120 deg of the 180 and the demo accepts that. Env:
+# CHUNK (deg per planner call, default 120; 12 for stepwise swings), NO_GUI=1
+# (do not restart the Gazebo GUI), NO_WRITE=1 (detect only, keep the configured
+# printer pose). Needs the gz CLI and kubectl.
 #
 # Watch it in the Gazebo GUI (research/REBOT_OMTS_APP.md, "Look through the
 # camera"). The last lines are the door angle and how far the printer base
@@ -30,6 +37,10 @@ cd "$(dirname "$0")/../.."
 A=--address=localhost:17080
 TARGET=${1:-180}
 TMP=$(mktemp -d)
+echo ">>> Logs and pose recording: $TMP"
+SYNC=""
+REC=""
+trap 'kill ${SYNC:+"$SYNC"} ${REC:+"$REC"} 2>/dev/null || true' EXIT
 
 # The deploy puts the printer at the test layout with the door closed in the
 # belief world; Gazebo keeps its previous state until it is reset, so the reset
@@ -40,7 +51,7 @@ bazel run //:rebot_solution -c opt --//models/printer:door=closed \
   --//models/printer:layout=door_test -- $A >"$TMP/deploy.log" 2>&1 \
   || { tail -20 "$TMP/deploy.log"; exit 1; }
 bazel build //tools/printer:open_door //tools/printer:sync_door \
-  //tools/world:apply_scene_updates \
+  //research/tools:door_angle //tools/world:apply_scene_updates \
   >/dev/null
 bazel-bin/tools/world/apply_scene_updates $A --reset_sim \
   --files configs/rebot/printer_door_test.updates.pbtxt \
@@ -83,11 +94,12 @@ SYNC=$!
 $OD --mode=pull --grip=lever --target_deg="$TARGET" --no_belief_door \
   --path=blended --chunk_deg="${CHUNK:-120}" --wp_deg=3 || true
 sleep 3
-kill $SYNC 2>/dev/null || true
+kill "$SYNC" 2>/dev/null || true
+sleep 1
 kill $REC 2>/dev/null || true
 echo "Belief door (synced from Gazebo), last lines:"
 tail -2 "$TMP/sync.log"
 bazel-bin/tools/printer/control_door $A --action=status | tail -1
 echo "Gazebo, from the start of the pull to its end:"
-bazel run //research/tools:door_angle -- "$TMP/poses.jsonl" --every 100000 \
-  2>/dev/null | tail -2
+bazel-bin/research/tools/door_angle "$TMP/poses.jsonl" --every 100000 \
+  | tail -2
