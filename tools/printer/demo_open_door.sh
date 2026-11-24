@@ -39,7 +39,8 @@ bazel run //:rebot_solution -c opt --//models/printer:door=closed \
   --//models/printer:hinge=passive \
   --//models/printer:layout=door_test -- $A >"$TMP/deploy.log" 2>&1 \
   || { tail -20 "$TMP/deploy.log"; exit 1; }
-bazel build //tools/printer:open_door //tools/world:apply_scene_updates \
+bazel build //tools/printer:open_door //tools/printer:sync_door \
+  //tools/world:apply_scene_updates \
   >/dev/null
 bazel-bin/tools/world/apply_scene_updates $A --reset_sim \
   --files configs/rebot/printer_door_test.updates.pbtxt \
@@ -73,13 +74,20 @@ fi
 gz topic -e -t /world/default/pose/info --json-output >"$TMP/poses.jsonl" &
 REC=$!
 # The printer is attached to the ground in the cell, so no watchdog is needed.
-# CHUNK is the swing length of one planner call in degrees (default 12; one
-# call for the whole swing is CHUNK=180, but then a single IK failure anywhere
-# in the arc fails the whole call).
-$OD --mode=pull --grip=lever --target_deg="$TARGET" \
-  --path=blended --chunk_deg="${CHUNK:-12}" --wp_deg=3 || true
+# One planner call swings the door (CHUNK degrees, default 120, the reach of
+# the arm); a single IK failure anywhere in the arc fails the whole call, so
+# CHUNK=12 gives stepwise swings. The belief world gets the real door angle
+# from Gazebo through sync_door, so RViz shows the door moving.
+bazel-bin/tools/printer/sync_door $A >"$TMP/sync.log" 2>&1 &
+SYNC=$!
+$OD --mode=pull --grip=lever --target_deg="$TARGET" --no_belief_door \
+  --path=blended --chunk_deg="${CHUNK:-120}" --wp_deg=3 || true
 sleep 3
+kill $SYNC 2>/dev/null || true
 kill $REC 2>/dev/null || true
+echo "Belief door (synced from Gazebo), last lines:"
+tail -2 "$TMP/sync.log"
+bazel-bin/tools/printer/control_door $A --action=status | tail -1
 echo "Gazebo, from the start of the pull to its end:"
 bazel run //research/tools:door_angle -- "$TMP/poses.jsonl" --every 100000 \
   2>/dev/null | tail -2

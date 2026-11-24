@@ -81,3 +81,13 @@ py_binary(
         "@intrinsic_apis//intrinsic/util/status:extended_status_py_pb2",
     ],
 )
+
+py_binary(
+    name = "sync_door",
+    srcs = ["sync_door.py"],
+    main = "sync_door.py",
+    deps = [
+        "//src/core:door",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
+    ],
+)
