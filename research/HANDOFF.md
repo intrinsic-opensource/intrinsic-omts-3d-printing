@@ -1340,6 +1340,71 @@ the edge is not a guarantee. Use the left column.
   After changing a part's mesh, restart the pose estimator's pod, which caches by
   id.
 
+---
+
+## 5e. Outfeed line: a line of finished parts on the robot's right (planned 2026-11-24)
+
+**Goal.** An outfeed area on the robot's right, reserved for releasing parts. After
+each pick cycle the next free spot is the release target, so after a few cycles
+all the printed parts stand in a line there. Today the cycle picks the part from
+the bed, sets it down at A, picks it up and returns it to the bed.
+
+**Decisions** (2026-11-24):
+
+* **Parts:** several parts, one per cycle. N parts are in the sim, parked off to
+  the side (`configure_cell`'s parked list), and the host puts the next one on the bed between cycles (a world
+  update plus a Gazebo reset, as `configure_cell --apply` does). The tree stays
+  one cycle per operation. A part created inside the tree is blocked: it needs a
+  way to bring Gazebo up to the belief world, and we found none
+  (`research/SIMULATOR_SYNC.md`).
+* **Cycle shape:** drop A. Pick from the bed, carry the part to the parking spot,
+  release, go back to `view`. The return to the bed and its random shift
+  (`cycle.return_shift`) do not apply to a parked part.
+* **Layout:** I choose, and check it with the existing reach checks.
+
+**Offline reach check** (2026-11-24, `research/tools` `cell_checks`: 75° tilt,
+the three place frames per spot as for A, joint margins, clearance from the
+printer, camera height). The robot faces the printer along +x, so its right is -y.
+Reachable spots (ok), by distance to the right and x:
+
+| y \ x (m) | -0.2 | -0.1 | 0.0 | 0.1 | 0.2 | 0.3 | 0.4 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -0.35 | X | X | X | X | X | X | ok |
+| -0.40 | X | X | X | X | X | ok | ok |
+| -0.45 | ok | X | X | X | ok | ok | ok |
+| -0.50 | ok | ok | ok | ok | ok | ok | ok |
+| -0.55 | ok | ok | ok | ok | ok | ok | ok |
+| -0.60 | ok | ok | ok | ok | ok | ok | ok |
+
+Every spot at y = -0.50 or further passes across the whole span, the same 0.5 m
+limit as A. Not checked: the gripper against a part already in the line.
+
+**Proposed layout:** the outfeed line, along x at y = -0.50, five spots at x = -0.10 to 0.30,
+10 cm apart. The part is 4 cm wide and the open gripper about 10 cm, so the spacing
+is a judgement, not a measurement: confirm it in step 1 or 2 by placing next to a
+parked part. Each spot has A's three frames (place, pre-place, approach), from the
+`a_frames` maths.
+
+**Steps**, each ending in a demo:
+
+1. **One fixed spot, no A.** Pick from the bed, release at spot 0, back to `view`.
+   Demo: one cycle ends with the part at spot 0.
+2. **A spot per cycle.** A counter picks spot k for cycle k: on the blackboard, or
+   passed in by the host. Demo: three cycles leave three parts in a row, and the
+   gripper clears the neighbour.
+3. **Supply the parts.** The host puts the next part on the bed between cycles.
+   Demo: five cycles leave five parts in the line.
+
+**Open:**
+
+* Where the counter lives: the host passes the index to each operation in step 3;
+  before that it could live on the blackboard.
+* Five parts in the sim are five separate objects, and the pose estimator tracks one
+  scene object. Whether it finds any of five identical parts is not checked; check
+  it before step 3.
+* The parked parts' height is the same as A's (`a_frames` takes the part's half
+  height), so a taller target needs its spots moved, as A's frames are today.
+
 ## 6. Findings
 
 ### 6.1 reBot top-down reach (checked offline, 2026-10-20)
