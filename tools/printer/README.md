@@ -16,7 +16,7 @@ receives. Plan and status: `research/PRINTER_SERVICE_HANDOFF.md`.
 Real-printer behavior is unverified. `tools/printer/demo_open_door.sh
 [target_deg]` runs the whole sequence below (default target 115 deg; the
 pull retries with a lower end angle when a swing cannot be planned and stops at
-the arm's reach, about 55 deg with the printer in line with the arm, see
+the arm's reach, about 60 deg with the printer in line with the arm, see
 `research/HANDOFF.md` 5e.12). Tools: `open_door` (`--mode
 look|detect|discover|approach|pull|entities|joints`; `--path blended|stepwise`; `--chunk_deg`, `--wp_deg`; `--az_mode
 radial|fixed`; `--belief_door_at end|start`; `--no_belief_door`), `sync_door`
@@ -39,7 +39,7 @@ export GZ_PARTITION=intrinsic_sim GZ_IP=10.42.0.1
 export GZ_RELAY=$(kubectl get pod -n app-resources rs-gazebo-simulator-0 -o jsonpath='{.status.podIP}')
 A=--address=localhost:17080
 
-# 1. Deploy: door closed in the belief world, passive hinge, printer at d 0.775
+# 1. Deploy: door closed in the belief world, passive hinge, printer at d 0.80
 bazel run //:rebot_solution -c opt --//models/printer:door=closed \
   --//models/printer:hinge=passive --//models/printer:layout=door_test -- $A
 

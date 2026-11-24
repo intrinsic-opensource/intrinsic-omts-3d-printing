@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Simulation demo: deploy the reBot cell with a passive door hinge and the
-# printer 18.5 cm further from the robot (d 0.775, in line with the arm), look
+# printer 21 cm further from the robot (d 0.80, in line with the arm), look
 # for the marker,
 # grab the bar of the purple D handle on the door (the bar turns on
 # crank_pivot, so the wrist need not) and swing the door open along its arc in one blended planner
@@ -93,7 +93,7 @@ REC=$!
 bazel-bin/tools/printer/sync_door $A >"$TMP/sync.log" 2>&1 &
 SYNC=$!
 $OD --mode=pull --target_deg="$TARGET" --no_belief_door \
-  --path=blended --chunk_deg="${CHUNK:-115}" --wp_deg=3 || true
+  --path=blended --chunk_deg="${CHUNK:-115}" --wp_deg=3 --retry_step_deg=3 || true
 sleep 3
 kill "$SYNC" 2>/dev/null || true
 sleep 1

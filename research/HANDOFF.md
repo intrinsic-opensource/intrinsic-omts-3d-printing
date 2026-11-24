@@ -1719,9 +1719,10 @@ Check these before building on them.
 * **Reach, the catch:** the bar swings on a circle of radius 0.354 + L about the
   hinge, which is 0.594 m from the robot's base with the printer in line with
   the arm, so the bar comes within 0.14 m of the base at about 70 deg. With the
-  printer in line (d 0.775) the real planner reached **55 deg** (48 deg
-  stepwise with a radial or fixed azimuth); moving the printer further out only
-  moves the grasp out of reach (d 0.85 fails at the pre-grasp). Moving the
+  printer in line the real planner reached 55 deg at d 0.775 (48 deg
+  stepwise with a radial or fixed azimuth), **60 deg at d 0.80, the committed
+  layout**, 63 deg at d 0.81 (but the demo's measured printer pose put the grasp
+  out of reach there: too close to the edge) and no grasp from d 0.815. Moving the
   printer 0.2 m to the robot's left and to d 0.80 reached 115 deg (marker
   detected, 9.5 s, Gazebo 114.5 deg, 0.0 mm drift; look pose `0.3055 -1.2202
   -1.4196 0.1996 -0.0436 -1.5708`), but the printer must stay in line with the

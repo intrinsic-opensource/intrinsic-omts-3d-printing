@@ -1,9 +1,9 @@
 # proto-file: intrinsic/world/public/proto/object_world_updates.proto
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
 
-# Door test layout (//models/printer:layout=door_test): the printer moved 18.5 cm
-# straight away from the robot (d = 0.775 m, same side position, in line with the
-# arm). Applied after printer.updates and printed_part.updates, so it overrides
+# Door test layout (//models/printer:layout=door_test): the printer moved 21 cm
+# straight away from the robot (d = 0.80 m, same side position, in line with the
+# arm; from 0.81 the grasp is at the edge of the arm's reach). Applied after printer.updates and printed_part.updates, so it overrides
 # both; the part moves with the bed.
 
 # The printer is attached to the ground slab (rebot_ground, static in Gazebo) so
@@ -53,7 +53,7 @@ updates {
     }
     a_t_b {
       position {
-        x: 0.775
+        x: 0.8
         y: -0.0064
         z: 0
       }
@@ -91,7 +91,7 @@ updates {
     }
     a_t_b {
       position {
-        x: 0.7455
+        x: 0.7705
         y: 0
         z: 0.1584
       }
