@@ -18,7 +18,8 @@ Real-printer behavior is unverified. `tools/printer/demo_open_door.sh
 --//models/printer:hinge=passive
 --//models/printer:layout=door_test`, looks at the ArUco marker (id 1), grips
 the crank handle on the door and swings the door in one blended planner call. It
-reaches about 120 deg of 180 and accepts that. Tools:
+opens it to 115 deg by default (the arm's reach ends near 120; pass a larger
+`target_deg` to try more). Tools:
 
 * `open_door`: `--mode look|detect|discover|approach|pull`; `--grip
   lever|handle`; `--path blended|stepwise` (`--chunk_deg`, `--wp_deg`);
