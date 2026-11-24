@@ -93,7 +93,7 @@ REC=$!
 bazel-bin/tools/printer/sync_door $A >"$TMP/sync.log" 2>&1 &
 SYNC=$!
 $OD --mode=pull --target_deg="$TARGET" --no_belief_door \
-  --path=blended --chunk_deg="${CHUNK:-115}" --wp_deg=3 --retry_step_deg=3 || true
+  --path=blended --chunk_deg="${CHUNK:-115}" --wp_deg=3 --retry_step_deg=5 || true
 sleep 3
 kill "$SYNC" 2>/dev/null || true
 sleep 1

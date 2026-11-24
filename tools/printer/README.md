@@ -16,8 +16,8 @@ receives. Plan and status: `research/PRINTER_SERVICE_HANDOFF.md`.
 Real-printer behavior is unverified. `tools/printer/demo_open_door.sh
 [target_deg]` runs the whole sequence below (default target 115 deg; the
 pull retries with a lower end angle when a swing cannot be planned and stops at
-the arm's reach, about 60 deg with the printer in line with the arm, see
-`research/HANDOFF.md` 5e.12). Tools: `open_door` (`--mode
+the arm's reach, about 145 deg; `--motion=LINEAR` stops near 60 deg at the arm's
+base axis, see `research/HANDOFF.md` 5e.12). Tools: `open_door` (`--mode
 look|detect|discover|approach|pull|entities|joints`; `--path blended|stepwise`; `--chunk_deg`, `--wp_deg`; `--az_mode
 radial|fixed`; `--belief_door_at end|start`; `--no_belief_door`), `sync_door`
 (Gazebo's door and crank angles into the belief world; `--rate_hz`,

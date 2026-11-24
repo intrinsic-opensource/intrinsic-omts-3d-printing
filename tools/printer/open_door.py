@@ -112,7 +112,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     "angle lowered by this much (0: do not retry).",
   )
   parser.add_argument(
-    "--motion", choices=["LINEAR", "JOINT", "ANY"], default="LINEAR"
+    "--motion",
+    choices=["LINEAR", "JOINT", "ANY"],
+    default="JOINT",
+    help="JOINT (default): each waypoint is a joint-space goal, which gets the "
+    "arm through the pass over its base axis; LINEAR: straight Cartesian "
+    "segments, which fail there (about 60 deg).",
   )
   parser.add_argument("--blend_trans", type=float, default=0.01)
   parser.add_argument("--blend_rot", type=float, default=0.1)

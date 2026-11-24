@@ -1716,20 +1716,22 @@ Check these before building on them.
   legacy wrap grasp (`--grip=handle`) is removed.
 * In the `door_test` layout the printer is fixed to the ground, so (read from
   the simulator source) the gripper welds nothing and holds the bar by friction.
-* **Reach, the catch:** the bar swings on a circle of radius 0.354 + L about the
-  hinge, which is 0.594 m from the robot's base with the printer in line with
-  the arm, so the bar comes within 0.14 m of the base at about 70 deg. With the
-  printer in line the real planner reached 55 deg at d 0.775 (48 deg
-  stepwise with a radial or fixed azimuth), **60 deg at d 0.80, the committed
-  layout**, 63 deg at d 0.81 (but the demo's measured printer pose put the grasp
-  out of reach there: too close to the edge) and no grasp from d 0.815. Moving the
-  printer 0.2 m to the robot's left and to d 0.80 reached 115 deg (marker
-  detected, 9.5 s, Gazebo 114.5 deg, 0.0 mm drift; look pose `0.3055 -1.2202
-  -1.4196 0.1996 -0.0436 -1.5708`), but the printer must stay in line with the
-  arm, so the committed layout is the aligned one and the swing stops at the
-  reach. A stick-out of 0.08 m (arc radius 0.43 m, to gain a few degrees) fails
-  at the grasp: the open gripper's finger hits the printer's front corner
-  (`gripper_right` against `printer.base_link`), and tool azimuths of 0, 15 and
-  30 deg either still collide or leave the grasp unreachable (wrist limits), so
-  0.10 m is the minimum. `open_door --retry_step_deg` (default 5) lowers a failing chunk's end
-  angle until it plans; the demo prints the angle reached.
+* **Reach, the catch, and the fix:** the bar swings on a circle of radius
+  0.354 + L about the hinge, which is 0.594 m from the robot's base with the
+  printer in line with the arm, so the bar passes within 0.14 m of the base at
+  about 70 deg: the gripper goes over the base's vertical axis. The arm can do
+  that (an offline IK that tracks the joint branch reaches 114 deg), but the
+  planner's **LINEAR** Cartesian segments cannot: with them the swing stopped at
+  48-63 deg, however the chunks were cut (one call, 12 or 6 deg chunks, 55 deg
+  at d 0.775, 60 at 0.80, 63 at 0.81; no grasp from d 0.815). With
+  `--motion=JOINT` (each waypoint a joint-space goal; `ANY` the same) the
+  committed layout (printer in line, d 0.80) opens the door to **115 deg in
+  12 s** in one call, and to **145 deg** when asked for 180 (the far end is the
+  arm's reach). So JOINT is the default. Moving the printer 0.2 m to the robot's
+  left also reached 115 deg with LINEAR, but the printer must stay in line with
+  the arm. A stick-out of 0.08 m fails at the grasp: the open gripper's finger
+  hits the printer's front corner (`gripper_right` against
+  `printer.base_link`), and tool azimuths of 0, 15 and 30 deg either still
+  collide or leave the grasp unreachable (wrist limits), so 0.10 m is the
+  minimum. `open_door --retry_step_deg` (default 5) lowers a failing chunk's end
+  angle until it plans.
