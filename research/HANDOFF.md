@@ -1402,12 +1402,20 @@ parked part. Each spot has A's three frames (place, pre-place, approach), from t
 
 **Two layouts, set in config** (2026-11-24). `configs/rebot/cell_params.yaml` has an
 `outfeed` section: `layout` (`line` or `arc`), `count`, and each layout's numbers.
-* **line:** spots along x at y = -0.50 from x = -0.10, 10 cm apart, the tool at
-  yaw -90° for every spot, so each part is set down axis aligned.
+* **line:** spots along x at y = -0.50 from x = 0.30, stepping by -0.10 m, so 10 cm
+  apart, the tool at yaw -90° for every spot, so each part is set down axis aligned.
 * **arc:** spots on a circle of 0.50 m around the robot's base, from bearing
-  -100°, 12° apart (a 10 cm chord), the tool leaning
+  -52°, stepping by -12° (a 10 cm chord), the tool leaning
   along each spot's bearing, so every part has the same distance from the robot
   and the same orientation relative to it.
+
+**Order** (2026-11-24): spot 0 is the nearest to the printer and each next spot is
+further from it, in both layouts (a negative `spacing` or `step`). The first runs
+below (steps 1 and 2 and the arc fills) used the reverse, with spot 0 at x = -0.10
+or bearing -100°: their coordinates are in that order. In the new order, on k3s,
+`fill_outfeed --reset` with two parts ended at x 300.0 and 200.6 mm, y -505.7 and
+-505.6 on the line, and at bearings -52.0° and -64.1° at radius 505.7 mm on the arc:
+spot 0 nearest the printer, spot 1 one step further.
 
 `ai.omts.configure_cell` has an `outfeed` group that creates or moves the spots'
 frames (`outfeed_<k>_place`, `_preplace`, `_approach`) in the same update as the
@@ -1429,8 +1437,8 @@ of the line, so a deploy without `configure_cell` still has one spot.
      spot's frames (no new motion code), then a move back to `view`. A cell without
      the section builds the machine tending cycle as before.
    * Spot 0's frames (`outfeed_0_place`, `_preplace`, `_approach`) are in
-     `configs/rebot/scene.updates.pbtxt`, from `src/core/drop_off.py` at x = -0.10,
-     y = -0.50, 75° tilt, tool yaw -90° (`yaw_degrees`; the lean no longer follows
+     `configs/rebot/scene.updates.pbtxt`, from `src/core/drop_off.py` at x = -0.10
+     (x = 0.30 since the order was reversed), y = -0.50, 75° tilt, tool yaw -90° (`yaw_degrees`; the lean no longer follows
      the spot's bearing, so every spot has the same orientation). They are belief-world frames: `apply_scene_updates` with
      the three blocks is enough, no Gazebo reset.
    * On k3s, one Benchy cycle (`configure_cell --apply --target test_benchy`, then

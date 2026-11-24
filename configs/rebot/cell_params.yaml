@@ -16,20 +16,23 @@ target: rebot_printed_part
 
 # The outfeed line (research/HANDOFF.md, section 5e): where finished parts are
 # set down, to the robot's right. `layout` picks one of the two below; `count`
-# is the number of spots.
-#  * line: spots along x at `y`, from `start_x`, `spacing` apart (m), with the
-#    tool leaning along -y, so every part is set down axis aligned.
+# is the number of spots. Spot 0 is the nearest to the printer and each next spot
+# is further from it.
+#  * line: spots along x at `y`, from `start_x`, `spacing` apart (m, negative
+#    steps away from the printer), with the tool leaning along -y, so every part
+#    is set down axis aligned.
 #  * arc: spots on a circle of `radius` (m) around the robot's base, from
-#    `start_bearing`, `step` apart (degrees), each leaning along its bearing: the
-#    same distance from the robot and the same orientation relative to it.
+#    `start_bearing`, `step` apart (degrees, negative steps away from the
+#    printer), each leaning along its bearing: the same distance from the robot
+#    and the same orientation relative to it.
 outfeed:
   layout: line
   count: 5
   line:
     y: -0.50
-    start_x: -0.10
-    spacing: 0.10
+    start_x: 0.30
+    spacing: -0.10
   arc:
     radius: 0.50
-    start_bearing: -100.0
-    step: 12.0
+    start_bearing: -52.0
+    step: -12.0

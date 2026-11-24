@@ -152,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
       file=sys.stderr,
     )
     return 1
-  print(f"Filled {len(args.parts)} spot(s) of the {layout} line")
+  print(f"Filled {len(args.parts)} spot(s), {layout} layout")
   return 0
 
 

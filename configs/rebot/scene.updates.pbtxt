@@ -148,7 +148,8 @@ updates {
 
 # The outfeed line (research/HANDOFF.md, section 5e): spots on the ground to the
 # robot's right, along x at y = -0.50, released parts standing 10 cm apart.
-# Spot 0 is at x = -0.10. Each spot has A's three frames, from
+# Spot 0 is at x = 0.30, the nearest to the printer; the next spots are at
+# x = 0.20, 0.10, ... Each spot has A's three frames, from
 # src/core/drop_off.py with the same 75 deg tilt: the place frame holds the part
 # at its resting height (z = 0.015), the pre-place frame backs off 8 cm along the
 # approach and the approach frame is 10 cm above that. Unlike A, every spot has
@@ -161,7 +162,7 @@ updates {
     new_frame_name: "outfeed_0_place"
     parent_t_new_frame {
       position {
-        x: -0.1000
+        x: 0.3000
         y: -0.5000
         z: 0.0150
       }
@@ -187,7 +188,7 @@ updates {
     new_frame_name: "outfeed_0_preplace"
     parent_t_new_frame {
       position {
-        x: -0.1000
+        x: 0.3000
         y: -0.4227
         z: 0.0357
       }
@@ -213,7 +214,7 @@ updates {
     new_frame_name: "outfeed_0_approach"
     parent_t_new_frame {
       position {
-        x: -0.1000
+        x: 0.3000
         y: -0.4227
         z: 0.1357
       }
