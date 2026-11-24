@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Dynamic grasp and pre-grasp frame calculation for vision perception pipeline."""
+"""Dynamic grasp and pre-grasp frame calculation for vision perception pipeline.
+
+The `ai.omts.plan_cuboid_grasp` skill (`skills/grasp/`) does the same through
+`src/core/grasp_math.py`, selected by `vision.frame_calculator`. This script
+cannot import that module (it ships as one source file), so a change to the
+grasp rule goes in both; `tests/unit/test_grasp_math.py` checks they agree.
+"""
 
 import math
 from typing import Any

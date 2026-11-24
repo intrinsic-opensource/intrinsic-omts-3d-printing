@@ -1,0 +1,122 @@
+// Copyright 2026 Intrinsic Innovation LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package omts.cell;
+
+import "intrinsic/math/proto/point.proto";
+import "intrinsic/math/proto/pose.proto";
+
+// A's frames: where the cycle sets the part down on the ground behind the robot
+// when the cell has no machine. `place_frame` holds the part at its resting
+// height, `pre_place_frame` is 8 cm back along the approach, and
+// `approach_frame` 10 cm above that. The tool is pitched like the grasp, leaning
+// away from the robot, so the part is set down flat. They are created under
+// `parent_object` if they do not exist, or moved.
+message DropOff {
+  // The tool's pitch from vertical, in degrees in [0, 90): the grasp's
+  // `approach_tilt_degrees`.
+  double approach_tilt_degrees = 1;
+  // A's distance from the robot base, in metres, and its bearing, in degrees.
+  double radius_m = 2;
+  double bearing_degrees = 3;
+  // Half the part's height: its centre's height when it rests on the ground.
+  double part_half_height_m = 4;
+  // How far past its centre the part is gripped, in metres; default 0.
+  optional double grasp_depth_m = 5;
+
+  // The frames' names; the defaults are the reBot cell's.
+  optional string place_frame = 6;  // default "place_vise"
+  optional string pre_place_frame = 7;  // default "pre_place_vise"
+  optional string approach_frame = 8;  // default "machine_approach"
+}
+
+// The part that is put on the printer's bed, at its resting pose: upright, or on
+// its side with its model z along the world x axis. It is moved there from
+// wherever it is, including off the robot's gripper (it is reparented to
+// `parent_object`).
+message Target {
+  // The part's world object.
+  string object_name = 1;
+  // The centre of the heatbed's top surface, in the printer's frame, in metres
+  // (`models/printer/heatbed.obj`: (0.006, 0.030, 0.143) for the Prusa Core
+  // One model). With the printer's pose in the world, which the skill reads or
+  // sets in the same call, it gives where the bed is.
+  intrinsic_proto.Point bed_top_in_printer_m = 2;
+  // The part's centre's height above the bed when it rests: half its height, or
+  // half its width when it lies.
+  double part_half_height_m = 3;
+  // On its side, model z along the world x axis; default false (upright).
+  optional bool lying = 4;
+}
+
+// An object put at a place in `parent_object`, upright, at its identity
+// rotation: parts that are not in use are parked off to the side.
+message ParkedObject {
+  string object_name = 1;
+  intrinsic_proto.Point position_m = 2;
+}
+
+// Changes the cell in the live world: the printer and the wrist camera (with the
+// `view` frame, so the camera still sees the printer as before), and A's
+// frames. Every group is optional; one that is left out stays as it is.
+message ConfigureCellParams {
+  // Sets the printer's x in `parent_object` (the printer model's origin along
+  // x from the robot's base, in metres); its y, z and orientation are kept.
+  optional double printer_distance_m = 1;
+
+  // Sets the camera's position in the flange frame, in metres; its orientation
+  // is kept.
+  optional intrinsic_proto.Point camera_offset_m = 2;
+
+  // Whether to move the view frame so the camera keeps its place relative to
+  // the printer, whatever the mount (the camera moves with the printer by the
+  // same distance, and the arm's pose is solved for the new mount). Default
+  // true. Off leaves the view where it is.
+  optional bool follow_view = 3;
+
+  // The world objects and frames involved; the defaults are the reBot cell's.
+  optional string parent_object = 4;  // default "root"
+  optional string printer_object = 5;  // default "printer"
+  optional string camera_object = 6;  // default "orbbec_camera"
+  optional string robot_object = 7;  // default "rebot"
+  optional string flange_frame = 8;  // default "flange"
+  optional string tool_object = 9;  // default "gripper"
+  optional string tool_frame = 10;  // default "tool_frame"
+  optional string view_frame = 11;  // default "view", a frame under the parent
+
+  // Sets A's frames, for a part of a given height.
+  optional DropOff drop_off = 12;
+
+  // Puts a part on the bed, and parks other objects. The bed is where the
+  // printer is after this call, so a printer move in the same call carries the
+  // part with it.
+  optional Target target = 13;
+  repeated ParkedObject parked = 14;
+}
+
+message ConfigureCellResult {
+  // The poses after the change, in `parent_object`. The view is unset if it was
+  // not moved.
+  intrinsic_proto.Pose parent_t_printer = 1;
+  intrinsic_proto.Pose parent_t_camera = 2;
+  intrinsic_proto.Pose parent_t_view = 3;
+  // A's frames after the change, in `parent_object`; unset if not set.
+  intrinsic_proto.Pose parent_t_place = 4;
+  intrinsic_proto.Pose parent_t_pre_place = 5;
+  intrinsic_proto.Pose parent_t_approach = 6;
+  // The part on the bed, in `parent_object`; unset if there is no `target`.
+  intrinsic_proto.Pose parent_t_part = 7;
+}

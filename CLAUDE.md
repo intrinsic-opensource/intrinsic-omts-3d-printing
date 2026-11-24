@@ -53,7 +53,7 @@ bazel run //src:omts_app -- --address=localhost:17080 --config=configs/omts/app_
   [--num_cycles=N] [--simulation_mode=fast_preview]
 ```
 
-The pose estimator must be registered (`//tools/pose_estimation:register_using_train_service`, see README §5.3) before `omts_app` can do vision-guided picks. Other operational tools (jogging, gripper, machine I/O, calibration, `inspect_world`) are listed in `tools/README.md`.
+The pose estimator must be registered before `omts_app` can do vision-guided picks (`//tools/pose_estimation:register_using_train_service`, see README §5.3). The reBot cell registers it itself: its config has a `vision.registration` section, which makes the perception step call the `ai.omts.register_pose_estimator` skill (`skills/perception/`). Other operational tools (jogging, gripper, machine I/O, calibration, `inspect_world`) are listed in `tools/README.md`.
 
 CI runs `bazel build --nobuild //...` (analysis only, since full compile does not fit on a GitHub runner) plus `bazel test //tests/...`. Analysis catches stale `@intrinsic-core` labels and missing deps, so run it locally after changing BUILD files or bumping Intrinsic Core.
 

@@ -99,12 +99,21 @@ kubectl -n app-resources logs rs-nvidia-pose-estimator-service-0 | grep "Server 
 Redeploying the same solution restarts nothing, so the arm stays enabled and
 no new line appears; drop `--since=2m` to see the earlier one.
 
-### 4. Register the part (after every deploy)
+### 4. Register the part (`omts_app` does it for you)
 
 The registration tells the pose estimator which object to look for: the
 part's model, a text prompt and a confidence threshold. It is stored on the
-cluster as an asset, which a deploy removes, so register again after each
-deploy (about a minute):
+cluster as an asset, which a deploy removes.
+
+**`omts_app` registers it for you**: with a `vision.registration` section in the
+cell config (`configs/rebot/app_config.yaml` has one), the perception step
+first calls the `ai.omts.register_pose_estimator` skill (`skills/perception/`),
+which does nothing when the estimator is already registered. After a deploy,
+the first run registers it (a minute or so), and later runs skip it. So skip to
+step 5.
+
+To register by hand instead (a cell without that section, the standalone
+`detect`-style checks below, or to see the training output), run:
 
 ```bash
 bazel run -c opt \
@@ -262,7 +271,9 @@ bazel run -c opt //:omts_solution -- --address=localhost:17080
 | First move fails with `move_robot` "connection refused" | The arm is not enabled yet; wait for "[rebot] Now enabled" (quick start step 3). |
 | Gazebo shows no camera, or the gripper doesn't move | Gazebo still has the old world; run the reset in quick start step 3. |
 | `rs-nvidia-pose-estimator-service-0` keeps restarting | The models are missing: deploy with `--//:perception_models` and `--repo_env` (quick start step 3). |
-| Pose estimation fails because the estimator is not found | A deploy removed the registration; register again (quick start step 4). |
+| Every call fails with "failed to get workcell status ... dial tcp 10.43.0.1:443: connect: no route to host" | The cluster's own address changed (a new DHCP lease on Wi-Fi) while k3s kept advertising the old one for its API. A restart of k3s fixes it once; to stop it recurring, pin k3s to an address that does not depend on the network: a dummy interface holding a private address (for example `10.99.0.1/32`, via NetworkManager) and `node-ip`, `advertise-address` and `tls-san` set to it in `/etc/rancher/k3s/config.yaml`, with a systemd drop-in that makes k3s wait for the interface. |
+| Pose estimation fails with "0 detections" (SAM 3's best score is far under the threshold) right after a deploy | A deploy that did not restart the simulator leaves Gazebo as the last run left it, while the belief world is reset, so the camera does not see the part. Run `apply_scene_updates --files --reset_sim` (quick start step 3) and wait for the arm to be enabled again. |
+| Pose estimation fails because the estimator is not found | A deploy removed the registration. `omts_app` registers it itself when the cell config has `vision.registration`; otherwise register by hand (quick start step 4). |
 | `omts_app` fails with a collision between `rebot_printed_part` and the printer, or "could not find a path" | A failed run left the part attached to the arm; put it back on the bed (end of quick start step 5). |
 | Pose estimation fails with "Failed to create TensorRT execution context" | The GPU ran out of memory. The reBot's service config already uses a smaller FoundationPose batch for a 16 GB GPU; close other GPU programs, or lower `batch_size` further in `configs/rebot/nvidia_pose_estimator_config.textproto`. |
 | `move_to_frame` reports "IK solver couldn't find any solutions" for a frame you edited | The planner gives the same error for an unreachable pose and for one where the arm or camera would collide, for example the wrist against the printer's front rail or the gripper
@@ -280,10 +291,27 @@ bazel run //research/tools:configure_cell -- --out /tmp/cell \
   --printer_distance 0.62 --camera_offset 0.09 -0.024 0.10 --target test_benchy
 bazel run //tools/world:apply_scene_updates -- --address=localhost:17080 \
   --files /tmp/cell/cell.updates.pbtxt --reset_sim
-bash /tmp/cell/register.sh   # once per deploy and target
+bash /tmp/cell/register.sh   # optional: omts_app registers the target itself
 bazel run //src:omts_app -- --address=localhost:17080 \
   --config=/tmp/cell/app_config.yaml --num_cycles=1
 ```
+
+With `--apply`, the whole change is made on the running cell by the
+`ai.omts.configure_cell` skill (`skills/cell/`), in one update: the printer, the
+camera mount, the view (so the camera sees the bed as before), A's frames, the
+part on the bed and the parked parts. In simulation it also brings Gazebo to
+that world. Nothing is written but `app_config.yaml`, and there is no
+`apply_scene_updates` or `register.sh` step:
+
+```bash
+bazel run //research/tools:configure_cell -- --out /tmp/cell --apply \
+  --printer_distance 0.62 --camera_offset 0.09 -0.024 0.10
+bazel run //src:omts_app -- --address=localhost:17080 \
+  --config=/tmp/cell/app_config.yaml --num_cycles=1
+```
+
+The checks run first, on the host. `app_config.yaml` is still a file because the
+tree's part and return area are fixed when `omts_app` builds it.
 
 It refuses values that fail its checks (`--force` writes them anyway). The limits
 are in `HANDOFF.md`, section 5d: printer 0.44 to 0.76 m; camera x 0.07 to 0.13, y

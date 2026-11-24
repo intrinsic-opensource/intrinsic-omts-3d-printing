@@ -136,6 +136,29 @@ class MachineConfig:
   input_block_name: str
 
 
+FRAME_CALCULATORS = ("script", "skill")
+
+
+@dataclasses.dataclass(frozen=True)
+class PoseEstimatorRegistration:
+  """How to register the pose estimator, when the cell registers it itself.
+
+  Attributes:
+      train_service_name: Resource name of the IOC train service.
+      text_prompt: Prompt SAM 3 segments with. A generic prompt, as in
+        `configs/rebot/app_config.yaml`, finds any part.
+      confidence_threshold: SAM 3 score below which a region is dropped.
+      visibility_threshold: Minimum visible fraction of the part.
+      refinement_iters: FoundationPose refinement iterations.
+  """
+
+  train_service_name: str = "train_service"
+  text_prompt: str = "object on a table"
+  confidence_threshold: float = 0.25
+  visibility_threshold: float = 0.15
+  refinement_iters: int = 5
+
+
 @dataclasses.dataclass(frozen=True)
 class VisionConfig:
   """Configuration for 3D perception and pose estimation.
@@ -149,6 +172,17 @@ class VisionConfig:
       min_num_instances: Minimum detected part instances required per capture.
       infeed_mode: Infeed localization strategy (`'perception'` or `'grid'`).
       min_safe_z: Minimum allowable Z coordinate in `root` frame (meters).
+      registration: Optional. When set, the perception step first registers
+        `pose_estimator_id` for `scene_object_id` with the
+        `ai.omts.register_pose_estimator` skill, which does nothing if it is
+        registered. A deploy removes the registration, so without this the
+        estimator is registered by hand after every deploy. `None` leaves
+        registration to the operator.
+      frame_calculator: What turns the estimate into the part's pose and the
+        grasp frames: `'script'` (a `bt.PythonScript` in the executive,
+        `src/utils/dynamic_frame_calculator.py`) or `'skill'` (the
+        `ai.omts.plan_cuboid_grasp` skill, `skills/grasp/`). The skill must be
+        in the solution's assets; both give the same frames.
   """
 
   camera_name: str
@@ -159,6 +193,15 @@ class VisionConfig:
   min_num_instances: int
   infeed_mode: str
   min_safe_z: float
+  registration: PoseEstimatorRegistration | None = None
+  frame_calculator: str = "script"
+
+  def __post_init__(self) -> None:
+    if self.frame_calculator not in FRAME_CALCULATORS:
+      raise ValueError(
+        f"vision.frame_calculator must be one of {FRAME_CALCULATORS}, got "
+        f"{self.frame_calculator!r}"
+      )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -458,6 +501,10 @@ def _construct_section(
       f"'{section_name}' of {file_path}"
     )
 
+  if section_name == "vision" and section_dict.get("registration") is not None:
+    section_dict["registration"] = PoseEstimatorRegistration(
+      **section_dict["registration"]
+    )
   if section_name == "vision" and isinstance(
     section_dict.get("sensor_ids"), list
   ):

@@ -16,7 +16,7 @@
 
 Sweeps cuboids of model size x by y by z (z up, as printed) lying at the bed
 centre turned by a yaw, computes the grasp omts_app would publish for each
-(the cuboid_center rules in src/utils/dynamic_frame_calculator.py, with the
+(the cuboid_center rules in src/core/grasp_math.py, with the
 tilt and yaw symmetry from configs/rebot/app_config.yaml), and checks it:
 
 1. the part fits between the open jaws, with a margin per side;
@@ -30,8 +30,8 @@ tilt and yaw symmetry from configs/rebot/app_config.yaml), and checks it:
 5. the arm reaches the pre-grasp and grasp with its links and camera clear of
    the printer (IK with the most clearance).
 
-Prints one line per size and the failures per yaw, then a summary. The
-grasp rule is reimplemented here; keep it in step with the calculator.
+Prints one line per size and the failures per yaw, then a summary. The grasp
+rule is the cell's own (`src/core/grasp_math.py`), not a copy.
 
   bazel run //research/tools:cuboid_sweep
   bazel run //research/tools:cuboid_sweep -- --sizes 20 40 60 80 95 --yaws 0 90
@@ -43,8 +43,10 @@ import json
 import math
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from research.tools import a_frames, cell, kin
+from src.core import grasp_math
 
 # Finger joints of models/rebot_b601_rs_gripper (origin xyz, rpy in the
 # gripper frame; travel along the joint's z, 0 closed to 0.05 m open).
@@ -153,37 +155,18 @@ def contact_area(grasp, part, size, width, n: int = 6) -> float:
   return area
 
 
-def _quat_mul(a, b):
-  ax, ay, az, aw = a
-  bx, by, bz, bw = b
-  return (
-    aw * bx + ax * bw + ay * bz - az * by,
-    aw * by - ax * bz + ay * bw + az * bx,
-    aw * bz + ax * by - ay * bx + az * bw,
-    aw * bw - ax * bx - ay * by - az * bz,
-  )
-
-
 def grasp_rotation(part_r: np.ndarray, part_pos, tilt_deg: float, sym: float):
-  """The tilted grasp orientation the calculator publishes for a part."""
-  ax, az = part_r[:, 0], part_r[:, 2]
-  v = ax if abs(ax[2]) < 0.7 else az
-  psi = math.atan2(v[1], v[0])
-  c1 = (math.cos(psi / 2), math.sin(psi / 2), 0.0, 0.0)
-  c2 = (-math.sin(psi / 2), math.cos(psi / 2), 0.0, 0.0)
-  candidates = [c1, c2]
-  if sym == 90.0:
-    quarter = (0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5))
-    candidates += [_quat_mul(c1, quarter), _quat_mul(c2, quarter)]
-
-  def outward(q):
-    tool_x = cell.pose((0, 0, 0), q)[:3, 0]
-    return tool_x[0] * part_pos[0] + tool_x[1] * part_pos[1]
-
-  q = max(candidates, key=outward)
-  t = math.radians(tilt_deg)
-  q = _quat_mul(q, (0.0, math.sin(t / 2), 0.0, math.cos(t / 2)))
-  return cell.pose((0, 0, 0), q)[:3, :3]
+  """The tilted grasp orientation the cell publishes for a part: the rule of
+  `src/core/grasp_math.py`, which the `plan_cuboid_grasp` skill runs."""
+  part_q = Rotation.from_matrix(part_r).as_quat()  # x, y, z, w
+  grasp = grasp_math.cuboid_grasp(
+    tuple(float(v) for v in part_pos),
+    tuple(float(v) for v in part_q),
+    0.0,
+    approach_tilt_degrees=tilt_deg,
+    yaw_symmetry_degrees=sym,
+  )
+  return cell.pose((0, 0, 0), grasp.orientation)[:3, :3]
 
 
 def main() -> None:

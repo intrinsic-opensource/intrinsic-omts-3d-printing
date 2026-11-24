@@ -103,15 +103,27 @@ def _frame(name: str, t: np.ndarray) -> str:
 """
 
 
-def parked(names) -> str:
-  out = []
+def parking_positions(names) -> dict[str, tuple[float, float, float]]:
+  """Where each unused part is parked, in the world."""
+  positions = {}
   for i, name in enumerate(names):
-    t = np.eye(4)
     if name == GRID:
       # Static, origin at its base: park it flat on the ground.
-      t[:3, 3] = (PARKING_X + 0.2, PARKING_Y0 + i * PARKING_DY, 0.0)
+      positions[name] = (PARKING_X + 0.2, PARKING_Y0 + i * PARKING_DY, 0.0)
     else:
-      t[:3, 3] = (PARKING_X, PARKING_Y0 + i * PARKING_DY, PARTS[name][2] / 2)
+      positions[name] = (
+        PARKING_X,
+        PARKING_Y0 + i * PARKING_DY,
+        PARTS[name][2] / 2,
+      )
+  return positions
+
+
+def parked(names) -> str:
+  out = []
+  for name, position in parking_positions(names).items():
+    t = np.eye(4)
+    t[:3, 3] = position
     out.append(_place(name, t))
   return "".join(out)
 

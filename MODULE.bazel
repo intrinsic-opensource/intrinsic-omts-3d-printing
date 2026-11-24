@@ -67,6 +67,15 @@ bazel_dep(name = "pybind11_bazel", version = "3.0.3")
 bazel_dep(name = "rules_cc", version = "0.2.25")
 bazel_dep(name = "rules_cuda", version = "0.3.0")
 bazel_dep(name = "rules_python", version = "2.3.3")
+bazel_dep(name = "rules_oci", version = "2.3.0")
+
+# Python skills (skills/) need a base image. Reuse Core's pinned one directly;
+# its python3-image-oci wrapper is private. Bazel warns that this `use_repo`
+# imports an indirect dependency and suggests `bazel mod tidy`; do not run it:
+# it drops the line, and @distroless_python3 stops resolving.
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+use_repo(oci, "distroless_python3")
+
 # Bzlmod ignores `single_version_override` directives in non-root modules
 # (@intrinsic-core), so the overrides below are mirrored from
 # @intrinsic-core//MODULE.bazel until the upstream fixes land in the Bazel
