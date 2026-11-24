@@ -17,7 +17,7 @@ updates {
         object_name: "printer"
       }
     }
-    new_parent {
+    parent_object {
       reference {
         by_name {
           object_name: "rebot_ground"

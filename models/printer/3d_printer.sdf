@@ -147,7 +147,7 @@
     <link name="heatbed_link">
       <pose relative_to="base_link">0 0 0.0 0 0 0</pose>
       <inertial>
-        <pose>0 0 0.18 0 0 0</pose> 
+        <pose>0 0 0.18 0 0 0</pose>
         <mass>1.0</mass>
         <inertia>
           <ixx>0.01</ixx><ixy>0</ixy><ixz>0</ixz>
@@ -188,9 +188,9 @@
     <pose>-0.174 0.0235 0.018 0 0 0</pose>
     <mass>0.45</mass>
     <inertia>
-      <ixx>0.007</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
-      <iyy>0.003</iyy><iyz>0.0</iyz>
-      <izz>0.010</izz>
+      <ixx>0.0079</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+      <iyy>0.0128</iyy><iyz>0.0</iyz>
+      <izz>0.0049</izz>
     </inertia>
   </inertial>
 
@@ -207,11 +207,11 @@
   </visual>
 
   <visual name="aruco_1_tile">
+    <!-- 0.5 mm in front of the aruco_1 frame (y 0.0075) so the tile does not
+         z-fight with the glass. -->
     <pose>-0.09000 0.00800 0.18000 -1.570796 -0.000000 3.141593</pose>
     <geometry><mesh><uri>aruco_1.glb</uri></mesh></geometry>
   </visual>
-
-
 
   <!-- Crank arm, fixed to the door (src/core/door.py CRANK_PIVOT_POS): a bar
        from the handle blade out to a bearing block, so the turning handle
@@ -333,6 +333,6 @@
     <frame name="aruco_1" attached_to="door_link" intrinsic:create_entity="true">
       <pose relative_to="door_link">-0.09 0.0075 0.18 -1.570796 -0.000000 3.141593</pose>
     </frame>
-  
+
   </model>
 </sdf>

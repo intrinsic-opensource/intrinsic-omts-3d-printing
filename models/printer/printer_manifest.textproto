@@ -3,6 +3,6 @@
 metadata {
   id { package: "ai.intrinsic" name: "printer" }
   vendor { display_name: "Intrinsic" }
-  documentation { description: "Prusa Core One 3D printer (static), with a separate heatbed link." }
+  documentation { description: "Prusa Core One 3D printer with a movable door and a separate heatbed link; weld it with a reparent in the world updates." }
   display_name: "3D Printer"
 }
