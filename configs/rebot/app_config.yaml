@@ -79,6 +79,16 @@ grasp:
   # may take whichever pair of faces leans away from the robot.
   yaw_symmetry_degrees: 90.0
 
+# The outfeed line (research/HANDOFF.md, section 5e): instead of setting the
+# part down at A and returning it to the bed, a cycle releases it at a spot on
+# the ground to the robot's right and goes back to view. The spot's frames are in
+# scene.updates.pbtxt. Only the first spot is used for now.
+outfeed:
+  spots:
+    - place_frame: "outfeed_0_place"
+      preplace_frame: "outfeed_0_preplace"
+      approach_frame: "outfeed_0_approach"
+
 cycle:
   num_cycles: 1
   workpiece_id: "rebot_printed_part"

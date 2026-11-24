@@ -18,6 +18,7 @@ from intrinsic.solutions import behavior_tree as bt
 
 from src.behaviors.load_machine import build_load_machine_subtree
 from src.behaviors.machining import build_machining_handshake_subtree
+from src.behaviors.outfeed import build_release_to_outfeed_subtree
 from src.behaviors.pick import build_pick_from_infeed_subtree
 from src.behaviors.return_infeed import build_return_to_infeed_subtree
 from src.behaviors.unload_machine import build_unload_machine_subtree
@@ -86,42 +87,54 @@ def build_machine_tending_behavior_tree(
     grasp_planner=grasp_planner,
   )
 
-  load_subtree = build_load_machine_subtree(
-    robot=robot,
-    gripper=gripper,
-    machine=machine,
-    config=config,
-  )
+  cycle_sequence: bt.Node
+  if config.outfeed is not None:
+    cycle_sequence = bt.Sequence(
+      name="Single Outfeed Cycle",
+      children=[
+        pick_subtree,
+        build_release_to_outfeed_subtree(
+          robot=robot, gripper=gripper, config=config
+        ),
+      ],
+    )
+  else:
+    load_subtree = build_load_machine_subtree(
+      robot=robot,
+      gripper=gripper,
+      machine=machine,
+      config=config,
+    )
 
-  machining_subtree = build_machining_handshake_subtree(
-    robot=robot,
-    machine=machine,
-    config=config,
-  )
+    machining_subtree = build_machining_handshake_subtree(
+      robot=robot,
+      machine=machine,
+      config=config,
+    )
 
-  unload_subtree = build_unload_machine_subtree(
-    robot=robot,
-    gripper=gripper,
-    machine=machine,
-    config=config,
-  )
+    unload_subtree = build_unload_machine_subtree(
+      robot=robot,
+      gripper=gripper,
+      machine=machine,
+      config=config,
+    )
 
-  return_subtree = build_return_to_infeed_subtree(
-    robot=robot,
-    gripper=gripper,
-    config=config,
-  )
+    return_subtree = build_return_to_infeed_subtree(
+      robot=robot,
+      gripper=gripper,
+      config=config,
+    )
 
-  cycle_sequence = bt.Sequence(
-    name="Single Machine Tending Cycle",
-    children=[
-      pick_subtree,
-      load_subtree,
-      machining_subtree,
-      unload_subtree,
-      return_subtree,
-    ],
-  )
+    cycle_sequence = bt.Sequence(
+      name="Single Machine Tending Cycle",
+      children=[
+        pick_subtree,
+        load_subtree,
+        machining_subtree,
+        unload_subtree,
+        return_subtree,
+      ],
+    )
 
   num_cycles = (
     num_cycles_override

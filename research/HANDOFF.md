@@ -1388,7 +1388,28 @@ parked part. Each spot has A's three frames (place, pre-place, approach), from t
 **Steps**, each ending in a demo:
 
 1. **One fixed spot, no A.** Pick from the bed, release at spot 0, back to `view`.
-   Demo: one cycle ends with the part at spot 0.
+   Demo: one cycle ends with the part at spot 0. **DONE 2026-11-24.**
+   * `outfeed` section in `configs/rebot/app_config.yaml` (`OutfeedConfig`, a list
+     of spots, each with a place, pre-place and approach frame; only the first is
+     used). When set, `build_machine_tending_behavior_tree` builds
+     pick, `build_release_to_outfeed_subtree`: the machine load subtree on the
+     spot's frames (no new motion code), then a move back to `view`. A cell without
+     the section builds the machine tending cycle as before.
+   * Spot 0's frames (`outfeed_0_place`, `_preplace`, `_approach`) are in
+     `configs/rebot/scene.updates.pbtxt`, from `src/core/drop_off.py` at x = -0.10,
+     y = -0.50, 75° tilt. They are belief-world frames: `apply_scene_updates` with
+     the three blocks is enough, no Gazebo reset.
+   * On k3s, one Benchy cycle (`configure_cell --apply --target test_benchy`, then
+     `omts_app`, 53 s) ended with the part on the ground at x -108.7, y -504.0,
+     z 25.4 mm, flat (the same height as at A): 8.7 mm and 4.0 mm from the spot's
+     centre, which is the grasp offset. Its yaw is -101°, turned with the spot's
+     bearing. Not recorded: the release itself (the pose logger lost the stream
+     when the simulation restarted), so release drift at the spot is unchecked.
+   * The existing test of the A-and-return cycle now builds its tree with
+     `outfeed=None`, since the committed cell no longer runs it; a new test checks
+     the outfeed cycle's shape and that nothing sets the part down at A.
+   * Names in the tree and logs still say "Load Vise", because the load subtree is
+     reused; rename if it gets confusing.
 2. **A spot per cycle.** A counter picks spot k for cycle k: on the blackboard, or
    passed in by the host. Demo: three cycles leave three parts in a row, and the
    gripper clears the neighbour.

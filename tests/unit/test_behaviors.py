@@ -553,7 +553,11 @@ class BehaviorsTest(absltest.TestCase):
 
   def test_rebot_cell_without_force_sensing_builds_no_contact_moves(self):
     """The reBot has no force-torque sensor; touchdowns become linear seats."""
-    rebot_config = load_app_config("configs/rebot/app_config.yaml")
+    # The committed cell releases on the outfeed line; this is the cycle that
+    # sets the part down at A and returns it to the bed.
+    rebot_config = dataclasses.replace(
+      load_app_config("configs/rebot/app_config.yaml"), outfeed=None
+    )
     self.assertFalse(rebot_config.robot.force_sensing)
     tree = build_machine_tending_behavior_tree(
       robot=self.robot,
@@ -602,6 +606,38 @@ class BehaviorsTest(absltest.TestCase):
     self.assertIsNone(
       seats["Unload Vise: Linear Seat (root/place_vise)"]["target_frame_offset"]
     )
+
+  def test_rebot_cell_releases_on_the_outfeed_line(self):
+    """With an outfeed, a cycle is a pick and a release at the first spot."""
+    rebot_config = load_app_config("configs/rebot/app_config.yaml")
+    assert rebot_config.outfeed is not None
+    spot = rebot_config.outfeed.spots[0]
+    tree = build_machine_tending_behavior_tree(
+      robot=self.robot,
+      gripper=self.gripper,
+      machine=None,
+      vision=self.vision,
+      infeed_strategy=self.infeed_strategy,
+      config=rebot_config,
+      num_cycles_override=1,
+    )
+    self.assertIsInstance(tree.root, bt.Sequence)
+    self.assertEqual(
+      [child.name for child in tree.root.children],
+      ["1. Infeed Pick Subtree", "Release at Outfeed Spot 0"],
+    )
+    # Nothing sets the part down at A, and nothing returns it to the bed.
+    names = [
+      call.kwargs["name"]
+      for call in self.robot.build_move_cartesian_task.call_args_list
+    ]
+    self.assertIn(f"Load Vise: Linear Seat (root/{spot.place_frame})", names)
+    self.assertFalse([n for n in names if "Unload Vise" in n])
+    self.assertFalse([n for n in names if "Return Infeed" in n])
+    self.assertFalse([n for n in names if "root/place_vise" in n])
+    # The arm ends at view, ready for the next pick.
+    last = self.robot.build_move_cartesian_task.call_args_list[-1].kwargs
+    self.assertEqual(last["name"], "Return to view")
 
   def test_all_subtrees_have_unique_child_names_and_no_legacy_prefixes(self):
     tree = self._build_master_tree(num_cycles=1)

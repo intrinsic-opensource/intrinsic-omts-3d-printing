@@ -105,6 +105,32 @@ class ConfigTest(absltest.TestCase):
       load_app_config("configs/lab_bb_01/app_config.yaml").vision.registration
     )
 
+  def test_rebot_cell_has_an_outfeed_line_and_the_others_do_not(self):
+    outfeed = load_app_config("configs/rebot/app_config.yaml").outfeed
+    assert outfeed is not None
+    self.assertEqual(outfeed.spots[0].place_frame, "outfeed_0_place")
+    self.assertIsNone(load_app_config("configs/omts/app_config.yaml").outfeed)
+    self.assertIsNone(
+      load_app_config("configs/lab_bb_01/app_config.yaml").outfeed
+    )
+
+  def test_outfeed_needs_spots_with_all_three_frames(self):
+    raw = yaml.safe_load(
+      pathlib.Path("configs/rebot/app_config.yaml").read_text()
+    )
+    for outfeed, expected in (
+      ({"spots": []}, "non-empty 'spots'"),
+      (
+        {"spots": [{"place_frame": "a", "preplace_frame": "b"}]},
+        "approach_frame",
+      ),
+    ):
+      raw["outfeed"] = outfeed
+      path = pathlib.Path(self.create_tempdir().full_path) / "app_config.yaml"
+      path.write_text(yaml.safe_dump(raw))
+      with self.assertRaisesRegex(KeyError, expected):
+        load_app_config(path)
+
   def test_omitted_grasp_section_defaults_to_cuboid_center(self):
     raw = yaml.safe_load(
       pathlib.Path("configs/omts/app_config.yaml").read_text(encoding="utf-8")

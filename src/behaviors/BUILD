@@ -68,6 +68,19 @@ py_library(
 )
 
 py_library(
+    name = "outfeed",
+    srcs = ["outfeed.py"],
+    deps = [
+        ":load_machine",
+        ":motions",
+        "//src/core:config",
+        "//src/hardware:gripper",
+        "//src/hardware:robot",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+    ],
+)
+
+py_library(
     name = "return_infeed",
     srcs = ["return_infeed.py"],
     deps = [
@@ -87,6 +100,7 @@ py_library(
     deps = [
         ":load_machine",
         ":machining",
+        ":outfeed",
         ":pick",
         ":return_infeed",
         ":unload_machine",
@@ -109,6 +123,7 @@ py_library(
         ":machine_tending_bt",
         ":machining",
         ":motions",
+        ":outfeed",
         ":pick",
         ":return_infeed",
         ":unload_machine",
