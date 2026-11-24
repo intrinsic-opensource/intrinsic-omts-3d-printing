@@ -14,22 +14,77 @@ receives. Plan and status: `research/PRINTER_SERVICE_HANDOFF.md`.
 ## Door (simulation only)
 
 Real-printer behavior is unverified. `tools/printer/demo_open_door.sh
-[target_deg]` deploys the reBot cell with `--//models/printer:door=closed
---//models/printer:hinge=passive
---//models/printer:layout=door_test`, looks at the ArUco marker (id 1), grips
-the crank handle on the door and swings the door in one blended planner call. It
-opens it to 115 deg by default (the arm's reach ends near 120; pass a larger
-`target_deg` to try more). Tools:
+[target_deg]` runs the whole sequence below (default target 115 deg; the
+arm's reach ends near 120). Tools: `open_door` (`--mode
+look|detect|discover|approach|pull|entities|joints`; `--grip lever|handle`;
+`--path blended|stepwise`; `--chunk_deg`, `--wp_deg`; `--az_mode
+radial|fixed`; `--belief_door_at end|start`; `--no_belief_door`), `sync_door`
+(Gazebo's door and crank angles into the belief world; `--rate_hz`,
+`--min_change_deg`, `--duration`) and `control_door` (`--action
+open|close|set|status`, `--theta_deg`, `--reset_sim`). Design and results:
+`research/HANDOFF.md` 5e.
 
-* `open_door`: `--mode look|detect|discover|approach|pull`; `--grip
-  lever|handle`; `--path blended|stepwise` (`--chunk_deg`, `--wp_deg`);
-  `--az_mode radial|fixed`; `--belief_door_at end|start`; `--no_belief_door`.
-* `sync_door`: streams Gazebo's door and crank angles into the belief world
-  (`--rate_hz`, `--min_change_deg`, `--duration`).
-* `control_door`: `--action open|close|set|status`, `--theta_deg`,
-  `--reset_sim`.
+### Step by step
 
-Design and results: `research/HANDOFF.md` 5e.
+The hinge is passive, so right after a deploy Gazebo shows the door **open**
+(the SDF's joint position 0); step 3 resets Gazebo to the belief world and
+closes it. Run everything from the repository root in one shell, except the GUI
+(step 4), which needs its own terminal. Steps 7 and 9 run in the background of
+that shell.
+
+```bash
+# 0. Once per shell
+export GZ_PARTITION=intrinsic_sim GZ_IP=10.42.0.1
+export GZ_RELAY=$(kubectl get pod -n app-resources rs-gazebo-simulator-0 -o jsonpath='{.status.podIP}')
+A=--address=localhost:17080
+
+# 1. Deploy: door closed in the belief world, passive hinge, printer at d 0.775
+bazel run //:rebot_solution -c opt --//models/printer:door=closed \
+  --//models/printer:hinge=passive --//models/printer:layout=door_test -- $A
+
+# 2. Build the tools
+bazel build //tools/printer:open_door //tools/printer:sync_door \
+  //tools/printer:control_door //research/tools:door_angle \
+  //tools/world:apply_scene_updates
+
+# 3. Reset Gazebo to the deployed layout (a deploy alone does not move it)
+bazel-bin/tools/world/apply_scene_updates $A --reset_sim \
+  --files configs/rebot/printer_door_test.updates.pbtxt \
+          configs/rebot/printer_door_closed.updates.pbtxt
+
+# 4. Gazebo GUI, in its own terminal (with the GZ_* exports of step 0), after
+#    the reset: a GUI open during the reset mis-draws the scene
+pkill -f 'gz-sim-main -g'; pkill -f gz-sim-gui-client; sleep 1; gz sim -g
+
+# 5. Look pose
+bazel-bin/tools/printer/open_door $A --mode=look \
+  --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
+
+# 6. Find the printer from the marker: PRINTER DETECTED, or a NOT DETECTED
+#    banner and exit code 3
+bazel-bin/tools/printer/open_door $A --mode=discover
+
+# 7. Keep the belief door in step with Gazebo (background; stop it in step 10)
+bazel-bin/tools/printer/sync_door $A > /tmp/sync.log 2>&1 &
+SYNC=$!
+
+# 8. Record Gazebo's poses (background)
+gz topic -e -t /world/default/pose/info --json-output > /tmp/poses.jsonl &
+REC=$!
+
+# 9. Grab the crank, open the door, release and retreat (--hold keeps the grip;
+#    --chunk_deg=12 swings stepwise instead of in one call)
+bazel-bin/tools/printer/open_door $A --mode=pull --grip=lever --target_deg=115 \
+  --no_belief_door --path=blended --chunk_deg=115 --wp_deg=3
+
+# 10. Stop the background jobs and read the result
+sleep 3; kill $SYNC $REC
+bazel-bin/research/tools/door_angle /tmp/poses.jsonl --every 100000
+bazel-bin/tools/printer/control_door $A --action=status   # belief door_hinge
+```
+
+If a pull fails, it prints the planner's reason. `--mode=entities` and
+`--mode=joints` dump the world and the joint positions.
 
 ## The flow
 
