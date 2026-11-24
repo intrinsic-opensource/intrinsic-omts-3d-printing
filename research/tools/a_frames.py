@@ -43,15 +43,21 @@ def frames(
   bearing: float,
   half_height: float = cell.PART_HALF_HEIGHT,
   depth: float = 0.0,
+  yaw: float | None = None,
 ):
   """A's frames for a part whose centre rests half_height above the ground,
-  gripped `depth` past its centre horizontally (grasp.grasp_depth_meters)."""
+  gripped `depth` past its centre horizontally (grasp.grasp_depth_meters).
+
+  The tool leans away from the robot along the bearing, unless `yaw` (degrees)
+  gives the lean's direction: then the part is turned to that yaw wherever it
+  is, which keeps parts on a line axis aligned."""
   b = math.radians(bearing)
+  lean = b if yaw is None else math.radians(yaw)
   grasp = cell.grasp_pose(
     radius * math.cos(b), radius * math.sin(b), half_height, tilt
   )
-  grasp[:3, :3] = cell.rot_z(b) @ grasp[:3, :3]
-  grasp[:3, 3] += depth * np.array([math.cos(b), math.sin(b), 0.0])
+  grasp[:3, :3] = cell.rot_z(lean) @ grasp[:3, :3]
+  grasp[:3, 3] += depth * np.array([math.cos(lean), math.sin(lean), 0.0])
   pre = grasp.copy()
   pre[:3, 3] -= PRE_PLACE_BACK * grasp[:3, 2]
   approach = pre.copy()

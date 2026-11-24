@@ -65,13 +65,16 @@ def drop_off_frames(
   bearing_degrees: float,
   half_height: float,
   depth: float = 0.0,
+  yaw_degrees: float | None = None,
 ) -> dict[str, Pose]:
   """A's frames for a part whose centre rests `half_height` above the ground.
 
   The tool is pitched `tilt_degrees` from vertical about the jaw axis, leaning
   away from the robot (the grasp `cuboid_center` makes on the bed), so the part
   is set down flat. A is `radius` out from the robot base at `bearing_degrees`;
-  `depth` is how far past its centre the part is gripped.
+  `depth` is how far past its centre the part is gripped. The lean points along
+  the bearing, unless `yaw_degrees` gives its direction: then the part is turned
+  to that yaw wherever it is, which keeps parts on a line axis aligned.
 
   Returns:
       `place_vise`, `pre_place_vise` and `machine_approach`, as (position,
@@ -79,6 +82,7 @@ def drop_off_frames(
   """
   t = math.radians(tilt_degrees)
   b = math.radians(bearing_degrees)
+  lean = b if yaw_degrees is None else math.radians(yaw_degrees)
   down: _Matrix = ((1.0, 0.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, -1.0))
   pitch: _Matrix = (
     (math.cos(t), 0.0, math.sin(t)),
@@ -86,14 +90,14 @@ def drop_off_frames(
     (-math.sin(t), 0.0, math.cos(t)),
   )
   rot_z: _Matrix = (
-    (math.cos(b), -math.sin(b), 0.0),
-    (math.sin(b), math.cos(b), 0.0),
+    (math.cos(lean), -math.sin(lean), 0.0),
+    (math.sin(lean), math.cos(lean), 0.0),
     (0.0, 0.0, 1.0),
   )
   rotation = _matmul(rot_z, _matmul(down, pitch))
   position = (
-    radius * math.cos(b) + depth * math.cos(b),
-    radius * math.sin(b) + depth * math.sin(b),
+    radius * math.cos(b) + depth * math.cos(lean),
+    radius * math.sin(b) + depth * math.sin(lean),
     half_height,
   )
   approach_axis = tuple(rotation[i][2] for i in range(3))

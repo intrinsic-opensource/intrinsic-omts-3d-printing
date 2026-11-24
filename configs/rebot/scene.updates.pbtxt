@@ -151,8 +151,11 @@ updates {
 # Spot 0 is at x = -0.10. Each spot has A's three frames, from
 # src/core/drop_off.py with the same 75 deg tilt: the place frame holds the part
 # at its resting height (z = 0.015), the pre-place frame backs off 8 cm along the
-# approach and the approach frame is 10 cm above that. The offline reach check
-# passes for every spot at y = -0.50, x = -0.10 to 0.30.
+# approach and the approach frame is 10 cm above that. Unlike A, every spot has
+# the same orientation: the tool leans along -y (yaw -90 deg), away from the
+# robot, so each part is set down axis aligned, with its jaw axis along the line.
+# The offline reach check passes for every spot at y = -0.50, x = -0.20 to 0.30
+# with this yaw.
 updates {
   create_frame {
     new_frame_name: "outfeed_0_place"
@@ -163,10 +166,10 @@ updates {
         z: 0.0150
       }
       orientation {
-        x: 0.502977
-        y: -0.613534
-        z: 0.385948
-        w: 0.470781
+        x: 0.560986
+        y: -0.560986
+        z: 0.430459
+        w: 0.430459
       }
     }
     parent_object_with_filter {
@@ -184,15 +187,15 @@ updates {
     new_frame_name: "outfeed_0_preplace"
     parent_t_new_frame {
       position {
-        x: -0.0848
-        y: -0.4242
+        x: -0.1000
+        y: -0.4227
         z: 0.0357
       }
       orientation {
-        x: 0.502977
-        y: -0.613534
-        z: 0.385948
-        w: 0.470781
+        x: 0.560986
+        y: -0.560986
+        z: 0.430459
+        w: 0.430459
       }
     }
     parent_object_with_filter {
@@ -210,15 +213,15 @@ updates {
     new_frame_name: "outfeed_0_approach"
     parent_t_new_frame {
       position {
-        x: -0.0848
-        y: -0.4242
+        x: -0.1000
+        y: -0.4227
         z: 0.1357
       }
       orientation {
-        x: 0.502977
-        y: -0.613534
-        z: 0.385948
-        w: 0.470781
+        x: 0.560986
+        y: -0.560986
+        z: 0.430459
+        w: 0.430459
       }
     }
     parent_object_with_filter {

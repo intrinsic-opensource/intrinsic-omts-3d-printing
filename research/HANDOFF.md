@@ -1377,7 +1377,22 @@ Reachable spots (ok), by distance to the right and x:
 | -0.60 | ok | ok | ok | ok | ok | ok | ok |
 
 Every spot at y = -0.50 or further passes across the whole span, the same 0.5 m
-limit as A. Not checked: the gripper against a part already in the line.
+limit as A. This table has the tool leaning away along each spot's bearing, so the
+parts would fan out. **With the tool fixed at yaw -90° for every spot** (leaning
+along -y, so each part is set down axis aligned, with its jaw axis along the line;
+2026-11-24, `a_frames.frames(..., yaw=-90)`), the same check gives:
+
+| y \ x (m) | -0.2 | -0.1 | 0.0 | 0.1 | 0.2 | 0.3 | 0.4 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -0.45 | ok | ok | X | ok | ok | X | X |
+| -0.50 | ok | ok | ok | ok | ok | ok | X |
+| -0.55 | ok | ok | ok | ok | ok | ok | X |
+| -0.60 | ok | ok | ok | ok | ok | ok | ok |
+
+At y = -0.50 the line passes for x = -0.20 to 0.30, so the proposed one fits, with
+spot 4 (x = 0.30) next to a failing x = 0.40. If that margin matters, shift the
+line to x = -0.20 to 0.20. Not checked: the gripper against a part already in the
+line.
 
 **Proposed layout:** the outfeed line, along x at y = -0.50, five spots at x = -0.10 to 0.30,
 10 cm apart. The part is 4 cm wide and the open gripper about 10 cm, so the spacing
@@ -1397,13 +1412,15 @@ parked part. Each spot has A's three frames (place, pre-place, approach), from t
      the section builds the machine tending cycle as before.
    * Spot 0's frames (`outfeed_0_place`, `_preplace`, `_approach`) are in
      `configs/rebot/scene.updates.pbtxt`, from `src/core/drop_off.py` at x = -0.10,
-     y = -0.50, 75° tilt. They are belief-world frames: `apply_scene_updates` with
+     y = -0.50, 75° tilt, tool yaw -90° (`yaw_degrees`; the lean no longer follows
+     the spot's bearing, so every spot has the same orientation). They are belief-world frames: `apply_scene_updates` with
      the three blocks is enough, no Gazebo reset.
    * On k3s, one Benchy cycle (`configure_cell --apply --target test_benchy`, then
      `omts_app`, 53 s) ended with the part on the ground at x -108.7, y -504.0,
      z 25.4 mm, flat (the same height as at A): 8.7 mm and 4.0 mm from the spot's
-     centre, which is the grasp offset. Its yaw is -101°, turned with the spot's
-     bearing. Not recorded: the release itself (the pose logger lost the stream
+     centre, which is the grasp offset. Its yaw was -101°, turned with the spot's
+     bearing; with the yaw fixed at -90° (second run) it ended at x -106.5,
+     y -505.6, yaw -90.4°: axis aligned. Not recorded: the release itself (the pose logger lost the stream
      when the simulation restarted), so release drift at the spot is unchecked.
    * The existing test of the A-and-return cycle now builds its tree with
      `outfeed=None`, since the committed cell no longer runs it; a new test checks
