@@ -390,6 +390,16 @@ py_test(
 )
 
 py_test(
+    name = "test_fill_outfeed",
+    srcs = ["test_fill_outfeed.py"],
+    data = ["//configs:all_configs"],
+    deps = [
+        "//research/tools:fill_outfeed",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
     name = "test_outfeed",
     srcs = ["test_outfeed.py"],
     deps = [

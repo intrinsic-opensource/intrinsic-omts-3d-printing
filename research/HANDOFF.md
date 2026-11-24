@@ -1477,9 +1477,10 @@ of the line, so a deploy without `configure_cell` still has one spot.
    * On k3s, three cycles (default part, 40×40×40 cube, Benchy), each "Execution
      successful" in 45 to 110 s, left the parts at x -100.1, -0.1 and 103.6 mm
      (spots at -100, 0, 100) and y -505.8, -505.8, -505.5 mm (spots at -500), all
-     flat. Yaw -90.0°, -279.1° and -89.9°: the cube is 9° off the axes (a cube
-     looks the same turned a quarter turn, so the estimate and the grasp are
-     loose in yaw); the other two are aligned. The earlier parts did not move when
+     flat. The cube's yaw read -279.1° against -90.0° and -89.9° for the other two;
+     that reading is not reliable (see the arc run below: the yaw formula used
+     breaks for a part that is upside down, and the cuboids can be). The earlier
+     parts did not move when
      the next was released beside them, so the gripper clears a neighbour 10 cm
      away. Not measured: the release itself (the pose logger still loses the
      stream after a simulation reset).
@@ -1488,9 +1489,55 @@ of the line, so a deploy without `configure_cell` still has one spot.
      first attempt with them as parts 2 and 3 failed at the first of them
      (the retract after the pick) and left it held by the gripper, which then
      failed the next cycle's pick: reset with `configure_cell --apply`.
-3. **Supply the parts.** One command that loops over the parts: the host puts the
-   next part on the bed, starts the operation for spot k, and repeats. Today that
-   is the shell loop above. Demo: five cycles leave five parts in the line.
+   * **Five spots, arc layout** (2026-11-24), parked parts only: the default part,
+     the 40×40×40 cube, the Benchy, the 80×20×40 cuboid and the lying 30×60
+     cylinder, one operation each, each "Execution successful" in about 70 s
+     (registration included). They left the parts at a radius of 505.7 to 505.9 mm
+     and bearings -100.0°, -88.0°, -76.0°, -64.0° and -51.9° (spots at 500 mm and
+     -100° + 12° k): 5.7 to 5.9 mm from their spots' centres, a constant grasp
+     offset, all at their resting height (z 15.0, 20.0, 25.4, 20.0 and 15.3 mm).
+     Yaw, read as Euler angles: the default part and the Benchy equal the bearing;
+     the cube (92.0°) and the 80×20×40 (116.0°) equal the bearing + 180° with a
+     roll of 180°, that is, they are upside down, which a cuboid cannot show and
+     which the estimator does not tell apart. So every part is aligned with its
+     bearing. (An earlier reading of "9° off" for the cube and "35° off" for the
+     80×20×40 used 2·atan2(qz, qw) as the yaw, which is wrong for a part with a
+     roll of 180°; it was a mistake in the check, not in the placement.) The
+     95×20×40 cuboid, tried first at spot 4, failed twice at "Estimate 6D Workpiece
+     Poses": the estimator returns 0 pose estimates for it on the bed. Parts under
+     25 mm are out (the 20 and 22 mm cuboids). The standing cylinder failed at the
+     pre-grasp (the planner finds no path: 2 pose estimates, then "Move to Dynamic
+     Pre-Grasp" fails), as in step 4b: its grasp direction is arbitrary, so it needs
+     the lean-toward-the-robot rule. The lying cylinder worked. Copies of the
+     default part, which would give five identical parts, were tried and dropped:
+     they need new scene objects in the deployment.
+   * **Check each step.** An earlier arc attempt ran straight on after a cycle that
+     never started ("Solution not ready" right after a reset), so the default part
+     stayed on the bed and the next targets were put on top of it; the next pick
+     failed. The loop must stop at the first failure, and the first target after a
+     reset is the part already on the bed.
+3. **Supply the parts.** One command that loops over the parts. Demo: five cycles
+   leave five parts in the line. **DONE 2026-11-24.**
+   * `research/tools:fill_outfeed`: for each part, in order, `configure_cell
+     --apply --keep_parked --target <part>` (the next part on the bed, the spots'
+     frames, the simulation brought to the world), then `omts_app`'s cycle for that
+     spot, in the same process. It stops at the first failure and prints how to go on
+     (`--first_spot K --parts ...`); `--reset` first parks every part. It refuses a
+     part under 25 mm, an unknown or repeated one, and more parts than spots.
+     Defaults: the five that worked, in this order: the default part, the 40×40×40
+     cube, the Benchy, the 80×20×40 cuboid and the lying cylinder.
+     `configure_cell.main` takes an `argv` for it. Tested with the two calls
+     mocked (`test_fill_outfeed`).
+   * On k3s, `fill_outfeed --reset --outfeed_layout arc` filled the arc: spot 0
+     ran; the command stopped at spot 1 with "Solution not ready", the
+     `code-execution` container having been OOM-killed (3 restarts that run); resumed
+     with `--first_spot 1`, spots 1 to 3 ran and it stopped again at spot 4 with the
+     same error, the restart count unchanged; `--first_spot 4` then finished. The
+     five parts ended at a radius of 505.6 to 505.9 mm, bearings -100.0° to -51.8°,
+     5.6 to 5.9 mm from their spots' centres, at their resting heights. The stop
+     and resume worked as designed; the readiness error is the cluster's (the
+     container's memory limit is not ours to change), and a retry for it is not
+     built.
 
 **Open:**
 

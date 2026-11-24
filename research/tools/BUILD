@@ -130,6 +130,18 @@ py_binary(
 )
 
 py_binary(
+    name = "fill_outfeed",
+    srcs = ["fill_outfeed.py"],
+    main = "fill_outfeed.py",
+    deps = [
+        ":cell",
+        ":configure_cell",
+        "//src:omts_app",
+        "//src/core:config",
+    ],
+)
+
+py_binary(
     name = "cell_limits",
     srcs = ["cell_limits.py"],
     main = "cell_limits.py",

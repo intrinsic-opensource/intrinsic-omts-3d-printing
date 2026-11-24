@@ -228,7 +228,7 @@ def _apply(
     print("The simulation now matches")
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
   parser.add_argument("--out", type=Path, required=True)
   parser.add_argument("--printer_distance", type=float, default=None)
@@ -269,7 +269,7 @@ def main() -> None:
   parser.add_argument(
     "--force", action="store_true", help="write even if the checks fail"
   )
-  args = parser.parse_args()
+  args = parser.parse_args(argv)
 
   params = cell.parameters()
   distance = args.printer_distance or params["printer_distance_m"]
