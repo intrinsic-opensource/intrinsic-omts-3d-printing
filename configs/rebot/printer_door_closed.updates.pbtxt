@@ -1,5 +1,6 @@
 # proto-file: intrinsic/world/public/proto/object_world_updates.proto
 # proto-message: intrinsic_proto.world.ObjectWorldUpdates
+# Joint positions in order: door_hinge, crank_pivot (bed_joint is fixed).
 updates {
   update_object_joints {
     object { by_name { object_name: "printer" } }

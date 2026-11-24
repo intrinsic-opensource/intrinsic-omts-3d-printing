@@ -45,6 +45,10 @@ class SyncDoorTest(absltest.TestCase):
     q, _ = sync_door.joints_from_poses(_msg(3e-6, 0.0))
     self.assertAlmostEqual(q, door.Q_UPPER, places=4)
 
+  def test_fully_open_door_past_the_limit_is_still_open(self):
+    q, _ = sync_door.joints_from_poses(_msg(-math.pi - 1e-3, 0.0))
+    self.assertAlmostEqual(door.q_to_theta(q), 180.0, places=4)
+
   def test_crank_angle_is_relative_to_the_door(self):
     _, pivot = sync_door.joints_from_poses(
       _msg(math.radians(-30), math.radians(-30) + 1.0)

@@ -274,9 +274,9 @@
 </joint>
 
     <!-- The turning bar of the D handle: the straight middle part, held by the
-         gripper. It is a rectangular prism (door.HANDLE_BAR_*): the 0.040 m
-         face points at the robot when the door is closed, so the fingers close
-         flat across the 0.016 m thickness. It turns freely about its own
+         gripper. It is a rectangular prism (door.HANDLE_BAR_*): its 0.040 m
+         side lies along the approach when the door is closed, so the fingers
+         close across the 0.016 m thickness. It turns freely about its own
          vertical axis on crank_pivot, so the gripper keeps its orientation
          while the door swings; the force goes through the pivot, the corners
          and the arms to the door. Its collision is the only one on this link

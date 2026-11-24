@@ -13,26 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Simulation demo: deploy the reBot cell with a passive door hinge and the
-# printer 21 cm further from the robot (d 0.80, in line with the arm), look
-# for the marker,
-# grab the bar of the purple D handle on the door (the bar turns on
-# crank_pivot, so the wrist need not) and swing the door open along its arc in one blended planner
-# call. sync_door streams Gazebo's door angle into the belief world meanwhile.
-# Simulation only; real-printer behavior is unverified.
+# Simulation demo (real-printer behavior is unverified): deploy the reBot cell
+# with a passive door hinge and the printer 21 cm further from the robot
+# (d 0.80, in line with the arm), look for the marker, grab the bar of the
+# purple D handle on the door (the bar turns on crank_pivot, so the wrist need
+# not) and swing the door open along its arc in one blended planner call. sync_door
+# streams Gazebo's door angle into the belief world meanwhile.
 #
 #   tools/printer/demo_open_door.sh [target_deg]     (default 135)
 #
-# 135 deg is the default: the arm's reach ends near 145 (asking for 180 stops
-# there). Env: CHUNK (deg per planner call, default 135; 12 for stepwise
-# swings), NO_GUI=1
-# (do not restart the Gazebo GUI), NO_WRITE=1 (detect only, keep the configured
-# printer pose). Needs the gz CLI and kubectl.
+# The arm's reach ends near 145 deg (asking for 180 stops there). Env: CHUNK
+# (deg per planner call, default 135; 12 for stepwise swings), NO_GUI=1 (do not
+# restart the Gazebo GUI), NO_WRITE=1 (detect only, keep the configured printer
+# pose). Needs the gz CLI and kubectl.
 #
 # Watch it in the Gazebo GUI (research/REBOT_OMTS_APP.md, "Look through the
-# camera"). The last lines are the door angle and how far the printer base
-# moved, read from Gazebo (the belief world does not follow a passive hinge).
-# Simulation only.
+# camera"). The last lines are the belief door angle, the door angle read from
+# Gazebo and how far the printer base moved.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 A=--address=localhost:17080
@@ -52,7 +49,8 @@ bazel run //:rebot_solution -c opt --//models/printer:door=closed \
   --//models/printer:layout=door_test -- $A >"$TMP/deploy.log" 2>&1 \
   || { tail -20 "$TMP/deploy.log"; exit 1; }
 bazel build //tools/printer:open_door //tools/printer:sync_door \
-  //research/tools:door_angle //tools/world:apply_scene_updates \
+  //tools/printer:control_door //research/tools:door_angle \
+  //tools/world:apply_scene_updates \
   >/dev/null
 bazel-bin/tools/world/apply_scene_updates $A --reset_sim \
   --files configs/rebot/printer_door_test.updates.pbtxt \
@@ -75,13 +73,18 @@ fi
 
 OD="bazel-bin/tools/printer/open_door $A"
 $OD --mode=look --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
-if $OD --mode=discover ${NO_WRITE:+--no_write_pose}; then
+# discover exits 3 when the marker is not found; any other failure stops here.
+rc=0
+$OD --mode=discover ${NO_WRITE:+--no_write_pose} || rc=$?
+if [ "$rc" -eq 0 ]; then
   echo ">>> Printer pose source: MEASURED (marker detected)."
-else
+elif [ "$rc" -eq 3 ]; then
   echo ">>> Printer pose source: CONFIGURED, NOT measured (no marker found)."
   echo ">>> The arm looked at the marker's expected place and the pull is"
   echo ">>> planned from the configured printer pose. Detection is not yet"
   echo ">>> part of this demo's result."
+else
+  exit "$rc"
 fi
 gz topic -e -t /world/default/pose/info --json-output >"$TMP/poses.jsonl" &
 REC=$!
@@ -93,11 +96,12 @@ REC=$!
 bazel-bin/tools/printer/sync_door $A >"$TMP/sync.log" 2>&1 &
 SYNC=$!
 $OD --mode=pull --target_deg="$TARGET" --no_belief_door \
-  --path=blended --chunk_deg="${CHUNK:-135}" --wp_deg=3 --retry_step_deg=5 || true
+  --path=blended --chunk_deg="${CHUNK:-135}" --wp_deg=3 \
+  --retry_step_deg=5 || true
 sleep 3
 kill "$SYNC" 2>/dev/null || true
 sleep 1
-kill $REC 2>/dev/null || true
+kill "$REC" 2>/dev/null || true
 echo "Belief door (synced from Gazebo), last lines:"
 tail -2 "$TMP/sync.log"
 bazel-bin/tools/printer/control_door $A --action=status | tail -1

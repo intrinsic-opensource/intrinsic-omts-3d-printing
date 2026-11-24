@@ -8,7 +8,7 @@
 
 # The printer is attached to the ground slab (rebot_ground, static in Gazebo) so
 # that it cannot be pushed or dragged by the arm: Gazebo then welds its base to
-# the ground. The door hinge and the crank handle stay free.
+# the ground. The door hinge and the D handle's turning bar (crank_handle) stay free.
 updates {
   reparent_object {
     object {

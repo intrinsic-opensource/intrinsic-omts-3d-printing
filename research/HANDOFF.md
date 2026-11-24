@@ -1358,12 +1358,12 @@ existing unload cycle. Closing the door is out of scope. Plan and decisions
 * Simulation only until the real-arm steps, which need explicit consent.
 
 Status (simulation only, real-printer behavior UNVERIFIED): the arm finds the
-printer from one ArUco marker (id 1, 80 mm), grips a free-spinning crank handle
-(`crank_pivot`) on the door and swings the door to 135 deg (default; the reach ends near 145) in one
-blended planner call; that result is accepted. Handover to the unload cycle is
+printer from one ArUco marker (id 1, 80 mm), grips the bar of a D handle
+(`crank_handle` on `crank_pivot`) beyond the door's free edge and swings the door to 135 deg (default; the reach ends near 145) in one
+blended JOINT planner call; that result is accepted. Handover to the unload cycle is
 not wired in. Sections 5e.2-5e.10 that mention markers 2 and 3, 50 mm tiles,
 the wrap grasp, the 6 deg stepwise arc or printer drift describe earlier
-states; 5e.11 is current.
+states; 5e.11 and 5e.12 are current.
 
 ### 5e.1: the door line is in this branch (done)
 
@@ -1374,7 +1374,7 @@ states; 5e.11 is current.
 * `DOOR_CLOSED_ANGLE` and the closed-door pbtxt use 3.14159, the SDF's joint
   upper limit (it was 3.141596, above it).
 
-### 5e.2: the angle oracle, and the printer stays put (done in Gazebo; drift superseded by 5e.11)
+### 5e.2: the angle oracle, and the printer stays put (done in Gazebo; drift superseded by 5e.11-5e.12)
 
 * `research/tools/door_angle.py` reads the recorded Gazebo pose topic and prints
   theta from `door_link`'s yaw and how far the printer base moved. Record with
@@ -1394,7 +1394,7 @@ states; 5e.11 is current.
 * Not run: the OMTS cell baseline (`omts_solution` + `omts_app`) for this
   step; it is run when the shared SDF changes (5e.3 onward).
 
-### 5e.3: theta is one belief state; door and marker frames follow it (done)
+### 5e.3: theta is one belief state; door and marker frames follow it (done; marker ids 2 and 3 superseded by 5e.11)
 
 * `src/core/door.py` (math only): theta <-> q, the hinge in the printer frame,
   marker poses (ids 1, 2 outer, 3 inner, 50 mm) in the door frame, any
@@ -1408,7 +1408,7 @@ states; 5e.11 is current.
   frames add no geometry); `frame_face` and `door_hook` frames come with the
   steps that use them.
 
-### 5e.5-5e.6: markers render in Gazebo and are found by `aruco_pose` (done)
+### 5e.5-5e.6: markers render in Gazebo and are found by `aruco_pose` (done; marker ids 2 and 3 superseded by 5e.11)
 
 * `skills/perception/aruco_pose.py` (numpy + OpenCV only): DICT_4X4_50 corners,
   IPPE pose with the two-solution error ratio, the one viewing rule
@@ -1436,7 +1436,7 @@ states; 5e.11 is current.
   stack (`Cannot convert [...] to JointVec`); `open_door --mode=look` stores a
   named joint configuration and moves to it instead.
 
-### 5e.7: the printer is found by its markers and the belief follows (done, simulation)
+### 5e.7: the printer is found by its markers and the belief follows (done, simulation; marker ids 2 and 3 superseded by 5e.11)
 
 * Skill `ai.omts.detect_aruco_markers` (`skills/perception/`, stateless, never
   writes the world): captures the RGB sensor through a `camera` equipment slot,
@@ -1471,7 +1471,7 @@ states; 5e.11 is current.
   `omts_app`); the SDF changed (frames, marker tiles) and it should be run
   before this branch is merged.
 
-### 5e.8-5e.10: the arm opens the door in Gazebo (partly done, simulation; superseded by 5e.11)
+### 5e.8-5e.10: the arm opens the door in Gazebo (partly done, simulation; superseded by 5e.11-5e.12)
 
 What runs: `open_door --mode=approach|pull` (after `--mode=discover`) with the
 printer at d = 0.675 and the passive hinge:
@@ -1675,10 +1675,10 @@ Check these before building on them.
   azimuth (`--az_mode=radial`: the tool points from the robot's base at the
   grip point; the bar turns, so the wrist need not). Since 5e.12 the handle is
   a purple D handle (below); the tab version described here is superseded.
-* **Anchoring.** The `door_test` layout (printer at d = 0.775 in 5e.11; d = 0.80 and 0.2 m to the robot's left since 5e.12) attaches the
+* **Anchoring.** The `door_test` layout (printer at d = 0.775 in 5e.11; d = 0.80, in line with the arm, since 5e.12) attaches the
   printer to `rebot_ground`; drift in a 36 deg pull: 0.0 mm. This replaces the
   5e.2 and 5e.10 drift findings. The printer watchdog is removed.
-* **Blended arc.** `--path=blended --chunk_deg=120 --wp_deg=3`: one
+* **Blended arc.** `--path=blended --motion=JOINT --chunk_deg=120` (the demo passes 135) `--wp_deg=3 --retry_step_deg=5`: one
   `move_robot` call per chunk through waypoints every 3 deg, corners rounded by
   the planner (`--blend_trans/_rot/_joint`). One IK failure fails the whole
   chunk; `CHUNK=12` gives stepwise swings. `--belief_door_at {end,start}` sets
@@ -1690,7 +1690,7 @@ Check these before building on them.
   planner see the real door. Needs the `gz` CLI and `GZ_PARTITION`, `GZ_IP`,
   `GZ_RELAY` (set in the demo script). Verified: after a pull to 118.7 deg the
   belief door read 118.7 deg.
-* **Not done:** reaching 180 deg (the arm's reach stops near 120; a push from
+* **Not done:** reaching 180 deg (the arm's reach ends near 145 with JOINT motion, 5e.12; a push from
   the other side is the idea for the rest), the marker-measured theta gate and
   handover to unload, real hardware, re-running the `omts` cell since the
   shared printer SDF changed (unverified).
@@ -1725,8 +1725,8 @@ Check these before building on them.
   48-63 deg, however the chunks were cut (one call, 12 or 6 deg chunks, 55 deg
   at d 0.775, 60 at 0.80, 63 at 0.81; no grasp from d 0.815). With
   `--motion=JOINT` (each waypoint a joint-space goal; `ANY` the same) the
-  committed layout (printer in line, d 0.80) opens the door to **115 deg in
-  12 s** and **135 deg in about 11-12 s** in one call (fewer waypoints, 3 to 10
+  `door_test` layout (printer in line, d 0.80) opens the door to **115 deg in
+  12 s** and **135 deg in about 13 s** in one call (fewer waypoints, 3 to 10
   deg apart, only change that by about 1 s: the time is the planner's default
   limits), and to **145 deg** when asked for 180 (the far end is the
   arm's reach). So JOINT is the default. Moving the printer 0.2 m to the robot's

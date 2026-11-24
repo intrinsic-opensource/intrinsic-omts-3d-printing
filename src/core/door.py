@@ -43,14 +43,13 @@ HANDLE_STANDOFF_M = 0.10  # bar axis beyond the free edge
 HANDLE_PLANE_Y = 0.016  # the D's plane, in front of the pane's outer face
 HANDLE_GRIP_Z = 0.175  # bar centre height; the top arm stays inside the mesh
 HANDLE_BAR_LENGTH_M = 0.100  # free bar length between the corners
-# The bar is a rectangular prism: the long face points at the robot at the
-# closed door (yaw about the bar axis, door frame, for the door-test layout:
-# approach azimuth -27 deg in the world), so the fingers close flat across the
-# thin side.
+# The bar is a rectangular prism: its 0.040 m side lies along the approach at
+# the closed door (yaw about the bar axis, door frame; the door-test layout's
+# approach azimuth is about -26 deg in the world), so the fingers close across
+# the 0.016 m thickness.
 HANDLE_BAR_LONG_M = 0.040
 HANDLE_BAR_THIN_M = 0.016
 HANDLE_BAR_YAW_RAD = 1.095
-HANDLE_ARM_RADIUS_M = 0.006
 HANDLE_GAP_M = 0.002  # bar end to corner sphere
 CORNER_RADIUS_M = 0.008
 # Arm height above and below the bar centre.
@@ -114,7 +113,7 @@ def knob_tool_rotation_world(az_deg: float | None = None) -> Mat:
 
 
 def knob_in_printer(theta_deg: float) -> Vec:
-  """The lever's grip point in the printer frame at door angle theta."""
+  """The D handle bar's grip point (bar centre) in the printer frame at door angle theta."""
   return point_in_printer(KNOB_POS, theta_deg)
 
 

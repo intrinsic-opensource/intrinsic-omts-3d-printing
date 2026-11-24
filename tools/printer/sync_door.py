@@ -63,9 +63,9 @@ def joints_from_poses(msg: dict) -> tuple[float, float] | None:
       crank_yaw = yaw(pose.get("orientation", {}))
   if door_yaw is None or crank_yaw is None:
     return None
-  # Wrap to (-180, 180] and clamp: a door resting at the hinge limit can read
-  # a hair outside [0, 180].
-  theta = -math.degrees(math.atan2(math.sin(door_yaw), math.cos(door_yaw)))
+  # Wrap to [-90, 270) and clamp: a door resting at either hinge limit can
+  # read a hair outside [0, 180] (closed: just below 0; open: just above 180).
+  theta = (-math.degrees(door_yaw) + 90.0) % 360.0 - 90.0
   q = door.theta_to_q(min(max(theta, 0.0), 180.0))
   pivot = math.atan2(
     math.sin(crank_yaw - door_yaw), math.cos(crank_yaw - door_yaw)

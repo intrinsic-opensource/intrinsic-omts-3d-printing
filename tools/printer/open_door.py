@@ -82,7 +82,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
   parser.add_argument("--joints", nargs=6, type=float, default=None)
   parser.add_argument("--marker_size_m", type=float, default=door.MARKER_SIZE_M)
   parser.add_argument("--theta_deg", type=float, default=0.0)
-  parser.add_argument("--target_deg", type=float, default=30.0)
+  parser.add_argument("--target_deg", type=float, default=135.0)
   parser.add_argument("--step_deg", type=float, default=6.0)
   parser.add_argument("--pregrasp_m", type=float, default=0.06)
   parser.add_argument("--allow_contact", action="store_true")
@@ -95,7 +95,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     "move_robot call per chunk_deg, through waypoints every wp_deg, blended "
     "into one smooth trajectory.",
   )
-  parser.add_argument("--chunk_deg", type=float, default=120.0)
+  parser.add_argument("--chunk_deg", type=float, default=135.0)
   parser.add_argument(
     "--belief_door_at",
     choices=["end", "start"],
@@ -193,7 +193,7 @@ def look(solution, robot_name: str, joints: Sequence[float]) -> None:
     solution.executive.run(
       robot.build_move_joint_task(
         LOOK_CONFIG,
-        excluded_collision_pairs=[("gripper", "printer:crank_handle")],
+        excluded_collision_pairs=[("gripper", CONTACT_TARGET)],
       )
     )
   except execution.ExecutionFailedError as e:
@@ -254,9 +254,8 @@ def detect(solution, args) -> None:
     )
     want = truth @ printer_t_marker(m.id)
     got = pose_matrix(m.root_t_marker)
-    print(
-      f"    root_t_marker error {np.linalg.norm(got[:3, 3] - want[:3, 3]) * 1000:.1f} mm"
-    )
+    err_mm = np.linalg.norm(got[:3, 3] - want[:3, 3]) * 1000
+    print(f"    root_t_marker error {err_mm:.1f} mm")
   got = pose_matrix(result.root_t_printer)
   dyaw = math.degrees(
     math.atan2(got[1, 0], got[0, 0]) - math.atan2(truth[1, 0], truth[0, 0])
@@ -375,21 +374,26 @@ def print_failure(solution) -> None:
     print(f"(no error details: {exc})")
 
 
+# What the gripper may touch: only the D handle's turning bar.
+CONTACT_TARGET = "printer:crank_handle"
+
+
 def knob_matrix(
   root_t_printer: np.ndarray,
   theta_deg: float,
   back_m: float = 0.0,
   az_mode: str = "radial",
 ) -> np.ndarray:
-  """Root-frame 4x4 of the tool at the D handle's grip point at door angle theta.
+  """Root-frame 4x4 of the tool at the D handle's grip point at angle theta.
 
   The position follows the door's arc. The tool is level; its azimuth is
   either fixed (az_mode "fixed", KNOB_APPROACH_AZ_DEG) or "radial": it points
   along the line from the robot's base to the grip point, so the arm reaches
   straight at its target and the wrist joint stays near its centre. Because
-  the bar turns freely about the vertical axis, the tool's azimuth is
-  free once the handle is held. back_m backs off along the approach axis; the tool goes GRIP_DEPTH_M past
-  the bar's axis so the bar sits on the fingers' flat pads.
+  the bar turns freely about the vertical axis, the tool's azimuth is free
+  once the handle is held. back_m backs off along the approach axis; the tool
+  goes GRIP_DEPTH_M past the bar's axis so the bar sits on the fingers' flat
+  pads.
   """
   centre = (root_t_printer @ np.append(door.knob_in_printer(theta_deg), 1.0))[
     :3
@@ -401,12 +405,6 @@ def knob_matrix(
   m[:3, :3] = np.array(door.knob_tool_rotation_world(az))
   m[:3, 3] = centre + (door.GRIP_DEPTH_M - back_m) * m[:3, 2]
   return m
-
-
-def _contact_target(args) -> str:
-  """What the gripper may touch: only the D handle's turning bar."""
-  del args
-  return "printer:crank_handle"
 
 
 def grasp_target(
@@ -436,7 +434,7 @@ def approach(solution, args) -> None:
   set_frame(world, "door_grasp", grasp)
   print(f"pre-grasp {np.round(pre[:3, 3], 3).tolist()}")
   print(f"grasp     {np.round(grasp[:3, 3], 3).tolist()}")
-  pairs = [("gripper", _contact_target(args))] if args.allow_contact else None
+  pairs = [("gripper", CONTACT_TARGET)] if args.allow_contact else None
   gripper = PinchGripper(
     solution=solution,
     config=GripperConfig(type="pinch", resource_name="gripper"),
@@ -477,7 +475,7 @@ def pull(solution, args) -> None:
     config=GripperConfig(type="pinch", resource_name="gripper"),
   )
   root_t_printer = world.get_transform(world.root, world.printer).matrix4x4()
-  pairs = [("gripper", _contact_target(args))]
+  pairs = [("gripper", CONTACT_TARGET)]
 
   def run(node, quiet_failure=False):
     try:

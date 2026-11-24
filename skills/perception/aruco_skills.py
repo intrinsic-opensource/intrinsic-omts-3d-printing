@@ -72,8 +72,10 @@ def detect(
 ) -> pb.DetectArucoMarkersResult:
   """The skill's maths, on one image (also used by the tests)."""
   ids = list(params.marker_ids)
-  if not ids or len(set(ids)) != len(ids):
+  if not ids:
     raise skill_interface.SkillError(INVALID_INPUT, "marker_ids is required")
+  if len(set(ids)) != len(ids):
+    raise skill_interface.SkillError(INVALID_INPUT, "marker_ids has duplicates")
   if not math.isfinite(params.marker_size_m) or params.marker_size_m <= 0:
     raise skill_interface.SkillError(INVALID_INPUT, "marker_size_m <= 0")
   if params.printer_t_marker and len(params.printer_t_marker) != len(ids):

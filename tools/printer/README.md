@@ -13,14 +13,28 @@ receives. Plan and status: `research/PRINTER_SERVICE_HANDOFF.md`.
 
 ## Door (simulation only)
 
-Real-printer behavior is unverified. `tools/printer/demo_open_door.sh
-[target_deg]` runs the whole sequence below (default target 135 deg; the
-pull retries with a lower end angle when a swing cannot be planned and stops at
-the arm's reach, about 145 deg; `--motion=LINEAR` stops near 60 deg at the arm's
-base axis, see `research/HANDOFF.md` 5e.12). Tools: `open_door` (`--mode
-look|detect|discover|approach|pull|entities|joints`; `--path blended|stepwise`; `--chunk_deg`, `--wp_deg`; `--az_mode
-radial|fixed`; `--belief_door_at end|start`; `--no_belief_door`), `sync_door`
-(Gazebo's door and crank angles into the belief world; `--rate_hz`,
+Real-printer behavior is unverified. To run everything below directly:
+
+```bash
+tools/printer/demo_open_door.sh [target_deg]     # default 135
+```
+
+Environment: `CHUNK` (deg per planner call, default 135; `CHUNK=12` swings
+stepwise), `NO_GUI=1` (do not restart the Gazebo GUI), `NO_WRITE=1` (detect
+only, keep the configured printer pose). It needs the `gz` CLI and `kubectl`.
+The arm grips the light-blue bar of a purple D handle that stands 0.10 m beyond
+the door's free edge, and the door opens in one blended JOINT motion (about 13 s
+to 135 deg). The pull retries with a lower end angle when a swing cannot be
+planned and stops at the arm's reach, about 145 deg; `--motion=LINEAR` stops
+near 60 deg, where the gripper passes over the arm's base axis
+(`research/HANDOFF.md` 5e.12). The printer is anchored to `rebot_ground` and
+stands in line with the arm at d 0.80.
+
+Tools: `open_door` (`--mode look|detect|discover|approach|pull|entities|joints`;
+`--path blended|stepwise`; `--motion JOINT|LINEAR|ANY` (default JOINT);
+`--chunk_deg`, `--wp_deg`, `--retry_step_deg`; `--az_mode radial|fixed`;
+`--belief_door_at end|start`; `--no_belief_door`), `sync_door` (Gazebo's door
+angle and the bar's `crank_pivot` angle into the belief world; `--rate_hz`,
 `--min_change_deg`, `--duration`) and `control_door` (`--action
 open|close|set|status`, `--theta_deg`, `--reset_sim`). Design and results:
 `research/HANDOFF.md` 5e.
@@ -30,7 +44,7 @@ open|close|set|status`, `--theta_deg`, `--reset_sim`). Design and results:
 The hinge is passive, so right after a deploy Gazebo shows the door **open**
 (the SDF's joint position 0); step 3 resets Gazebo to the belief world and
 closes it. Run everything from the repository root in one shell, except the GUI
-(step 4), which needs its own terminal. Steps 7 and 9 run in the background of
+(step 4), which needs its own terminal. Steps 7 and 8 run in the background of
 that shell.
 
 ```bash
@@ -62,21 +76,22 @@ bazel-bin/tools/printer/open_door $A --mode=look \
   --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
 
 # 6. Find the printer from the marker: PRINTER DETECTED, or a NOT DETECTED
-#    banner and exit code 3
+#    banner and exit code 3 (--no_write_pose: detect only, keep the configured
+#    printer pose)
 bazel-bin/tools/printer/open_door $A --mode=discover
 
-# 7. Keep the belief door in step with Gazebo (background; stop it in step 10)
-bazel-bin/tools/printer/sync_door $A > /tmp/sync.log 2>&1 &
-SYNC=$!
-
-# 8. Record Gazebo's poses (background)
+# 7. Record Gazebo's poses (background; stop it in step 10)
 gz topic -e -t /world/default/pose/info --json-output > /tmp/poses.jsonl &
 REC=$!
 
-# 9. Grab the crank, open the door, release and retreat (--hold keeps the grip;
-#    --chunk_deg=12 swings stepwise instead of in one call)
+# 8. Keep the belief door in step with Gazebo (background; stop it in step 10)
+bazel-bin/tools/printer/sync_door $A > /tmp/sync.log 2>&1 &
+SYNC=$!
+
+# 9. Grab the D handle's bar, open the door, release and retreat (--hold keeps
+#    the grip; --chunk_deg=12 swings stepwise instead of in one call)
 bazel-bin/tools/printer/open_door $A --mode=pull --target_deg=135 \
-  --no_belief_door --path=blended --chunk_deg=135 --wp_deg=3
+  --no_belief_door --path=blended --chunk_deg=135 --wp_deg=3 --retry_step_deg=5
 
 # 10. Stop the background jobs and read the result
 sleep 3; kill $SYNC $REC
@@ -84,7 +99,9 @@ bazel-bin/research/tools/door_angle /tmp/poses.jsonl --every 100000
 bazel-bin/tools/printer/control_door $A --action=status   # belief door_hinge
 ```
 
-If a pull fails, it prints the planner's reason. `--mode=entities` and
+If a run stops with "Conductor failed to prepare for process start", the
+executive was busy or restarting: run it again. If a pull fails, it prints the
+planner's reason. `--mode=entities` and
 `--mode=joints` dump the world and the joint positions.
 
 ## The flow
