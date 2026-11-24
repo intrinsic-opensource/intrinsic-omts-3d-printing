@@ -59,6 +59,13 @@ _NUM_CYCLES = flags.DEFINE_integer(
   None,
   "Optional override for number of cycles (1 = single, >1 = finite Loop, <=0 = continuous Loop).",
 )
+_OUTFEED_SPOT = flags.DEFINE_integer(
+  "outfeed_spot",
+  0,
+  "Which spot of the config's 'outfeed' line the cycle releases the part at "
+  "(from 0). Ignored when the config has no 'outfeed' section.",
+  lower_bound=0,
+)
 _GRASP_PLANNER = flags.DEFINE_enum_class(
   "grasp_planner",
   None,
@@ -74,6 +81,7 @@ def run_machine_tending_pipeline(
   simulation_mode: SimulationMode | None = None,
   num_cycles_override: int | None = None,
   grasp_planner_override: GraspPlannerType | None = None,
+  outfeed_spot: int = 0,
 ) -> None:
   """Connects to the solution deployment and executes the machine tending BT.
 
@@ -85,6 +93,7 @@ def run_machine_tending_pipeline(
         >1 = finite bt.Loop, <=0 = continuous bt.Loop).
       grasp_planner_override: Optional grasp planner backend override, taking
         precedence over `config.grasp`.
+      outfeed_spot: Which spot of `config.outfeed` the cycle releases at.
   """
   logging.info(
     "Connecting to Intrinsic solution at %s (cell: %s)...",
@@ -159,6 +168,7 @@ def run_machine_tending_pipeline(
     config=config,
     num_cycles_override=num_cycles_override,
     grasp_planner=grasp_planner,
+    outfeed_spot=outfeed_spot,
   )
 
   exec_sim_mode = to_executive_simulation_mode(simulation_mode)
@@ -193,6 +203,7 @@ def main(argv: Sequence[str]) -> None:
     simulation_mode=_SIMULATION_MODE.value,
     num_cycles_override=_NUM_CYCLES.value,
     grasp_planner_override=_GRASP_PLANNER.value,
+    outfeed_spot=_OUTFEED_SPOT.value,
   )
 
 

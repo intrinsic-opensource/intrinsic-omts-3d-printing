@@ -252,6 +252,12 @@ def main() -> None:
     help="the outfeed line's layout (default: cell_params.yaml's)",
   )
   parser.add_argument("--outfeed_count", type=int, default=None)
+  parser.add_argument(
+    "--keep_parked",
+    action="store_true",
+    help="leave the other parts where they are instead of parking them, so "
+    "parts already on the outfeed line stay there",
+  )
   parser.add_argument("--register_all", action="store_true")
   parser.add_argument(
     "--apply",
@@ -347,6 +353,8 @@ def main() -> None:
   others = [n for n in library if n != name]
   if args.no_test_parts:
     others = [n for n in others if n == "rebot_printed_part"]
+  if args.keep_parked:
+    others = []
   args.out.mkdir(parents=True, exist_ok=True)
   (args.out / "app_config.yaml").write_text(
     _app_config(name, target, bed[0], len(spots))

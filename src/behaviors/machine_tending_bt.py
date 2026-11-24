@@ -41,6 +41,7 @@ def build_machine_tending_behavior_tree(
   num_cycles_override: int | None = None,
   grasp_planner: GraspPlannerInterface | None = None,
   tree_name: str = "OMTS Machine Tending Master Cycle",
+  outfeed_spot: int = 0,
 ) -> bt.BehaviorTree:
   """Assembles the complete machine tending sequence into an SBL Behavior Tree.
 
@@ -73,6 +74,8 @@ def build_machine_tending_behavior_tree(
         the built-in cuboid-center behaviour, where the perception pipeline
         publishes the grasp frames itself.
       tree_name: Descriptive name for the Behavior Tree.
+      outfeed_spot: With an `outfeed` config section, the spot the cycle
+        releases the part at (from 0).
 
   Returns:
       Executable SBL BehaviorTree instance.
@@ -89,12 +92,20 @@ def build_machine_tending_behavior_tree(
 
   cycle_sequence: bt.Node
   if config.outfeed is not None:
+    if not 0 <= outfeed_spot < len(config.outfeed.spots):
+      raise ValueError(
+        f"outfeed_spot {outfeed_spot} is outside the {len(config.outfeed.spots)}"
+        " spot(s) of the config's 'outfeed' section"
+      )
     cycle_sequence = bt.Sequence(
       name="Single Outfeed Cycle",
       children=[
         pick_subtree,
         build_release_to_outfeed_subtree(
-          robot=robot, gripper=gripper, config=config
+          robot=robot,
+          gripper=gripper,
+          config=config,
+          spot_index=outfeed_spot,
         ),
       ],
     )

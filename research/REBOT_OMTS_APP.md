@@ -321,6 +321,11 @@ bazel run //research/tools:configure_cell -- --out /tmp/cell --apply \
   --outfeed_layout arc --outfeed_count 5
 ```
 
+A cycle releases at one spot: `omts_app --outfeed_spot=K` picks it (from 0). To fill
+the line, put the next part on the bed without moving the ones already in the line
+(`configure_cell --keep_parked`), then start the operation for the next spot; parts
+must be at least 25 mm tall. The loop is in `HANDOFF.md`, section 5e.
+
 The checks run first, on the host. `app_config.yaml` is still a file because the
 tree's part and return area are fixed when `omts_app` builds it.
 

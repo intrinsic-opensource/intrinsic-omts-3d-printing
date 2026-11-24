@@ -45,7 +45,7 @@ from src.behaviors.motions import (
 from src.behaviors.pick import build_pick_from_infeed_subtree
 from src.behaviors.return_infeed import build_return_to_infeed_subtree
 from src.behaviors.unload_machine import build_unload_machine_subtree
-from src.core.config import load_app_config
+from src.core.config import OutfeedConfig, OutfeedSpot, load_app_config
 from src.core.infeed import InfeedStrategy, PerceptionInfeedStrategy
 from src.core.types import InfeedMode
 from src.hardware.grasping import GraspPlannerInterface
@@ -638,6 +638,48 @@ class BehaviorsTest(absltest.TestCase):
     # The arm ends at view, ready for the next pick.
     last = self.robot.build_move_cartesian_task.call_args_list[-1].kwargs
     self.assertEqual(last["name"], "Return to view")
+
+  def test_the_outfeed_cycle_releases_at_the_requested_spot(self):
+    config = load_app_config("configs/rebot/app_config.yaml")
+    assert config.outfeed is not None
+    spots = tuple(
+      OutfeedSpot(f"spot_{k}_place", f"spot_{k}_pre", f"spot_{k}_approach")
+      for k in range(3)
+    )
+    config = dataclasses.replace(config, outfeed=OutfeedConfig(spots=spots))
+    tree = build_machine_tending_behavior_tree(
+      robot=self.robot,
+      gripper=self.gripper,
+      machine=None,
+      vision=self.vision,
+      infeed_strategy=self.infeed_strategy,
+      config=config,
+      num_cycles_override=1,
+      outfeed_spot=2,
+    )
+    self.assertEqual(tree.root.children[1].name, "Release at Outfeed Spot 2")
+    names = [
+      call.kwargs["name"]
+      for call in self.robot.build_move_cartesian_task.call_args_list
+    ]
+    self.assertIn("Load Vise: Linear Seat (root/spot_2_place)", names)
+    self.assertFalse([n for n in names if "spot_0" in n or "spot_1" in n])
+
+  def test_an_outfeed_spot_outside_the_line_is_refused(self):
+    config = load_app_config("configs/rebot/app_config.yaml")
+    assert config.outfeed is not None
+    for spot in (-1, len(config.outfeed.spots)):
+      with self.assertRaisesRegex(ValueError, "outfeed_spot"):
+        build_machine_tending_behavior_tree(
+          robot=self.robot,
+          gripper=self.gripper,
+          machine=None,
+          vision=self.vision,
+          infeed_strategy=self.infeed_strategy,
+          config=config,
+          num_cycles_override=1,
+          outfeed_spot=spot,
+        )
 
   def test_all_subtrees_have_unique_child_names_and_no_legacy_prefixes(self):
     tree = self._build_master_tree(num_cycles=1)

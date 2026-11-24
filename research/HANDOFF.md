@@ -1449,11 +1449,48 @@ of the line, so a deploy without `configure_cell` still has one spot.
      the outfeed cycle's shape and that nothing sets the part down at A.
    * Names in the tree and logs still say "Load Vise", because the load subtree is
      reused; rename if it gets confusing.
-2. **A spot per cycle.** A counter picks spot k for cycle k: on the blackboard, or
-   passed in by the host. Demo: three cycles leave three parts in a row, and the
-   gripper clears the neighbour.
-3. **Supply the parts.** The host puts the next part on the bed between cycles.
-   Demo: five cycles leave five parts in the line.
+2. **A spot per cycle.** The spot is chosen by the operation, which the host
+   starts once per part. Demo: three parts end in a row, and the gripper clears
+   the neighbour. **DONE 2026-11-24.**
+   * `omts_app --outfeed_spot=K` (and `build_machine_tending_behavior_tree(...,
+     outfeed_spot=K)`) builds the cycle for spot K of the config's line; a spot
+     outside it is refused. The tree stays one cycle per operation, so no counter
+     is needed in it: choosing the frames at run time would need dynamic frame
+     names, and the host has to put the next part on the bed between operations
+     anyway (step 3), so the host passes the index.
+   * `configure_cell --keep_parked` puts the target on the bed and leaves the other
+     parts where they are, so parts already in the line stay. Without it the tool
+     parks every other part, which clears the line.
+   * The loop, from the repository root (three parts, line layout):
+     ```bash
+     k=0
+     for P in rebot_printed_part test_cuboid_40x40x40 test_benchy; do
+       bazel run //research/tools:configure_cell -- --out /tmp/cell_$k --apply \
+         --keep_parked --target $P
+       bazel run //src:omts_app -- --address=localhost:17080 \
+         --config=/tmp/cell_$k/app_config.yaml --num_cycles=1 --outfeed_spot=$k
+       k=$((k+1))
+     done
+     ```
+     Reset first with `configure_cell --apply` (no `--keep_parked`), which parks
+     everything. Each new part is registered by its first cycle (about a minute).
+   * On k3s, three cycles (default part, 40×40×40 cube, Benchy), each "Execution
+     successful" in 45 to 110 s, left the parts at x -100.1, -0.1 and 103.6 mm
+     (spots at -100, 0, 100) and y -505.8, -505.8, -505.5 mm (spots at -500), all
+     flat. Yaw -90.0°, -279.1° and -89.9°: the cube is 9° off the axes (a cube
+     looks the same turned a quarter turn, so the estimate and the grasp are
+     loose in yaw); the other two are aligned. The earlier parts did not move when
+     the next was released beside them, so the gripper clears a neighbour 10 cm
+     away. Not measured: the release itself (the pose logger still loses the
+     stream after a simulation reset).
+   * **Parts must be at least 25 mm tall** (section 4a): a 20 or 22 mm cuboid
+     failed, the gripper body reaching the ground at the spot, as it does at A. A
+     first attempt with them as parts 2 and 3 failed at the first of them
+     (the retract after the pick) and left it held by the gripper, which then
+     failed the next cycle's pick: reset with `configure_cell --apply`.
+3. **Supply the parts.** One command that loops over the parts: the host puts the
+   next part on the bed, starts the operation for spot k, and repeats. Today that
+   is the shell loop above. Demo: five cycles leave five parts in the line.
 
 **Open:**
 
