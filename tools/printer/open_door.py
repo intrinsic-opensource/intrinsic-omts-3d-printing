@@ -93,6 +93,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     "into one smooth trajectory.",
   )
   parser.add_argument("--chunk_deg", type=float, default=12.0)
+  parser.add_argument(
+    "--belief_door_at",
+    choices=["end", "start"],
+    default="end",
+    help="Which angle of a chunk the planner's door is placed at: its end "
+    "(the door's furthest position) or its start.",
+  )
   parser.add_argument("--wp_deg", type=float, default=3.0)
   parser.add_argument(
     "--motion", choices=["LINEAR", "JOINT", "ANY"], default="LINEAR"
@@ -520,7 +527,7 @@ def pull(solution, args) -> None:
       n = max(1, round((end - theta) / args.wp_deg))
       angles = [theta + (end - theta) * (i + 1) / n for i in range(n)]
       if args.belief_door:
-        set_belief_door(end)
+        set_belief_door(end if args.belief_door_at == "end" else theta)
       frames = []
       for i, a in enumerate(angles):
         name = f"door_arc_{i}"
