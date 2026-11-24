@@ -21,11 +21,11 @@
 # call. sync_door streams Gazebo's door angle into the belief world meanwhile.
 # Simulation only; real-printer behavior is unverified.
 #
-#   tools/printer/demo_open_door.sh [target_deg]     (default 115)
+#   tools/printer/demo_open_door.sh [target_deg]     (default 135)
 #
-# 115 deg is the default: the arm's reach ends near 120, and 115 plans and
-# swings without collisions (180 fails past the reach). Env: CHUNK (deg per
-# planner call, default 115; 12 for stepwise swings), NO_GUI=1
+# 135 deg is the default: the arm's reach ends near 145 (asking for 180 stops
+# there). Env: CHUNK (deg per planner call, default 135; 12 for stepwise
+# swings), NO_GUI=1
 # (do not restart the Gazebo GUI), NO_WRITE=1 (detect only, keep the configured
 # printer pose). Needs the gz CLI and kubectl.
 #
@@ -36,7 +36,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 A=--address=localhost:17080
-TARGET=${1:-115}
+TARGET=${1:-135}
 TMP=$(mktemp -d)
 echo ">>> Logs and pose recording: $TMP"
 SYNC=""
@@ -86,14 +86,14 @@ fi
 gz topic -e -t /world/default/pose/info --json-output >"$TMP/poses.jsonl" &
 REC=$!
 # The printer is attached to the ground in the cell, so no watchdog is needed.
-# One planner call swings the door (CHUNK degrees, default 115 = the whole
+# One planner call swings the door (CHUNK degrees, default 135 = the whole
 # swing); a single IK failure anywhere in the arc fails the whole call, so
 # CHUNK=12 gives stepwise swings. The belief world gets the real door angle
 # from Gazebo through sync_door, so RViz shows the door moving.
 bazel-bin/tools/printer/sync_door $A >"$TMP/sync.log" 2>&1 &
 SYNC=$!
 $OD --mode=pull --target_deg="$TARGET" --no_belief_door \
-  --path=blended --chunk_deg="${CHUNK:-115}" --wp_deg=3 --retry_step_deg=5 || true
+  --path=blended --chunk_deg="${CHUNK:-135}" --wp_deg=3 --retry_step_deg=5 || true
 sleep 3
 kill "$SYNC" 2>/dev/null || true
 sleep 1

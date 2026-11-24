@@ -14,7 +14,7 @@ receives. Plan and status: `research/PRINTER_SERVICE_HANDOFF.md`.
 ## Door (simulation only)
 
 Real-printer behavior is unverified. `tools/printer/demo_open_door.sh
-[target_deg]` runs the whole sequence below (default target 115 deg; the
+[target_deg]` runs the whole sequence below (default target 135 deg; the
 pull retries with a lower end angle when a swing cannot be planned and stops at
 the arm's reach, about 145 deg; `--motion=LINEAR` stops near 60 deg at the arm's
 base axis, see `research/HANDOFF.md` 5e.12). Tools: `open_door` (`--mode
@@ -75,8 +75,8 @@ REC=$!
 
 # 9. Grab the crank, open the door, release and retreat (--hold keeps the grip;
 #    --chunk_deg=12 swings stepwise instead of in one call)
-bazel-bin/tools/printer/open_door $A --mode=pull --target_deg=115 \
-  --no_belief_door --path=blended --chunk_deg=115 --wp_deg=3
+bazel-bin/tools/printer/open_door $A --mode=pull --target_deg=135 \
+  --no_belief_door --path=blended --chunk_deg=135 --wp_deg=3
 
 # 10. Stop the background jobs and read the result
 sleep 3; kill $SYNC $REC

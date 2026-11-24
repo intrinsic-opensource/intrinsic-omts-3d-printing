@@ -1359,7 +1359,7 @@ existing unload cycle. Closing the door is out of scope. Plan and decisions
 
 Status (simulation only, real-printer behavior UNVERIFIED): the arm finds the
 printer from one ArUco marker (id 1, 80 mm), grips a free-spinning crank handle
-(`crank_pivot`) on the door and swings the door to 115 deg (default; the reach ends near 120) in one
+(`crank_pivot`) on the door and swings the door to 135 deg (default; the reach ends near 145) in one
 blended planner call; that result is accepted. Handover to the unload cycle is
 not wired in. Sections 5e.2-5e.10 that mention markers 2 and 3, 50 mm tiles,
 the wrap grasp, the 6 deg stepwise arc or printer drift describe earlier
@@ -1664,8 +1664,8 @@ Check these before building on them.
 
 ### 5e.11: crank handle, anchoring, blended arc, belief sync (done, simulation)
 
-* Demo: `tools/printer/demo_open_door.sh [target_deg]` (default target 115;
-  the arm's reach ends near 120). Build flags:
+* Demo: `tools/printer/demo_open_door.sh [target_deg]` (default target 135;
+  the arm's reach ends near 145). Build flags:
   `--//models/printer:door=closed --//models/printer:hinge=passive
   --//models/printer:layout=door_test`.
 * **One marker.** Only id 1 (80 mm, top-left of the pane, `src/core/door.py`)
@@ -1726,7 +1726,9 @@ Check these before building on them.
   at d 0.775, 60 at 0.80, 63 at 0.81; no grasp from d 0.815). With
   `--motion=JOINT` (each waypoint a joint-space goal; `ANY` the same) the
   committed layout (printer in line, d 0.80) opens the door to **115 deg in
-  12 s** in one call, and to **145 deg** when asked for 180 (the far end is the
+  12 s** and **135 deg in about 11-12 s** in one call (fewer waypoints, 3 to 10
+  deg apart, only change that by about 1 s: the time is the planner's default
+  limits), and to **145 deg** when asked for 180 (the far end is the
   arm's reach). So JOINT is the default. Moving the printer 0.2 m to the robot's
   left also reached 115 deg with LINEAR, but the printer must stay in line with
   the arm. A stick-out of 0.08 m fails at the grasp: the open gripper's finger
