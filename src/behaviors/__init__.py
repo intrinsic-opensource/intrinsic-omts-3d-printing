@@ -24,6 +24,7 @@ from src.behaviors.motions import (
   create_relative_retract_task,
   create_seated_approach_tasks,
 )
+from src.behaviors.outfeed import build_release_to_outfeed_subtree
 from src.behaviors.pick import build_pick_from_infeed_subtree
 from src.behaviors.return_infeed import build_return_to_infeed_subtree
 from src.behaviors.unload_machine import build_unload_machine_subtree
@@ -33,6 +34,7 @@ __all__ = [
   "build_machine_tending_behavior_tree",
   "build_machining_handshake_subtree",
   "build_pick_from_infeed_subtree",
+  "build_release_to_outfeed_subtree",
   "build_return_to_infeed_subtree",
   "build_unload_machine_subtree",
   "create_compliant_touchdown_task",

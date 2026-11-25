@@ -25,7 +25,7 @@ from intrinsic.skills.python import skill_interface
 
 from skills.cell import configure_cell as skill
 from skills.cell import configure_cell_pb2 as pb
-from src.core import drop_off
+from src.core import drop_off, outfeed
 
 
 def _pose(position, quaternion=(0.0, 0.0, 0.0, 1.0)) -> data_types.Pose3:
@@ -329,6 +329,154 @@ class ConfigureCellTest(absltest.TestCase):
       list(conv.pose_from_proto(result.parent_t_place).translation),
       list(expected),
     )
+
+  def _outfeed(self, **overrides):
+    values = dict(
+      count=3,
+      line=pb.Outfeed.Line(y_m=-0.5, start_x_m=-0.1, spacing_m=0.1),
+      approach_tilt_degrees=75.0,
+      part_half_height_m=0.015,
+    )
+    values.update(overrides)
+    return pb.Outfeed(**values)
+
+  def test_a_line_creates_three_frames_per_spot_all_at_one_orientation(self):
+    world = _World()
+    result = _run(world, outfeed=self._outfeed())
+    names = [
+      f"outfeed_{k}_{kind}"
+      for k in range(3)
+      for kind in ("place", "preplace", "approach")
+    ]
+    self.assertCountEqual(world.created, names)
+    self.assertLen(result.parent_t_outfeed_place, 3)
+    rotations = {
+      tuple(round(v, 9) for v in world.root_t[name].rotation.quaternion.xyzw)
+      for name in names
+    }
+    self.assertLen(rotations, 1)
+    for k in range(3):
+      place = world.root_t[f"outfeed_{k}_place"].translation
+      self.assertSequenceAlmostEqual(list(place), [-0.1 + 0.1 * k, -0.5, 0.015])
+      expected = outfeed.spot_frames(
+        outfeed.line_spots(3, -0.5, -0.1, 0.1)[k], 75.0, 0.015
+      )[0]
+      self.assertSequenceAlmostEqual(list(place), list(expected[0]))
+
+  def test_an_arc_turns_each_spot_with_its_bearing_at_one_distance(self):
+    world = _World()
+    arc = pb.Outfeed.Arc(
+      radius_m=0.5, start_bearing_degrees=-100.0, step_degrees=12.0
+    )
+    _run(world, outfeed=self._outfeed(line=None, arc=arc))
+    places = [world.root_t[f"outfeed_{k}_place"] for k in range(3)]
+    for place in places:
+      self.assertAlmostEqual(math.hypot(*place.translation[:2]), 0.5, places=6)
+    self.assertNotEqual(
+      tuple(places[0].rotation.quaternion.xyzw),
+      tuple(places[1].rotation.quaternion.xyzw),
+    )
+
+  def test_existing_outfeed_frames_are_moved_not_created(self):
+    world = _World()
+    _run(world, outfeed=self._outfeed(count=1))
+    world._nodes["root"].frame_names += [
+      "outfeed_0_place",
+      "outfeed_0_preplace",
+      "outfeed_0_approach",
+    ]
+    world.created.clear()
+    _run(
+      world,
+      outfeed=self._outfeed(
+        count=1, line=pb.Outfeed.Line(y_m=-0.6, start_x_m=0.0, spacing_m=0.1)
+      ),
+    )
+    self.assertEmpty(world.created)
+    self.assertSequenceAlmostEqual(
+      list(world.root_t["outfeed_0_place"].translation), [0.0, -0.6, 0.015]
+    )
+
+  def test_the_transit_frame_is_the_view_turned_about_the_base(self):
+    world = _World()
+    view_before = world.root_t["view"]
+    result = _run(
+      world, outfeed=self._outfeed(count=1, transit_rotation_degrees=-90.0)
+    )
+    self.assertIn("outfeed_transit", world.created)
+    turn = _pose((0, 0, 0), _yaw(-90))
+    expected = turn * view_before
+    got = world.root_t["outfeed_transit"]
+    self.assertSequenceAlmostEqual(
+      list(got.translation), list(expected.translation)
+    )
+    self.assertSequenceAlmostEqual(
+      list(got.rotation.quaternion.xyzw),
+      list(expected.rotation.quaternion.xyzw),
+    )
+    self.assertTrue(result.HasField("parent_t_outfeed_transit"))
+
+  def test_the_transit_frame_follows_a_view_moved_in_the_same_call(self):
+    world = _World()
+    _run(
+      world,
+      printer_distance_m=0.62,
+      outfeed=self._outfeed(count=1, transit_rotation_degrees=-90.0),
+    )
+    moved_view = world.root_t["view"]
+    turn = _pose((0, 0, 0), _yaw(-90))
+    self.assertSequenceAlmostEqual(
+      list(world.root_t["outfeed_transit"].translation),
+      list((turn * moved_view).translation),
+    )
+
+  def test_no_transit_rotation_means_no_transit_frame(self):
+    world = _World()
+    result = _run(world, outfeed=self._outfeed(count=1))
+    self.assertNotIn("outfeed_transit", world.created)
+    self.assertFalse(result.HasField("parent_t_outfeed_transit"))
+
+  def test_a_transit_rotation_out_of_range_is_refused(self):
+    world = _World()
+    for turn in (181.0, -200.0, float("nan")):
+      self.assertEqual(
+        _code(
+          world,
+          outfeed=self._outfeed(count=1, transit_rotation_degrees=turn),
+        ),
+        skill.INVALID_INPUT,
+        turn,
+      )
+    self.assertEmpty(world.batches)
+
+  def test_the_outfeed_and_the_printer_go_in_one_update(self):
+    world = _World()
+    _run(world, printer_distance_m=0.60, outfeed=self._outfeed(count=2))
+    self.assertLen(world.batches, 1)
+    # printer, view, and two spots' three frames.
+    self.assertLen(world.batches[0].updates, 2 + 6)
+
+  def test_a_bad_outfeed_is_refused_and_changes_nothing(self):
+    world = _World()
+    for overrides in (
+      dict(count=0),
+      dict(count=33),
+      dict(approach_tilt_degrees=90.0),
+      dict(part_half_height_m=0.0),
+      dict(frame_prefix=""),
+      dict(grasp_depth_m=0.5),
+      dict(line=pb.Outfeed.Line(y_m=float("nan"), spacing_m=0.1)),
+      dict(line=pb.Outfeed.Line(y_m=0.0, start_x_m=0.0, spacing_m=0.1)),
+      dict(line=None, arc=pb.Outfeed.Arc(radius_m=0.0)),
+      dict(line=None, arc=pb.Outfeed.Arc(radius_m=5.0, step_degrees=10.0)),
+      dict(line=None),
+    ):
+      self.assertEqual(
+        _code(world, outfeed=self._outfeed(**overrides)),
+        skill.INVALID_INPUT,
+        overrides,
+      )
+    self.assertEmpty(world.batches)
 
   def test_a_frames_and_the_printer_go_in_one_update(self):
     world = _World()

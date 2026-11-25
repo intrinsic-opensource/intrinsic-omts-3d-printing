@@ -382,6 +382,42 @@ class GraspConfig:
 
 
 @dataclasses.dataclass(frozen=True)
+class OutfeedSpot:
+  """One spot of the outfeed line: the frames a released part is set down at.
+
+  Attributes:
+      place_frame: Frame of the tool holding the part at its resting height.
+      preplace_frame: Pre-place frame, backed off along the approach.
+      approach_frame: Entry frame above `preplace_frame`.
+  """
+
+  place_frame: str
+  preplace_frame: str
+  approach_frame: str
+
+
+@dataclasses.dataclass(frozen=True)
+class OutfeedConfig:
+  """The outfeed line: where finished parts are released, instead of the bed.
+
+  When set, a cycle picks the part from the infeed and releases it at an outfeed
+  spot, then goes back to `view`: no set-down at A, no machine steps, no return
+  to the bed.
+
+  Attributes:
+      spots: The line's spots, in the order they are filled. Only the first is
+        used for now.
+      transit_frame: Optional frame the arm passes through between `view` and a
+        spot, both ways: `view` turned about the robot's base so the tool faces
+        the outfeed. Without it the move from `view` to a spot is planned in one
+        go, which can sweep the held part past the printer's corner.
+  """
+
+  spots: tuple[OutfeedSpot, ...]
+  transit_frame: str | None = None
+
+
+@dataclasses.dataclass(frozen=True)
 class AppConfig:
   """Top-level configuration for a machine tending cell deployment.
 
@@ -395,6 +431,7 @@ class AppConfig:
       machine: Optional CNC enclosure, vise, and handshake configuration.
       grasp: Grasp planner selection. Defaults to the built-in cuboid-center
         planner when the section is omitted.
+      outfeed: Optional outfeed line. `None` keeps the machine tending cycle.
   """
 
   cell_name: str
@@ -405,6 +442,7 @@ class AppConfig:
   cycle: CycleConfig
   machine: MachineConfig | None = None
   grasp: GraspConfig = dataclasses.field(default_factory=GraspConfig)
+  outfeed: OutfeedConfig | None = None
 
   @property
   def pick_touchdown(self) -> Touchdown:
@@ -541,6 +579,34 @@ def _construct_section(
   return cls(**section_dict)
 
 
+def _load_outfeed(
+  raw_data: dict[str, Any], file_path: pathlib.Path
+) -> OutfeedConfig | None:
+  """Reads the optional `outfeed` section: a non-empty list of spots."""
+  section = raw_data.get("outfeed")
+  if section is None:
+    return None
+  spots = section.get("spots") if isinstance(section, dict) else None
+  if not isinstance(spots, list) or not spots:
+    raise KeyError(
+      f"Section 'outfeed' of {file_path} needs a non-empty 'spots' list"
+    )
+  required = {f.name for f in dataclasses.fields(OutfeedSpot)}
+  for index, spot in enumerate(spots):
+    missing = required - set(spot) if isinstance(spot, dict) else required
+    if missing:
+      raise KeyError(
+        f"Missing required configuration field(s) {sorted(missing)} in "
+        f"outfeed spot {index} of {file_path}"
+      )
+  return OutfeedConfig(
+    spots=tuple(
+      OutfeedSpot(**{k: spot[k] for k in required}) for spot in spots
+    ),
+    transit_frame=section.get("transit_frame"),
+  )
+
+
 def load_app_config(path: str | pathlib.Path) -> AppConfig:
   """Loads and strictly validates an AppConfig from a YAML or JSON configuration file.
 
@@ -574,6 +640,8 @@ def load_app_config(path: str | pathlib.Path) -> AppConfig:
     else GraspConfig()
   )
 
+  outfeed_config = _load_outfeed(raw_data, file_path)
+
   return AppConfig(
     cell_name=str(raw_data["cell_name"]),
     robot=_construct_section(RobotConfig, raw_data, "robot", file_path),
@@ -583,4 +651,5 @@ def load_app_config(path: str | pathlib.Path) -> AppConfig:
     frames=_construct_section(FramesConfig, raw_data, "frames", file_path),
     cycle=_construct_section(CycleConfig, raw_data, "cycle", file_path),
     grasp=grasp_config,
+    outfeed=outfeed_config,
   )

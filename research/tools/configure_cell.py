@@ -18,10 +18,10 @@ Reads configs/rebot/cell_params.yaml (flags override it) and writes to --out:
 
 * cell.updates.pbtxt: the printer and camera poses, the target on the bed
   centre, the other targets parked, and the frames that follow from them (view,
-  which keeps the camera where it was relative to the printer, and A's frames
-  at the target's height).
+  which keeps the camera where it was relative to the printer, A's frames and
+  the outfeed spots' at the target's height).
 * app_config.yaml: configs/rebot/app_config.yaml with the target and the return
-  area on the moved bed.
+  area on the moved bed, and the outfeed spots' frames.
 * register.sh: registers the target with the pose estimator (--register_all:
   every target in the library).
 
@@ -36,15 +36,19 @@ no apply_scene_updates is needed. The checks run first, on the host.
   bazel run //research/tools:configure_cell -- --out /tmp/cell
   bazel run //research/tools:configure_cell -- --out /tmp/cell \\
     --printer_distance 0.62 --target test_benchy
+  bazel run //research/tools:configure_cell -- --out /tmp/cell \\
+    --outfeed_layout arc --outfeed_count 4
 """
 
 import argparse
+import math
 import re
 from pathlib import Path
 
 import numpy as np
 
 from research.tools import a_frames, cell, cell_checks, part_trial
+from src.core import outfeed
 
 MODELS_DIR = "$HOME/intrinsic-models/nvidia_pose_estimator"
 
@@ -76,8 +80,56 @@ def _register(name: str, target: dict) -> str:
 """
 
 
-def _app_config(name: str, target: dict, return_x: float) -> str:
+OUTFEED_PREFIX = "outfeed"
+
+
+def _outfeed_spots(settings: dict) -> list[outfeed.Spot]:
+  """The spots of the layout `settings` (cell_params.yaml's `outfeed`) picks."""
+  layout, count = settings["layout"], int(settings["count"])
+  if layout == "line":
+    line = settings["line"]
+    return outfeed.line_spots(
+      count, line["y"], line["start_x"], line["spacing"]
+    )
+  if layout == "arc":
+    arc = settings["arc"]
+    return outfeed.arc_spots(
+      count, arc["radius"], arc["start_bearing"], arc["step"]
+    )
+  raise SystemExit(f"outfeed layout must be line or arc, not {layout!r}")
+
+
+def _outfeed_config(count: int, transit: bool) -> str:
+  """app_config.yaml's `outfeed` section, with `count` spots and, if the cell
+  has one, the transit frame."""
+  spots = "".join(
+    f'    - place_frame: "{place}"\n'
+    f'      preplace_frame: "{pre}"\n'
+    f'      approach_frame: "{approach}"\n'
+    for place, pre, approach in (
+      outfeed.frame_names(OUTFEED_PREFIX, k) for k in range(count)
+    )
+  )
+  frame = f'  transit_frame: "{OUTFEED_PREFIX}_transit"\n' if transit else ""
+  return "outfeed:\n  spots:\n" + spots + frame
+
+
+def _app_config(
+  name: str,
+  target: dict,
+  return_x: float,
+  spot_count: int,
+  transit: bool = False,
+) -> str:
   config = (cell.CONFIGS / "app_config.yaml").read_text()
+  config, n = re.subn(
+    r"^outfeed:\n  spots:\n(?:    .*\n|      .*\n)+(?:  transit_frame: .*\n)?",
+    lambda _: _outfeed_config(spot_count, transit),
+    config,
+    flags=re.M,
+  )
+  if n != 1:
+    raise SystemExit("the outfeed section not found once in app_config.yaml")
   for key, value in (
     ("workpiece_id", f'"{name}"'),
     ("scene_object_id", f'"ai.intrinsic.{name}"'),
@@ -92,6 +144,39 @@ def _app_config(name: str, target: dict, return_x: float) -> str:
   return config
 
 
+def _outfeed_proto(settings: dict, tilt: float, half_height: float):
+  """The skill's `Outfeed` for cell_params.yaml's `outfeed` section."""
+  from skills.cell import configure_cell_pb2
+
+  common = dict(
+    count=int(settings["count"]),
+    approach_tilt_degrees=tilt,
+    part_half_height_m=half_height,
+    frame_prefix=OUTFEED_PREFIX,
+  )
+  if settings.get("transit_rotation_degrees") is not None:
+    common["transit_rotation_degrees"] = float(
+      settings["transit_rotation_degrees"]
+    )
+  if settings["layout"] == "line":
+    line = settings["line"]
+    return configure_cell_pb2.Outfeed(
+      line=configure_cell_pb2.Outfeed.Line(
+        y_m=line["y"], start_x_m=line["start_x"], spacing_m=line["spacing"]
+      ),
+      **common,
+    )
+  arc = settings["arc"]
+  return configure_cell_pb2.Outfeed(
+    arc=configure_cell_pb2.Outfeed.Arc(
+      radius_m=arc["radius"],
+      start_bearing_degrees=arc["start_bearing"],
+      step_degrees=arc["step"],
+    ),
+    **common,
+  )
+
+
 def _apply(
   address: str,
   distance: float,
@@ -101,10 +186,12 @@ def _apply(
   half_height: float,
   lying: bool,
   others,
+  outfeed_settings: dict,
 ) -> None:
-  """Sets the printer, the camera mount, the view, A's frames, the part on the
-  bed and the parked parts with the cluster's `configure_cell` skill, in one
-  world update, and in simulation brings Gazebo to that world."""
+  """Sets the printer, the camera mount, the view, A's frames, the outfeed spots'
+  frames, the part on the bed and the parked parts with the cluster's
+  `configure_cell` skill, in one world update, and in simulation brings Gazebo
+  to that world."""
   from intrinsic.math.proto import point_pb2
   from intrinsic.solutions import behavior_tree as bt
   from intrinsic.solutions import deployments, worlds
@@ -124,6 +211,7 @@ def _apply(
       bearing_degrees=part_trial.A_BEARING,
       part_half_height_m=half_height,
     ),
+    outfeed=_outfeed_proto(outfeed_settings, tilt, half_height),
     target=configure_cell_pb2.Target(
       object_name=target_name,
       bed_top_in_printer_m=point(cell.bed_top_local()),
@@ -150,7 +238,71 @@ def _apply(
     print("The simulation now matches")
 
 
-def main() -> None:
+def _turned(pose: np.ndarray, degrees: float) -> np.ndarray:
+  """`pose` turned about the world z axis (the robot's base)."""
+  turn = np.eye(4)
+  turn[:3, :3] = cell.rot_z(math.radians(degrees))
+  return turn @ pose
+
+
+def half_height_of(target: dict) -> float:
+  """Half the part's height as it rests on the bed: half its width if it lies."""
+  sx, _, sz = target["size_m"]
+  return (sx if target.get("lying", False) else sz) / 2
+
+
+def outfeed_settings_for(
+  params: dict, layout: str | None = None, count: int | None = None
+) -> dict:
+  """cell_params.yaml's `outfeed` section, with the layout and count replaced."""
+  settings = dict(params["outfeed"])
+  if layout:
+    settings["layout"] = layout
+  if count:
+    settings["count"] = count
+  return settings
+
+
+def check_cell(
+  distance: float,
+  offset,
+  half_height: float,
+  spots: list[outfeed.Spot],
+  transit_rotation_degrees: float | None = None,
+) -> list[str]:
+  """The offline checks (research/tools/cell_checks.py) for a part of
+  `half_height` and the outfeed `spots`, with the transit frame if there is a
+  rotation for it. Slow: about 20 s."""
+  view = cell_checks.view_for(
+    cell_checks.committed_view_camera(), distance, offset
+  )
+  c = cell.Cell(samples=800)
+  rng = np.random.default_rng(7)
+  tilt = cell.app_setting("approach_tilt_degrees")
+  approach = cell.app_setting("approach_offset_z")
+  problems = (
+    cell_checks.check_mount(c)
+    + cell_checks.check_view(c, view, half_height, rng)
+    + cell_checks.check_grasps(c, half_height, tilt, approach, rng)
+    + cell_checks.check_a(
+      c, half_height, tilt, part_trial.A_RADIUS, part_trial.A_BEARING, rng
+    )
+    + cell_checks.check_outfeed(c, half_height, tilt, spots, rng)
+  )
+  if transit_rotation_degrees is not None:
+    problems += cell_checks.check_outfeed_transit(
+      c,
+      view,
+      _turned(view, transit_rotation_degrees),
+      half_height,
+      tilt,
+      spots,
+      rng,
+    )
+  return problems
+
+
+def main(argv: list[str] | None = None) -> None:
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
   parser.add_argument("--out", type=Path, required=True)
   parser.add_argument("--printer_distance", type=float, default=None)
@@ -167,6 +319,25 @@ def main() -> None:
     action="store_true",
     help="the cell was deployed without --//:test_parts: park nothing",
   )
+  parser.add_argument(
+    "--outfeed_layout",
+    choices=("line", "arc"),
+    default=None,
+    help="the outfeed line's layout (default: cell_params.yaml's)",
+  )
+  parser.add_argument("--outfeed_count", type=int, default=None)
+  parser.add_argument(
+    "--skip_checks",
+    action="store_true",
+    help="do not run the offline checks (about 20 s each time), because the "
+    "caller has run them for these values (fill_outfeed does, once)",
+  )
+  parser.add_argument(
+    "--keep_parked",
+    action="store_true",
+    help="leave the other parts where they are instead of parking them, so "
+    "parts already on the outfeed line stay there",
+  )
   parser.add_argument("--register_all", action="store_true")
   parser.add_argument(
     "--apply",
@@ -178,7 +349,7 @@ def main() -> None:
   parser.add_argument(
     "--force", action="store_true", help="write even if the checks fail"
   )
-  args = parser.parse_args()
+  args = parser.parse_args(argv)
 
   params = cell.parameters()
   distance = args.printer_distance or params["printer_distance_m"]
@@ -188,30 +359,35 @@ def main() -> None:
   if name not in library:
     raise SystemExit(f"{name} not in targets.yaml: {sorted(library)}")
   target = library[name]
-  sx, sy, sz = target["size_m"]
   lying = target.get("lying", False)
-  half_height = (sx if lying else sz) / 2
+  half_height = half_height_of(target)
 
-  committed_camera = cell_checks.committed_view_camera()
-  view = cell_checks.view_for(committed_camera, distance, offset)
-  c = cell.Cell(samples=800)
-  rng = np.random.default_rng(7)
-  tilt = cell.app_setting("approach_tilt_degrees")
-  approach = cell.app_setting("approach_offset_z")
-  problems = (
-    cell_checks.check_mount(c)
-    + cell_checks.check_view(c, view, half_height, rng)
-    + cell_checks.check_grasps(c, half_height, tilt, approach, rng)
-    + cell_checks.check_a(
-      c, half_height, tilt, part_trial.A_RADIUS, part_trial.A_BEARING, rng
-    )
+  outfeed_settings = outfeed_settings_for(
+    params, args.outfeed_layout, args.outfeed_count
   )
-  print(f"printer {distance} m, camera {offset}, target {name}")
+  spots = _outfeed_spots(outfeed_settings)
+
+  view = cell_checks.view_for(
+    cell_checks.committed_view_camera(), distance, offset
+  )
+  tilt = cell.app_setting("approach_tilt_degrees")
+  transit_degrees = outfeed_settings.get("transit_rotation_degrees")
+  problems = (
+    []
+    if args.skip_checks
+    else check_cell(distance, offset, half_height, spots, transit_degrees)
+  )
+  print(
+    f"printer {distance} m, camera {offset}, target {name}, outfeed "
+    f"{outfeed_settings['layout']} x {len(spots)}"
+  )
   for p in problems:
     print(f"  FAILS {p}")
   if problems and not args.force:
     raise SystemExit("not written: see research/HANDOFF.md for the limits")
-  if not problems:
+  if args.skip_checks:
+    print("  checks skipped")
+  elif not problems:
     print("  checks pass")
 
   rest = np.eye(3)
@@ -234,11 +410,31 @@ def main() -> None:
       half_height=half_height,
     ),
   }
+  for k, spot in enumerate(spots):
+    spot_frames = a_frames.frames(
+      tilt,
+      math.hypot(spot.x, spot.y),
+      math.degrees(math.atan2(spot.y, spot.x)),
+      half_height=half_height,
+      yaw=spot.yaw_degrees,
+    )
+    for frame_name, key in zip(
+      outfeed.frame_names(OUTFEED_PREFIX, k),
+      ("place_vise", "pre_place_vise", "machine_approach"),
+      strict=True,
+    ):
+      frames[frame_name] = spot_frames[key]
+  if transit_degrees is not None:
+    frames[f"{OUTFEED_PREFIX}_transit"] = _turned(view, transit_degrees)
   others = [n for n in library if n != name]
   if args.no_test_parts:
     others = [n for n in others if n == "rebot_printed_part"]
+  if args.keep_parked:
+    others = []
   args.out.mkdir(parents=True, exist_ok=True)
-  (args.out / "app_config.yaml").write_text(_app_config(name, target, bed[0]))
+  (args.out / "app_config.yaml").write_text(
+    _app_config(name, target, bed[0], len(spots), transit_degrees is not None)
+  )
   out = args.out.resolve()
 
   if args.apply:
@@ -251,6 +447,7 @@ def main() -> None:
       half_height,
       lying,
       others,
+      outfeed_settings,
     )
     print(f"""The app's config for this target is in {out}/app_config.yaml.
 Nothing is left to apply by hand. From the repository root:

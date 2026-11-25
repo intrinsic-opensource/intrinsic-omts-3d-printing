@@ -1340,6 +1340,275 @@ the edge is not a guarantee. Use the left column.
   After changing a part's mesh, restart the pose estimator's pod, which caches by
   id.
 
+---
+
+## 5e. Outfeed line: a line of finished parts on the robot's right (planned 2026-11-24)
+
+**Goal.** An outfeed area on the robot's right, reserved for releasing parts. After
+each pick cycle the next free spot is the release target, so after a few cycles
+all the printed parts stand in a line there. Today the cycle picks the part from
+the bed, sets it down at A, picks it up and returns it to the bed.
+
+**Decisions** (2026-11-24):
+
+* **Parts:** several parts, one per cycle. N parts are in the sim, parked off to
+  the side (`configure_cell`'s parked list), and the host puts the next one on the bed between cycles (a world
+  update plus a Gazebo reset, as `configure_cell --apply` does). The tree stays
+  one cycle per operation. A part created inside the tree is blocked: it needs a
+  way to bring Gazebo up to the belief world, and we found none
+  (`research/SIMULATOR_SYNC.md`).
+* **Cycle shape:** drop A. Pick from the bed, carry the part to the parking spot,
+  release, go back to `view`. The return to the bed and its random shift
+  (`cycle.return_shift`) do not apply to a parked part.
+* **Layout:** I choose, and check it with the existing reach checks.
+
+**Offline reach check** (2026-11-24, `research/tools` `cell_checks`: 75° tilt,
+the three place frames per spot as for A, joint margins, clearance from the
+printer, camera height). The robot faces the printer along +x, so its right is -y.
+Reachable spots (ok), by distance to the right and x:
+
+| y \ x (m) | -0.2 | -0.1 | 0.0 | 0.1 | 0.2 | 0.3 | 0.4 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -0.35 | X | X | X | X | X | X | ok |
+| -0.40 | X | X | X | X | X | ok | ok |
+| -0.45 | ok | X | X | X | ok | ok | ok |
+| -0.50 | ok | ok | ok | ok | ok | ok | ok |
+| -0.55 | ok | ok | ok | ok | ok | ok | ok |
+| -0.60 | ok | ok | ok | ok | ok | ok | ok |
+
+Every spot at y = -0.50 or further passes across the whole span, the same 0.5 m
+limit as A. This table has the tool leaning away along each spot's bearing, so the
+parts would fan out. **With the tool fixed at yaw -90° for every spot** (leaning
+along -y, so each part is set down axis aligned, with its jaw axis along the line;
+2026-11-24, `a_frames.frames(..., yaw=-90)`), the same check gives:
+
+| y \ x (m) | -0.2 | -0.1 | 0.0 | 0.1 | 0.2 | 0.3 | 0.4 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -0.45 | ok | ok | X | ok | ok | X | X |
+| -0.50 | ok | ok | ok | ok | ok | ok | X |
+| -0.55 | ok | ok | ok | ok | ok | ok | X |
+| -0.60 | ok | ok | ok | ok | ok | ok | ok |
+
+At y = -0.50 the line passes for x = -0.20 to 0.30, so the proposed one fits, with
+spot 4 (x = 0.30) next to a failing x = 0.40. If that margin matters, shift the
+line to x = -0.20 to 0.20. Not checked: the gripper against a part already in the
+line.
+
+**Proposed layout:** the outfeed line, along x at y = -0.50, five spots at x = -0.10 to 0.30,
+10 cm apart. The part is 4 cm wide and the open gripper about 10 cm, so the spacing
+is a judgement, not a measurement: confirm it in step 1 or 2 by placing next to a
+parked part. Each spot has A's three frames (place, pre-place, approach), from the
+`a_frames` maths.
+
+**Two layouts, set in config** (2026-11-24). `configs/rebot/cell_params.yaml` has an
+`outfeed` section: `layout` (`line` or `arc`), `count`, and each layout's numbers.
+* **line:** spots along x at y = -0.50 from x = 0.30, stepping by -0.10 m, so 10 cm
+  apart, the tool at yaw -90° for every spot, so each part is set down axis aligned.
+* **arc:** spots on a circle of 0.50 m around the robot's base, from bearing
+  -52°, stepping by -12° (a 10 cm chord), the tool leaning
+  along each spot's bearing, so every part has the same distance from the robot
+  and the same orientation relative to it.
+
+The `outfeed` section also has `transit_rotation_degrees` (see the waypoint below).
+
+**Order** (2026-11-24): spot 0 is the nearest to the printer and each next spot is
+further from it, in both layouts (a negative `spacing` or `step`). The first runs
+below (steps 1 and 2 and the arc fills) used the reverse, with spot 0 at x = -0.10
+or bearing -100°: their coordinates are in that order. In the new order, on k3s,
+`fill_outfeed --reset` with two parts ended at x 300.0 and 200.6 mm, y -505.7 and
+-505.6 on the line, and at bearings -52.0° and -64.1° at radius 505.7 mm on the arc:
+spot 0 nearest the printer, spot 1 one step further.
+
+`ai.omts.configure_cell` has an `outfeed` group that creates or moves the spots'
+frames (`outfeed_<k>_place`, `_preplace`, `_approach`) in the same update as the
+rest of the cell, and `configure_cell` writes the matching `outfeed.spots` list
+into `app_config.yaml`; `--outfeed_layout` and `--outfeed_count` override the
+file. The offline check covers every spot's three frames (reach, joint margins,
+clearance from the printer, camera height): both layouts pass for the defaults.
+Geometry: `src/core/outfeed.py`. The committed `scene.updates.pbtxt` keeps spot 0
+of the line, so a deploy without `configure_cell` still has one spot.
+
+**Steps**, each ending in a demo:
+
+1. **One fixed spot, no A.** Pick from the bed, release at spot 0, back to `view`.
+   Demo: one cycle ends with the part at spot 0. **DONE 2026-11-24.**
+   * `outfeed` section in `configs/rebot/app_config.yaml` (`OutfeedConfig`, a list
+     of spots, each with a place, pre-place and approach frame; only the first is
+     used). When set, `build_machine_tending_behavior_tree` builds
+     pick, `build_release_to_outfeed_subtree`: the machine load subtree on the
+     spot's frames (no new motion code), then a move back to `view`. A cell without
+     the section builds the machine tending cycle as before.
+   * Spot 0's frames (`outfeed_0_place`, `_preplace`, `_approach`) are in
+     `configs/rebot/scene.updates.pbtxt`, from `src/core/drop_off.py` at x = -0.10
+     (x = 0.30 since the order was reversed), y = -0.50, 75° tilt, tool yaw -90° (`yaw_degrees`; the lean no longer follows
+     the spot's bearing, so every spot has the same orientation). They are belief-world frames: `apply_scene_updates` with
+     the three blocks is enough, no Gazebo reset.
+   * On k3s, one Benchy cycle (`configure_cell --apply --target test_benchy`, then
+     `omts_app`, 53 s) ended with the part on the ground at x -108.7, y -504.0,
+     z 25.4 mm, flat (the same height as at A): 8.7 mm and 4.0 mm from the spot's
+     centre, which is the grasp offset. Its yaw was -101°, turned with the spot's
+     bearing; with the yaw fixed at -90° (second run) it ended at x -106.5,
+     y -505.6, yaw -90.4°: axis aligned. Not recorded: the release itself (the pose logger lost the stream
+     when the simulation restarted), so release drift at the spot is unchecked.
+   * With the layout in config (see above), on k3s after a redeploy: `configure_cell
+     --apply --target test_benchy --outfeed_layout line` then one cycle ended at
+     x -102.0, y -505.5, yaw -90.1° (spot 0 at -100, -500); with `arc` it ended at
+     x -85.6, y -498.2, yaw -99.9° (spot 0 at -86.8, -492.4, bearing -100°).
+   * The existing test of the A-and-return cycle now builds its tree with
+     `outfeed=None`, since the committed cell no longer runs it; a new test checks
+     the outfeed cycle's shape and that nothing sets the part down at A.
+   * Names in the tree and logs still say "Load Vise", because the load subtree is
+     reused; rename if it gets confusing.
+2. **A spot per cycle.** The spot is chosen by the operation, which the host
+   starts once per part. Demo: three parts end in a row, and the gripper clears
+   the neighbour. **DONE 2026-11-24.**
+   * `omts_app --outfeed_spot=K` (and `build_machine_tending_behavior_tree(...,
+     outfeed_spot=K)`) builds the cycle for spot K of the config's line; a spot
+     outside it is refused. The tree stays one cycle per operation, so no counter
+     is needed in it: choosing the frames at run time would need dynamic frame
+     names, and the host has to put the next part on the bed between operations
+     anyway (step 3), so the host passes the index.
+   * `configure_cell --keep_parked` puts the target on the bed and leaves the other
+     parts where they are, so parts already in the line stay. Without it the tool
+     parks every other part, which clears the line.
+   * The loop, from the repository root (three parts, line layout):
+     ```bash
+     k=0
+     for P in rebot_printed_part test_cuboid_40x40x40 test_benchy; do
+       bazel run //research/tools:configure_cell -- --out /tmp/cell_$k --apply \
+         --keep_parked --target $P
+       bazel run //src:omts_app -- --address=localhost:17080 \
+         --config=/tmp/cell_$k/app_config.yaml --num_cycles=1 --outfeed_spot=$k
+       k=$((k+1))
+     done
+     ```
+     Reset first with `configure_cell --apply` (no `--keep_parked`), which parks
+     everything. Each new part is registered by its first cycle (about a minute).
+   * On k3s, three cycles (default part, 40×40×40 cube, Benchy), each "Execution
+     successful" in 45 to 110 s, left the parts at x -100.1, -0.1 and 103.6 mm
+     (spots at -100, 0, 100) and y -505.8, -505.8, -505.5 mm (spots at -500), all
+     flat. The cube's yaw read -279.1° against -90.0° and -89.9° for the other two;
+     that reading is not reliable (see the arc run below: the yaw formula used
+     breaks for a part that is upside down, and the cuboids can be). The earlier
+     parts did not move when
+     the next was released beside them, so the gripper clears a neighbour 10 cm
+     away. Not measured: the release itself (the pose logger still loses the
+     stream after a simulation reset).
+   * **Parts must be at least 25 mm tall** (section 4a): a 20 or 22 mm cuboid
+     failed, the gripper body reaching the ground at the spot, as it does at A. A
+     first attempt with them as parts 2 and 3 failed at the first of them
+     (the retract after the pick) and left it held by the gripper, which then
+     failed the next cycle's pick: reset with `configure_cell --apply`.
+   * **Five spots, arc layout** (2026-11-24), parked parts only: the default part,
+     the 40×40×40 cube, the Benchy, the 80×20×40 cuboid and the lying 30×60
+     cylinder, one operation each, each "Execution successful" in about 70 s
+     (registration included). They left the parts at a radius of 505.7 to 505.9 mm
+     and bearings -100.0°, -88.0°, -76.0°, -64.0° and -51.9° (spots at 500 mm and
+     -100° + 12° k): 5.7 to 5.9 mm from their spots' centres, a constant grasp
+     offset, all at their resting height (z 15.0, 20.0, 25.4, 20.0 and 15.3 mm).
+     Yaw, read as Euler angles: the default part and the Benchy equal the bearing;
+     the cube (92.0°) and the 80×20×40 (116.0°) equal the bearing + 180° with a
+     roll of 180°, that is, they are upside down, which a cuboid cannot show and
+     which the estimator does not tell apart. So every part is aligned with its
+     bearing. (An earlier reading of "9° off" for the cube and "35° off" for the
+     80×20×40 used 2·atan2(qz, qw) as the yaw, which is wrong for a part with a
+     roll of 180°; it was a mistake in the check, not in the placement.) The
+     95×20×40 cuboid, tried first at spot 4, failed twice at "Estimate 6D Workpiece
+     Poses": the estimator returns 0 pose estimates for it on the bed. Parts under
+     25 mm are out (the 20 and 22 mm cuboids). The standing cylinder failed at the
+     pre-grasp (the planner finds no path: 2 pose estimates, then "Move to Dynamic
+     Pre-Grasp" fails), as in step 4b: its grasp direction is arbitrary, so it needs
+     the lean-toward-the-robot rule. The lying cylinder worked. Copies of the
+     default part, which would give five identical parts, were tried and dropped:
+     they need new scene objects in the deployment.
+   * **Check each step.** An earlier arc attempt ran straight on after a cycle that
+     never started ("Solution not ready" right after a reset), so the default part
+     stayed on the bed and the next targets were put on top of it; the next pick
+     failed. The loop must stop at the first failure, and the first target after a
+     reset is the part already on the bed.
+3. **Supply the parts.** One command that loops over the parts. Demo: five cycles
+   leave five parts in the line. **DONE 2026-11-24.**
+   * `research/tools:fill_outfeed`: for each part, in order, `configure_cell
+     --apply --keep_parked --target <part>` (the next part on the bed, the spots'
+     frames, the simulation brought to the world), then `omts_app`'s cycle for that
+     spot, in the same process. It stops at the first failure and prints how to go on
+     (`--first_spot K --parts ...`); `--reset` first parks every part. It refuses a
+     part under 25 mm, an unknown or repeated one, and more parts than spots.
+     Defaults: the five that worked, in this order: the default part, the 40×40×40
+     cube, the Benchy, the 80×20×40 cuboid and the lying cylinder.
+     `configure_cell.main` takes an `argv` for it. Tested with the two calls
+     mocked (`test_fill_outfeed`).
+   * On k3s, `fill_outfeed --reset --outfeed_layout arc` filled the arc: spot 0
+     ran; the command stopped at spot 1 with "Solution not ready", the
+     `code-execution` container having been OOM-killed (3 restarts that run); resumed
+     with `--first_spot 1`, spots 1 to 3 ran and it stopped again at spot 4 with the
+     same error, the restart count unchanged; `--first_spot 4` then finished. The
+     five parts ended at a radius of 505.6 to 505.9 mm, bearings -100.0° to -51.8°,
+     5.6 to 5.9 mm from their spots' centres, at their resting heights. The stop
+     and resume worked as designed; the readiness error is the cluster's (the
+     container's memory limit is not ours to change), and a retry for it is not
+     built.
+   * **The held part hit the printer on the way to the nearest spot** (2026-11-25,
+     reported on the line's spot 0 at x = 0.30). Cause: the release step is the
+     machine load subtree, which, when the cell has an enclosure
+     (`robot.enclosure_object_name: "printer"`), excludes printer↔part and
+     gripper↔printer from the planner's collision checks on every move, so the
+     arm can reach into a machine. The planner was told to ignore the printer.
+     The release now builds that subtree without the enclosure (the outfeed is
+     outside the printer, next to it). Measured: the held part's pose logged in
+     Gazebo through the transit to spot 0, against the printer's collision boxes:
+     -1.0 cm (1 cm inside the front-left bezel) without the fix, +0.6 cm (clear of
+     the left wall) with it; both runs finished "Execution successful". The
+     grasped part is attached to the arm's flange before the move, so the planner
+     does check it (the code excludes part↔ground on purpose, which only makes
+     sense if it does), except against the printer where it was excluded.
+     The margin is thin: an offline joint-space sweep of the view-to-spot move put
+     the nearest spots within 1 cm of that bezel and the farther ones at 2.7 to
+     4.4 cm. A transit waypoint out to the robot's right (offline search: about
+     (0.05, -0.35, 0.20), tool at the spots' orientation, 3.1 cm worst over both
+     layouts) would add margin.
+   * **A transit waypoint** (2026-11-25), as asked: the `view` pose turned -90°
+     about the robot's base, so the tool faces the outfeed (a pure swing of joint
+     1 from the `view` configuration). `outfeed_transit` is a frame that
+     `configure_cell`'s outfeed group creates and keeps as `view` turned by
+     `transit_rotation_degrees` (cell_params.yaml, -90; the skill's
+     `Outfeed.transit_rotation_degrees`), following `view` when the printer or camera
+     moves; the committed scene has a copy. The cycle goes `view -> transit ->
+     spot approach -> pre-place` and returns `transit -> view` (`OutfeedConfig.
+     transit_frame`; without it the moves are as before). Offline, a path check
+     (joint-space interpolation, so approximate) over both layouts' five spots
+     gives at least 3.1 cm from the printer (line spot 0, link4 to the left
+     wall), 9.5 cm for the swing from `view`, and 8.7 cm or more for every other spot;
+     `check_cell` runs it, so the checks take about 36 s instead of 22 s (once per
+     fill). Measured in Gazebo through the transit to spot 0, the held part's
+     closest approach to the printer: -1.0 cm originally, +0.6 cm with only the
+     planner fix, 6.3 cm with the waypoint (the closest point is now as it lifts out
+     of the printer, not at the corner). Both layouts then filled all five spots
+     with the checks on, 46 to 68 s per cycle (about 6 s more than before: the
+     detour). The arc's parts ended 5.6 to 5.9 mm from their spots; the line's
+     poses were not read after this run.
+   * **Checks once per fill** (2026-11-24). `configure_cell`'s offline checks take
+     about 22 s (measured: 21.7 and 21.6 s, file mode, no cluster) and ran before
+     every part, while the arm waited. `fill_outfeed` now runs them once before the
+     first part, for each distinct part height (the default part and the lying
+     cylinder share 15 mm: three runs for the five default parts), and passes
+     `configure_cell --skip_checks` for every part. A failed check stops it before
+     anything is applied (`--force` goes on; `--skip_checks` runs none). On k3s,
+     five spots in the arc: 2.9 to 3.3 s to put each part on the bed (the cluster
+     calls: the skill and the simulation sync), against about 25 s before, and 41
+     to 64 s for each cycle (the 64 s one includes registering the cylinder). The
+     parts ended 5.7 to 5.9 mm from their spots, as before.
+
+**Open:**
+
+* Where the counter lives: the host passes the index to each operation in step 3;
+  before that it could live on the blackboard.
+* Five parts in the sim are five separate objects, and the pose estimator tracks one
+  scene object. Whether it finds any of five identical parts is not checked; check
+  it before step 3.
+* The parked parts' height is the same as A's (`a_frames` takes the part's half
+  height), so a taller target needs its spots moved, as A's frames are today.
+
 ## 6. Findings
 
 ### 6.1 reBot top-down reach (checked offline, 2026-10-20)

@@ -39,6 +39,12 @@ py_library(
 )
 
 py_library(
+    name = "outfeed",
+    srcs = ["outfeed.py"],
+    deps = [":drop_off"],
+)
+
+py_library(
     name = "grasp_math",
     srcs = ["grasp_math.py"],
 )
@@ -72,6 +78,7 @@ py_library(
         ":drop_off",
         ":grasp_math",
         ":infeed",
+        ":outfeed",
         ":tray",
         ":types",
         ":workcell",

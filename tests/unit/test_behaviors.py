@@ -45,7 +45,7 @@ from src.behaviors.motions import (
 from src.behaviors.pick import build_pick_from_infeed_subtree
 from src.behaviors.return_infeed import build_return_to_infeed_subtree
 from src.behaviors.unload_machine import build_unload_machine_subtree
-from src.core.config import load_app_config
+from src.core.config import OutfeedConfig, OutfeedSpot, load_app_config
 from src.core.infeed import InfeedStrategy, PerceptionInfeedStrategy
 from src.core.types import InfeedMode
 from src.hardware.grasping import GraspPlannerInterface
@@ -553,7 +553,11 @@ class BehaviorsTest(absltest.TestCase):
 
   def test_rebot_cell_without_force_sensing_builds_no_contact_moves(self):
     """The reBot has no force-torque sensor; touchdowns become linear seats."""
-    rebot_config = load_app_config("configs/rebot/app_config.yaml")
+    # The committed cell releases on the outfeed line; this is the cycle that
+    # sets the part down at A and returns it to the bed.
+    rebot_config = dataclasses.replace(
+      load_app_config("configs/rebot/app_config.yaml"), outfeed=None
+    )
     self.assertFalse(rebot_config.robot.force_sensing)
     tree = build_machine_tending_behavior_tree(
       robot=self.robot,
@@ -602,6 +606,129 @@ class BehaviorsTest(absltest.TestCase):
     self.assertIsNone(
       seats["Unload Vise: Linear Seat (root/place_vise)"]["target_frame_offset"]
     )
+
+  def test_rebot_cell_releases_on_the_outfeed_line(self):
+    """With an outfeed, a cycle is a pick and a release at the first spot."""
+    rebot_config = load_app_config("configs/rebot/app_config.yaml")
+    assert rebot_config.outfeed is not None
+    spot = rebot_config.outfeed.spots[0]
+    tree = build_machine_tending_behavior_tree(
+      robot=self.robot,
+      gripper=self.gripper,
+      machine=None,
+      vision=self.vision,
+      infeed_strategy=self.infeed_strategy,
+      config=rebot_config,
+      num_cycles_override=1,
+    )
+    self.assertIsInstance(tree.root, bt.Sequence)
+    self.assertEqual(
+      [child.name for child in tree.root.children],
+      ["1. Infeed Pick Subtree", "Release at Outfeed Spot 0"],
+    )
+    # Nothing sets the part down at A, and nothing returns it to the bed.
+    names = [
+      call.kwargs["name"]
+      for call in self.robot.build_move_cartesian_task.call_args_list
+    ]
+    self.assertIn(f"Load Vise: Linear Seat (root/{spot.place_frame})", names)
+    self.assertFalse([n for n in names if "Unload Vise" in n])
+    self.assertFalse([n for n in names if "Return Infeed" in n])
+    self.assertFalse([n for n in names if "root/place_vise" in n])
+    # The printer is checked against the gripper and the held part on the way to
+    # the spot: no exclusion for it, unlike the moves that reach into the printer.
+    release_moves = [
+      call.kwargs
+      for call in self.robot.build_move_cartesian_task.call_args_list
+      if spot.place_frame in call.kwargs["name"]
+      or "Outfeed" in call.kwargs["name"]
+    ]
+    self.assertTrue(release_moves)
+    for move in release_moves:
+      for pair in move["excluded_collision_pairs"] or []:
+        self.assertNotIn("printer", pair, move["name"])
+    # Between view and the spot, both ways, the arm passes through the transit
+    # frame, which keeps it out of the printer's corner.
+    self.assertEqual(rebot_config.outfeed.transit_frame, "outfeed_transit")
+    blended = [
+      [frame for _, frame in call.kwargs["target_frames"]]
+      for call in self.robot.build_move_blended_cartesian_task.call_args_list
+    ]
+    going = next(frames for frames in blended if spot.approach_frame in frames)
+    self.assertEqual(
+      going[:3], ["view", "outfeed_transit", spot.approach_frame], going
+    )
+    # The arm ends at view, ready for the next pick.
+    self.assertEqual(blended[-1], ["outfeed_transit", "view"])
+    last = self.robot.build_move_blended_cartesian_task.call_args_list[-1]
+    self.assertEqual(last.kwargs["name"], "Return to view via outfeed_transit")
+
+  def test_without_a_transit_frame_the_arm_returns_to_view_directly(self):
+    config = load_app_config("configs/rebot/app_config.yaml")
+    assert config.outfeed is not None
+    config = dataclasses.replace(
+      config, outfeed=dataclasses.replace(config.outfeed, transit_frame=None)
+    )
+    build_machine_tending_behavior_tree(
+      robot=self.robot,
+      gripper=self.gripper,
+      machine=None,
+      vision=self.vision,
+      infeed_strategy=self.infeed_strategy,
+      config=config,
+      num_cycles_override=1,
+    )
+    spot = config.outfeed.spots[0]
+    blended = [
+      [frame for _, frame in call.kwargs["target_frames"]]
+      for call in self.robot.build_move_blended_cartesian_task.call_args_list
+    ]
+    going = next(frames for frames in blended if spot.approach_frame in frames)
+    self.assertNotIn("outfeed_transit", going)
+    last = self.robot.build_move_cartesian_task.call_args_list[-1].kwargs
+    self.assertEqual(last["name"], "Return to view")
+
+  def test_the_outfeed_cycle_releases_at_the_requested_spot(self):
+    config = load_app_config("configs/rebot/app_config.yaml")
+    assert config.outfeed is not None
+    spots = tuple(
+      OutfeedSpot(f"spot_{k}_place", f"spot_{k}_pre", f"spot_{k}_approach")
+      for k in range(3)
+    )
+    config = dataclasses.replace(config, outfeed=OutfeedConfig(spots=spots))
+    tree = build_machine_tending_behavior_tree(
+      robot=self.robot,
+      gripper=self.gripper,
+      machine=None,
+      vision=self.vision,
+      infeed_strategy=self.infeed_strategy,
+      config=config,
+      num_cycles_override=1,
+      outfeed_spot=2,
+    )
+    self.assertEqual(tree.root.children[1].name, "Release at Outfeed Spot 2")
+    names = [
+      call.kwargs["name"]
+      for call in self.robot.build_move_cartesian_task.call_args_list
+    ]
+    self.assertIn("Load Vise: Linear Seat (root/spot_2_place)", names)
+    self.assertFalse([n for n in names if "spot_0" in n or "spot_1" in n])
+
+  def test_an_outfeed_spot_outside_the_line_is_refused(self):
+    config = load_app_config("configs/rebot/app_config.yaml")
+    assert config.outfeed is not None
+    for spot in (-1, len(config.outfeed.spots)):
+      with self.assertRaisesRegex(ValueError, "outfeed_spot"):
+        build_machine_tending_behavior_tree(
+          robot=self.robot,
+          gripper=self.gripper,
+          machine=None,
+          vision=self.vision,
+          infeed_strategy=self.infeed_strategy,
+          config=config,
+          num_cycles_override=1,
+          outfeed_spot=spot,
+        )
 
   def test_all_subtrees_have_unique_child_names_and_no_legacy_prefixes(self):
     tree = self._build_master_tree(num_cycles=1)

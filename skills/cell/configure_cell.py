@@ -44,7 +44,7 @@ from intrinsic.world.proto import (
 )
 
 from skills.cell import configure_cell_pb2 as pb
-from src.core import drop_off
+from src.core import drop_off, outfeed
 
 INVALID_INPUT = 2201
 MISSING_WORLD_ENTITY = 2202
@@ -55,6 +55,8 @@ _MAX_CAMERA_OFFSET_M = 0.5
 _MAX_DROP_OFF_RADIUS_M = 2.0
 _MAX_PART_HALF_HEIGHT_M = 0.25
 _MAX_GRASP_DEPTH_M = 0.1
+_MAX_OUTFEED_SPOTS = 32
+_MAX_OUTFEED_DISTANCE_M = 3.0
 _MAX_BED_OFFSET_M = 0.5
 _MAX_PARKING_DISTANCE_M = 3.0
 # A part on its side: model z along the world x axis, a quarter turn about y.
@@ -243,6 +245,9 @@ class ConfigureCell(skill_interface.Skill):
     drop = params.drop_off if params.HasField("drop_off") else None
     if drop is not None:
       self._check_drop_off(drop)
+    line = params.outfeed if params.HasField("outfeed") else None
+    if line is not None:
+      self._check_outfeed(line)
     target = params.target if params.HasField("target") else None
     self._check_placements(target, params.parked)
 
@@ -277,6 +282,7 @@ class ConfigureCell(skill_interface.Skill):
     )
 
     updates = []
+    view_pose = None
     if new_distance is not None:
       updates.append(
         _update(
@@ -317,6 +323,7 @@ class ConfigureCell(skill_interface.Skill):
       new_parent_t_view = _shifted(parent_t_camera_at_view, dx=dx) * (
         new_tool_t_camera.inverse()
       )
+      view_pose = new_parent_t_view
       updates.append(
         _update(
           _object_ref(parent_name),
@@ -330,6 +337,19 @@ class ConfigureCell(skill_interface.Skill):
 
     if drop is not None:
       self._drop_off_updates(parent, parent_name, drop, updates, result)
+    if line is not None:
+      transit_from = None
+      if line.HasField("transit_rotation_degrees"):
+        transit_from = (
+          view_pose
+          if view_pose is not None
+          else world.get_transform(
+            parent, _frame_of(parent, view_name, "View frame")
+          )
+        )
+      self._outfeed_updates(
+        parent, parent_name, line, updates, result, transit_from
+      )
     if target is not None or params.parked:
       for name in [target.object_name] if target is not None else []:
         _node(world, name, "Part object")
@@ -462,6 +482,122 @@ class ConfigureCell(skill_interface.Skill):
       )
 
   @staticmethod
+  def _check_outfeed(line) -> None:
+    if not 1 <= line.count <= _MAX_OUTFEED_SPOTS:
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"outfeed.count {line.count} is outside [1, {_MAX_OUTFEED_SPOTS}]",
+      )
+    if not 0.0 <= line.approach_tilt_degrees < 90.0:
+      raise skill_interface.SkillError(
+        INVALID_INPUT, "outfeed.approach_tilt_degrees must be in [0, 90)"
+      )
+    if not 0.0 < line.part_half_height_m <= _MAX_PART_HALF_HEIGHT_M:
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"outfeed.part_half_height_m {line.part_half_height_m} is outside "
+        f"(0, {_MAX_PART_HALF_HEIGHT_M}] m (half the part's height)",
+      )
+    depth = _optional(line, "grasp_depth_m", 0.0)
+    if abs(depth) > _MAX_GRASP_DEPTH_M:
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"outfeed.grasp_depth_m {depth} is over {_MAX_GRASP_DEPTH_M} m",
+      )
+    kind = line.WhichOneof("layout")
+    if kind is None:
+      raise skill_interface.SkillError(
+        INVALID_INPUT, "outfeed needs a layout: line or arc"
+      )
+    numbers = (
+      [line.line.y_m, line.line.start_x_m, line.line.spacing_m]
+      + [_optional(line.line, "yaw_degrees", outfeed.LINE_YAW_DEGREES)]
+      if kind == "line"
+      else [
+        line.arc.radius_m,
+        line.arc.start_bearing_degrees,
+        line.arc.step_degrees,
+      ]
+    )
+    if any(not math.isfinite(v) for v in numbers):
+      raise skill_interface.SkillError(
+        INVALID_INPUT, f"outfeed.{kind} has a value that is not a number"
+      )
+    if kind == "arc" and not 0.0 < line.arc.radius_m <= _MAX_OUTFEED_DISTANCE_M:
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"outfeed.arc.radius_m {line.arc.radius_m} is outside (0, "
+        f"{_MAX_OUTFEED_DISTANCE_M}] m",
+      )
+    spots = _outfeed_spots(line)
+    if any(math.hypot(s.x, s.y) > _MAX_OUTFEED_DISTANCE_M for s in spots):
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"an outfeed spot is over {_MAX_OUTFEED_DISTANCE_M} m from the base",
+      )
+    if any(math.hypot(s.x, s.y) == 0.0 for s in spots):
+      raise skill_interface.SkillError(
+        INVALID_INPUT, "an outfeed spot is at the robot's base"
+      )
+    if not _optional(line, "frame_prefix", "outfeed"):
+      raise skill_interface.SkillError(
+        INVALID_INPUT, "outfeed.frame_prefix is empty"
+      )
+    turn = _optional(line, "transit_rotation_degrees", 0.0)
+    if not math.isfinite(turn) or abs(turn) > 180.0:
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"outfeed.transit_rotation_degrees {turn} is outside [-180, 180]",
+      )
+
+  @staticmethod
+  def _outfeed_updates(
+    parent, parent_name, line, updates, result, view_pose=None
+  ) -> None:
+    """Moves the outfeed spots' frames, or creates those that are missing, in the
+    same batch as the rest. With `view_pose` (the `view` frame's pose), also sets
+    the transit frame: that pose turned about the parent's z axis."""
+    prefix = _optional(line, "frame_prefix", "outfeed")
+    depth = _optional(line, "grasp_depth_m", 0.0)
+    for index, spot in enumerate(_outfeed_spots(line)):
+      frames = outfeed.spot_frames(
+        spot, line.approach_tilt_degrees, line.part_half_height_m, depth
+      )
+      names = outfeed.frame_names(prefix, index)
+      for position, (frame, name) in enumerate(zip(frames, names, strict=True)):
+        pose = _unit_pose(*frame)
+        if name in parent.frame_names:
+          updates.append(
+            _update(
+              _object_ref(parent_name), _frame_ref(parent_name, name), pose
+            )
+          )
+        else:
+          updates.append(_create_frame(parent_name, name, pose))
+        if position == 0:
+          result.parent_t_outfeed_place.append(
+            math_proto_conversion.pose_to_proto(pose)
+          )
+    if view_pose is not None:
+      turn = data_types.Pose3(
+        data_types.Rotation3.from_euler_angles(
+          rpy_radians=[0.0, 0.0, math.radians(line.transit_rotation_degrees)]
+        ),
+        [0.0, 0.0, 0.0],
+      )
+      pose = turn * view_pose
+      name = f"{prefix}_transit"
+      if name in parent.frame_names:
+        updates.append(
+          _update(_object_ref(parent_name), _frame_ref(parent_name, name), pose)
+        )
+      else:
+        updates.append(_create_frame(parent_name, name, pose))
+      result.parent_t_outfeed_transit.CopyFrom(
+        math_proto_conversion.pose_to_proto(pose)
+      )
+
+  @staticmethod
   def _drop_off_updates(parent, parent_name, drop, updates, result) -> None:
     """Moves A's frames, or creates those that are missing, in the same batch
     as the rest."""
@@ -493,4 +629,21 @@ def _drop_off_names(drop) -> tuple[str, str, str]:
     _optional(drop, "place_frame", "place_vise"),
     _optional(drop, "pre_place_frame", "pre_place_vise"),
     _optional(drop, "approach_frame", "machine_approach"),
+  )
+
+
+def _outfeed_spots(line) -> list[outfeed.Spot]:
+  if line.WhichOneof("layout") == "line":
+    return outfeed.line_spots(
+      line.count,
+      line.line.y_m,
+      line.line.start_x_m,
+      line.line.spacing_m,
+      _optional(line.line, "yaw_degrees", outfeed.LINE_YAW_DEGREES),
+    )
+  return outfeed.arc_spots(
+    line.count,
+    line.arc.radius_m,
+    line.arc.start_bearing_degrees,
+    line.arc.step_degrees,
   )

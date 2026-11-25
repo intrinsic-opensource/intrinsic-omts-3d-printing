@@ -105,6 +105,7 @@ py_library(
         ":a_frames_lib",
         ":cell",
         ":kin",
+        "//src/core:outfeed",
         "@ai_intrinsic_sdks_pip_deps//numpy",
     ],
 )
@@ -118,12 +119,25 @@ py_binary(
         ":cell",
         ":cell_checks",
         ":part_trial_lib",
+        "//src/core:outfeed",
         "//skills/cell:configure_cell_py_pb2",
         "@ai_intrinsic_sdks_pip_deps//numpy",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:worlds",
         "@intrinsic_apis//intrinsic/math/proto:point_py_pb2",
+    ],
+)
+
+py_binary(
+    name = "fill_outfeed",
+    srcs = ["fill_outfeed.py"],
+    main = "fill_outfeed.py",
+    deps = [
+        ":cell",
+        ":configure_cell",
+        "//src:omts_app",
+        "//src/core:config",
     ],
 )
 

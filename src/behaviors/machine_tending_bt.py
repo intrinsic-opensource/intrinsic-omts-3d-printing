@@ -18,6 +18,7 @@ from intrinsic.solutions import behavior_tree as bt
 
 from src.behaviors.load_machine import build_load_machine_subtree
 from src.behaviors.machining import build_machining_handshake_subtree
+from src.behaviors.outfeed import build_release_to_outfeed_subtree
 from src.behaviors.pick import build_pick_from_infeed_subtree
 from src.behaviors.return_infeed import build_return_to_infeed_subtree
 from src.behaviors.unload_machine import build_unload_machine_subtree
@@ -40,6 +41,7 @@ def build_machine_tending_behavior_tree(
   num_cycles_override: int | None = None,
   grasp_planner: GraspPlannerInterface | None = None,
   tree_name: str = "OMTS Machine Tending Master Cycle",
+  outfeed_spot: int = 0,
 ) -> bt.BehaviorTree:
   """Assembles the complete machine tending sequence into an SBL Behavior Tree.
 
@@ -72,6 +74,8 @@ def build_machine_tending_behavior_tree(
         the built-in cuboid-center behaviour, where the perception pipeline
         publishes the grasp frames itself.
       tree_name: Descriptive name for the Behavior Tree.
+      outfeed_spot: With an `outfeed` config section, the spot the cycle
+        releases the part at (from 0).
 
   Returns:
       Executable SBL BehaviorTree instance.
@@ -86,42 +90,62 @@ def build_machine_tending_behavior_tree(
     grasp_planner=grasp_planner,
   )
 
-  load_subtree = build_load_machine_subtree(
-    robot=robot,
-    gripper=gripper,
-    machine=machine,
-    config=config,
-  )
+  cycle_sequence: bt.Node
+  if config.outfeed is not None:
+    if not 0 <= outfeed_spot < len(config.outfeed.spots):
+      raise ValueError(
+        f"outfeed_spot {outfeed_spot} is outside the {len(config.outfeed.spots)}"
+        " spot(s) of the config's 'outfeed' section"
+      )
+    cycle_sequence = bt.Sequence(
+      name="Single Outfeed Cycle",
+      children=[
+        pick_subtree,
+        build_release_to_outfeed_subtree(
+          robot=robot,
+          gripper=gripper,
+          config=config,
+          spot_index=outfeed_spot,
+        ),
+      ],
+    )
+  else:
+    load_subtree = build_load_machine_subtree(
+      robot=robot,
+      gripper=gripper,
+      machine=machine,
+      config=config,
+    )
 
-  machining_subtree = build_machining_handshake_subtree(
-    robot=robot,
-    machine=machine,
-    config=config,
-  )
+    machining_subtree = build_machining_handshake_subtree(
+      robot=robot,
+      machine=machine,
+      config=config,
+    )
 
-  unload_subtree = build_unload_machine_subtree(
-    robot=robot,
-    gripper=gripper,
-    machine=machine,
-    config=config,
-  )
+    unload_subtree = build_unload_machine_subtree(
+      robot=robot,
+      gripper=gripper,
+      machine=machine,
+      config=config,
+    )
 
-  return_subtree = build_return_to_infeed_subtree(
-    robot=robot,
-    gripper=gripper,
-    config=config,
-  )
+    return_subtree = build_return_to_infeed_subtree(
+      robot=robot,
+      gripper=gripper,
+      config=config,
+    )
 
-  cycle_sequence = bt.Sequence(
-    name="Single Machine Tending Cycle",
-    children=[
-      pick_subtree,
-      load_subtree,
-      machining_subtree,
-      unload_subtree,
-      return_subtree,
-    ],
-  )
+    cycle_sequence = bt.Sequence(
+      name="Single Machine Tending Cycle",
+      children=[
+        pick_subtree,
+        load_subtree,
+        machining_subtree,
+        unload_subtree,
+        return_subtree,
+      ],
+    )
 
   num_cycles = (
     num_cycles_override

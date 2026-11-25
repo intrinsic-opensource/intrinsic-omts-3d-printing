@@ -145,3 +145,123 @@ updates {
     joint_positions: 0
   }
 }
+
+# The outfeed line (research/HANDOFF.md, section 5e): spots on the ground to the
+# robot's right, along x at y = -0.50, released parts standing 10 cm apart.
+# Spot 0 is at x = 0.30, the nearest to the printer; the next spots are at
+# x = 0.20, 0.10, ... Each spot has A's three frames, from
+# src/core/drop_off.py with the same 75 deg tilt: the place frame holds the part
+# at its resting height (z = 0.015), the pre-place frame backs off 8 cm along the
+# approach and the approach frame is 10 cm above that. Unlike A, every spot has
+# the same orientation: the tool leans along -y (yaw -90 deg), away from the
+# robot, so each part is set down axis aligned, with its jaw axis along the line.
+# The offline reach check passes for every spot at y = -0.50, x = -0.20 to 0.30
+# with this yaw.
+updates {
+  create_frame {
+    new_frame_name: "outfeed_0_place"
+    parent_t_new_frame {
+      position {
+        x: 0.3000
+        y: -0.5000
+        z: 0.0150
+      }
+      orientation {
+        x: 0.560986
+        y: -0.560986
+        z: 0.430459
+        w: 0.430459
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+
+updates {
+  create_frame {
+    new_frame_name: "outfeed_0_preplace"
+    parent_t_new_frame {
+      position {
+        x: 0.3000
+        y: -0.4227
+        z: 0.0357
+      }
+      orientation {
+        x: 0.560986
+        y: -0.560986
+        z: 0.430459
+        w: 0.430459
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+
+updates {
+  create_frame {
+    new_frame_name: "outfeed_0_approach"
+    parent_t_new_frame {
+      position {
+        x: 0.3000
+        y: -0.4227
+        z: 0.1357
+      }
+      orientation {
+        x: 0.560986
+        y: -0.560986
+        z: 0.430459
+        w: 0.430459
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
+
+# The outfeed's transit frame: `view` turned -90 deg about the robot's base, so
+# the tool faces the outfeed, to the robot's right. The cycle passes through it
+# between `view` and a spot, both ways, which keeps the arm and the held part
+# away from the printer's front-left corner (research/HANDOFF.md, section 5e).
+# `configure_cell` moves it with `view`.
+updates {
+  create_frame {
+    new_frame_name: "outfeed_transit"
+    parent_t_new_frame {
+      position {
+        x: -0.0240
+        y: -0.2912
+        z: 0.2328
+      }
+      orientation {
+        x: 0.612372
+        y: -0.612372
+        z: 0.353554
+        w: 0.353554
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}

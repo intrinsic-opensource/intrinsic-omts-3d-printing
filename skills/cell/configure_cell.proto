@@ -43,6 +43,57 @@ message DropOff {
   optional string approach_frame = 8;  // default "machine_approach"
 }
 
+// The outfeed line: spots on the ground where finished parts are set down, each
+// with A's three frames (`<prefix>_<k>_place`, `_preplace` and `_approach`, for
+// spot k from 0). They are created under `parent_object` if they do not exist,
+// or moved. `LINE` puts the spots along a straight line with the tool at one
+// yaw, so every part is set down axis aligned. `ARC` puts them on a circle
+// around the robot's base, with the tool leaning along each spot's bearing, so
+// every part has the same distance from the robot and the same orientation
+// relative to it.
+message Outfeed {
+  message Line {
+    // The line's y in `parent_object`, the first spot's x and the distance
+    // between spots, in metres.
+    double y_m = 1;
+    double start_x_m = 2;
+    double spacing_m = 3;
+    // The direction the tool leans, in degrees; default -90 (along -y, away
+    // from a robot facing +x).
+    optional double yaw_degrees = 4;
+  }
+  message Arc {
+    // The circle's radius around the robot base, in metres, the first spot's
+    // bearing and the angle between spots, in degrees.
+    double radius_m = 1;
+    double start_bearing_degrees = 2;
+    double step_degrees = 3;
+  }
+
+  // The number of spots, from 1.
+  uint32 count = 1;
+  oneof layout {
+    Line line = 2;
+    Arc arc = 3;
+  }
+  // The tool's pitch from vertical, in degrees in [0, 90): the grasp's
+  // `approach_tilt_degrees`.
+  double approach_tilt_degrees = 4;
+  // Half the part's height: its centre's height when it rests on the ground.
+  double part_half_height_m = 5;
+  // How far past its centre the part is gripped, in metres; default 0.
+  optional double grasp_depth_m = 6;
+  // The frames' name prefix; default "outfeed".
+  optional string frame_prefix = 7;
+  // If set, also creates or moves the frame `<prefix>_transit`: the `view` frame
+  // turned by this many degrees about the z axis of `parent_object` (the robot's
+  // base), so the tool faces the outfeed, e.g. -90 for a line to the robot's
+  // right. The cycle passes through it between `view` and a spot, both ways, to
+  // keep the arm and the held part away from the printer's corner. It follows
+  // `view`: a `view` moved in the same call is the one it is turned from.
+  optional double transit_rotation_degrees = 8;
+}
+
 // The part that is put on the printer's bed, at its resting pose: upright, or on
 // its side with its model z along the world x axis. It is moved there from
 // wherever it is, including off the robot's gripper (it is reparented to
@@ -70,8 +121,8 @@ message ParkedObject {
 }
 
 // Changes the cell in the live world: the printer and the wrist camera (with the
-// `view` frame, so the camera still sees the printer as before), and A's
-// frames. Every group is optional; one that is left out stays as it is.
+// `view` frame, so the camera still sees the printer as before), A's frames and
+// the outfeed line's. Every group is optional; one that is left out stays as it is.
 message ConfigureCellParams {
   // Sets the printer's x in `parent_object` (the printer model's origin along
   // x from the robot's base, in metres); its y, z and orientation are kept.
@@ -105,6 +156,9 @@ message ConfigureCellParams {
   // part with it.
   optional Target target = 13;
   repeated ParkedObject parked = 14;
+
+  // Sets the outfeed line's frames.
+  optional Outfeed outfeed = 15;
 }
 
 message ConfigureCellResult {
@@ -119,4 +173,9 @@ message ConfigureCellResult {
   intrinsic_proto.Pose parent_t_approach = 6;
   // The part on the bed, in `parent_object`; unset if there is no `target`.
   intrinsic_proto.Pose parent_t_part = 7;
+  // The outfeed spots' place frames after the change, in `parent_object`, in
+  // order; empty if there is no `outfeed`.
+  repeated intrinsic_proto.Pose parent_t_outfeed_place = 8;
+  // The outfeed's transit frame, in `parent_object`; unset if there is none.
+  intrinsic_proto.Pose parent_t_outfeed_transit = 9;
 }

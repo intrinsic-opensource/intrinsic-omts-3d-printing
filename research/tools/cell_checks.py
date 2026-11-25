@@ -19,10 +19,12 @@ confirm the result in simulation.
 """
 
 import itertools
+import math
 
 import numpy as np
 
 from research.tools import a_frames, cell, kin
+from src.core import outfeed
 
 # Minimum distance of the arm and camera from the printer, and from each other.
 MIN_CLEARANCE = 0.01
@@ -177,4 +179,98 @@ def check_a(c: cell.Cell, half_height: float, tilt, radius, bearing, rng):
     camera = cell.box_points(goal @ c.camera, *cell.CAMERA_BOX)
     if camera[:, 2].min() < MIN_CLEARANCE:
       problems.append(f"{name}: camera {camera[:, 2].min() * 100:.1f} cm up")
+  return problems
+
+
+# The arm, the camera and the held part stay at least this far from the printer
+# between `view` and a spot (offline, joint-space interpolation: approximate).
+MIN_TRANSIT_CLEARANCE = 0.02
+
+
+def _transit_leg(c: cell.Cell, qa, qb, steps: int = 30):
+  """Closest the arm, camera and a held part come to the printer while the
+  joints go in a straight line from qa to qb: (distance, what)."""
+  worst = (9.0, "")
+  for s in np.linspace(0.0, 1.0, steps):
+    q = qa + s * (qb - qa)
+    bodies = c.bodies(q)
+    tool, _ = kin.fk(q)
+    bodies["part"] = cell.box_points(tool, (0, 0, 0), (0.04, 0.04, 0.04))
+    for name, points in bodies.items():
+      distance, box = c.nearest(points)
+      if distance < worst[0]:
+        worst = (distance, f"{name} to {box}")
+  return worst
+
+
+def _best_transit_leg(c: cell.Cell, from_qs, to_qs):
+  pairs = sorted(
+    ((np.linalg.norm(a - b), a, b) for a in from_qs for b in to_qs),
+    key=lambda p: p[0],
+  )[:4]
+  return max((_transit_leg(c, a, b) for _, a, b in pairs), key=lambda r: r[0])
+
+
+def check_outfeed_transit(
+  c: cell.Cell,
+  view: np.ndarray,
+  transit: np.ndarray,
+  half_height: float,
+  tilt,
+  spots: list[outfeed.Spot],
+  rng,
+):
+  """Problems on the way from `view` through `transit` to each spot's approach
+  frame: the planner is free to plan around the printer, but a path that
+  starts this tight leaves it no room."""
+  view_qs = kin.ik(view, 20, rng)
+  transit_qs = kin.ik(transit, 20, rng)
+  if not view_qs or not transit_qs:
+    return ["outfeed transit: no IK at view or at the transit frame"]
+  problems = []
+  legs = {"view to transit": _best_transit_leg(c, view_qs, transit_qs)}
+  for k, spot in enumerate(spots):
+    frames = a_frames.frames(
+      tilt,
+      math.hypot(spot.x, spot.y),
+      math.degrees(math.atan2(spot.y, spot.x)),
+      half_height=half_height,
+      yaw=spot.yaw_degrees,
+    )
+    goals = kin.ik(frames["machine_approach"], 12, rng)
+    legs[f"transit to outfeed {k}"] = (
+      _best_transit_leg(c, transit_qs, goals) if goals else (-9.0, "no IK")
+    )
+  for name, (distance, what) in legs.items():
+    if distance < MIN_TRANSIT_CLEARANCE:
+      problems.append(f"{name}: {what} {distance * 100:.1f} cm")
+  return problems
+
+
+def check_outfeed(
+  c: cell.Cell,
+  half_height: float,
+  tilt,
+  spots: list[outfeed.Spot],
+  rng,
+):
+  """Problems at the outfeed spots, on the ground: reach, joint margins,
+  clearance from the printer and the camera above the ground, at each spot's
+  three frames."""
+  problems = []
+  for k, spot in enumerate(spots):
+    frames = a_frames.frames(
+      tilt,
+      math.hypot(spot.x, spot.y),
+      math.degrees(math.atan2(spot.y, spot.x)),
+      half_height=half_height,
+      yaw=spot.yaw_degrees,
+    )
+    for name, goal in frames.items():
+      problems += _reach(f"outfeed {k} {name}", c, goal, rng)
+      camera = cell.box_points(goal @ c.camera, *cell.CAMERA_BOX)
+      if camera[:, 2].min() < MIN_CLEARANCE:
+        problems.append(
+          f"outfeed {k} {name}: camera {camera[:, 2].min() * 100:.1f} cm up"
+        )
   return problems

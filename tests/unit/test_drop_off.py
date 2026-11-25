@@ -14,6 +14,8 @@
 
 """A's frames: the app's maths equals the research tool's."""
 
+import math
+
 from absl.testing import absltest
 
 from research.tools import a_frames, cell
@@ -42,6 +44,38 @@ class DropOffTest(absltest.TestCase):
           self.assertTrue(
             _same_rotation(quaternion, cell.quat(matrix[:3, :3])), name
           )
+
+  def test_a_fixed_yaw_equals_the_research_tools_frames(self):
+    for x, y in ((-0.1, -0.5), (0.3, -0.5)):
+      radius, bearing = math.hypot(x, y), math.degrees(math.atan2(y, x))
+      expected = a_frames.frames(75.0, radius, bearing, 0.015, yaw=-90.0)
+      got = drop_off.drop_off_frames(
+        75.0, radius, bearing, 0.015, yaw_degrees=-90.0
+      )
+      for name, matrix in expected.items():
+        position, quaternion = got[name]
+        for a, b in zip(position, matrix[:3, 3], strict=True):
+          self.assertAlmostEqual(a, b, places=9, msg=name)
+        self.assertTrue(
+          _same_rotation(quaternion, cell.quat(matrix[:3, :3])), name
+        )
+
+  def test_a_fixed_yaw_gives_every_spot_the_same_orientation(self):
+    orientations = set()
+    for x in (-0.1, 0.1, 0.3):
+      y = -0.5
+      frames = drop_off.drop_off_frames(
+        75.0,
+        math.hypot(x, y),
+        math.degrees(math.atan2(y, x)),
+        0.015,
+        yaw_degrees=-90.0,
+      )
+      position, quaternion = frames["place_vise"]
+      self.assertAlmostEqual(position[0], x)
+      self.assertAlmostEqual(position[1], y)
+      orientations.add(tuple(round(v, 9) for v in quaternion))
+    self.assertLen(orientations, 1)
 
   def test_the_committed_frames_are_the_default_parts(self):
     # configs/rebot/scene.updates.pbtxt: place_vise at the default part's rest.

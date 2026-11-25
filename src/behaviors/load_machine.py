@@ -14,6 +14,8 @@
 
 """CNC machine loading and fixturing subtree."""
 
+from collections.abc import Sequence
+
 from intrinsic.solutions import behavior_tree as bt
 
 from src.behaviors.motions import (
@@ -31,6 +33,7 @@ def build_load_machine_subtree(
   gripper: GripperInterface,
   machine: CncMachineInterface | None,
   config: AppConfig,
+  extra_entry_frames: Sequence[str] = (),
 ) -> bt.Node:
   """Builds the Behavior Tree subtree for loading raw stock into the CNC machine.
 
@@ -53,6 +56,8 @@ def build_load_machine_subtree(
       gripper: End-effector gripper adapter.
       machine: Optional CNC machine adapter (`None` when cell has no CNC).
       config: Validated application configuration dataclass.
+      extra_entry_frames: Frames to pass through between `transit_frame` and the
+        approach frame on the way in.
 
   Returns:
       Behavior tree sequence executing machine loading and fixturing.
@@ -93,6 +98,7 @@ def build_load_machine_subtree(
     machine_approach_frame_name,
     preplace_vise_frame_name,
   ]
+  entry_frames[0:0] = extra_entry_frames
   if transit_frame_name:
     entry_frames.insert(0, transit_frame_name)
 
