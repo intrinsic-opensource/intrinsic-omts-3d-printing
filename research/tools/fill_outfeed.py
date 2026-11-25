@@ -22,6 +22,10 @@ a cycle that did not finish leaves its part on the bed or in the gripper and
 the next one would be put on top of it. The layout and the number of spots are
 cell_params.yaml's `outfeed` section.
 
+configure_cell's offline checks take about 20 s, so they run here once, before
+the first part, for each distinct part height, and not before every part: the
+arm is idle only for the cluster calls between two cycles.
+
   bazel run //research/tools:fill_outfeed -- --reset
   bazel run //research/tools:fill_outfeed -- --outfeed_layout arc \
     --parts rebot_printed_part test_cuboid_40x40x40 test_benchy
@@ -33,6 +37,7 @@ that are left.
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from research.tools import cell, configure_cell
@@ -80,6 +85,30 @@ def _check(parts, library, first_spot: int, count: int) -> list[str]:
   return problems
 
 
+def _offline_checks(parts, library, layout: str, count: int, reset: bool):
+  """configure_cell's offline checks, once for each distinct part height: the
+  parts' and, after a reset, the default target's. Prints the failures and
+  returns them."""
+  params = cell.parameters()
+  distance = params["printer_distance_m"]
+  offset = tuple(params["camera_offset_m"])
+  spots = configure_cell._outfeed_spots(
+    configure_cell.outfeed_settings_for(params, layout, count)
+  )
+  names = list(parts) + ([params["target"]] if reset else [])
+  heights = sorted({configure_cell.half_height_of(library[n]) for n in names})
+  failed = []
+  for half_height in heights:
+    print(f"=== offline checks, part half height {half_height * 1000:.0f} mm")
+    problems = configure_cell.check_cell(distance, offset, half_height, spots)
+    for problem in problems:
+      print(f"  FAILS {problem}")
+    failed += problems
+  if not failed:
+    print("  checks pass")
+  return failed
+
+
 def main(argv: list[str] | None = None) -> int:
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
   parser.add_argument(
@@ -102,6 +131,12 @@ def main(argv: list[str] | None = None) -> int:
   parser.add_argument(
     "--force", action="store_true", help="skip the part and spot checks"
   )
+  parser.add_argument(
+    "--skip_checks",
+    action="store_true",
+    help="skip configure_cell's offline checks as well (about 20 s per part "
+    "height)",
+  )
   args = parser.parse_args(argv)
 
   settings = cell.parameters()["outfeed"]
@@ -113,8 +148,16 @@ def main(argv: list[str] | None = None) -> int:
       print(f"  FAILS {problem}")
     return 2
 
+  if not args.skip_checks:
+    failed = _offline_checks(
+      args.parts, cell.targets(), layout, count, args.reset
+    )
+    if failed and not args.force:
+      return 2
+
   common = [
     "--apply",
+    "--skip_checks",
     "--address",
     args.address,
     "--outfeed_layout",
@@ -131,16 +174,21 @@ def main(argv: list[str] | None = None) -> int:
       spot = args.first_spot + index
       print(f"=== spot {spot}: {part}")
       out = args.out / f"spot_{spot}"
+      started = time.monotonic()
       configure_cell.main(
         ["--out", str(out), "--keep_parked", "--target", part] + common
       )
+      put_on_bed = time.monotonic()
       omts_main.run_machine_tending_pipeline(
         solution_address=args.address,
         config=load_app_config(out / "app_config.yaml"),
         num_cycles_override=1,
         outfeed_spot=spot,
       )
-      print(f"=== spot {spot}: {part} done")
+      print(
+        f"=== spot {spot}: {part} done: {put_on_bed - started:.1f} s to put it "
+        f"on the bed, {time.monotonic() - put_on_bed:.1f} s for the cycle"
+      )
   except (Exception, SystemExit) as exc:
     left = args.parts[index:]
     print(

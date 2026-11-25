@@ -1546,6 +1546,17 @@ of the line, so a deploy without `configure_cell` still has one spot.
      and resume worked as designed; the readiness error is the cluster's (the
      container's memory limit is not ours to change), and a retry for it is not
      built.
+   * **Checks once per fill** (2026-11-24). `configure_cell`'s offline checks take
+     about 22 s (measured: 21.7 and 21.6 s, file mode, no cluster) and ran before
+     every part, while the arm waited. `fill_outfeed` now runs them once before the
+     first part, for each distinct part height (the default part and the lying
+     cylinder share 15 mm: three runs for the five default parts), and passes
+     `configure_cell --skip_checks` for every part. A failed check stops it before
+     anything is applied (`--force` goes on; `--skip_checks` runs none). On k3s,
+     five spots in the arc: 2.9 to 3.3 s to put each part on the bed (the cluster
+     calls: the skill and the simulation sync), against about 25 s before, and 41
+     to 64 s for each cycle (the 64 s one includes registering the cylinder). The
+     parts ended 5.7 to 5.9 mm from their spots, as before.
 
 **Open:**
 

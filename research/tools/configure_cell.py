@@ -228,6 +228,50 @@ def _apply(
     print("The simulation now matches")
 
 
+def half_height_of(target: dict) -> float:
+  """Half the part's height as it rests on the bed: half its width if it lies."""
+  sx, _, sz = target["size_m"]
+  return (sx if target.get("lying", False) else sz) / 2
+
+
+def outfeed_settings_for(
+  params: dict, layout: str | None = None, count: int | None = None
+) -> dict:
+  """cell_params.yaml's `outfeed` section, with the layout and count replaced."""
+  settings = dict(params["outfeed"])
+  if layout:
+    settings["layout"] = layout
+  if count:
+    settings["count"] = count
+  return settings
+
+
+def check_cell(
+  distance: float,
+  offset,
+  half_height: float,
+  spots: list[outfeed.Spot],
+) -> list[str]:
+  """The offline checks (research/tools/cell_checks.py) for a part of
+  `half_height` and the outfeed `spots`. Slow: about 20 s."""
+  view = cell_checks.view_for(
+    cell_checks.committed_view_camera(), distance, offset
+  )
+  c = cell.Cell(samples=800)
+  rng = np.random.default_rng(7)
+  tilt = cell.app_setting("approach_tilt_degrees")
+  approach = cell.app_setting("approach_offset_z")
+  return (
+    cell_checks.check_mount(c)
+    + cell_checks.check_view(c, view, half_height, rng)
+    + cell_checks.check_grasps(c, half_height, tilt, approach, rng)
+    + cell_checks.check_a(
+      c, half_height, tilt, part_trial.A_RADIUS, part_trial.A_BEARING, rng
+    )
+    + cell_checks.check_outfeed(c, half_height, tilt, spots, rng)
+  )
+
+
 def main(argv: list[str] | None = None) -> None:
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
   parser.add_argument("--out", type=Path, required=True)
@@ -252,6 +296,12 @@ def main(argv: list[str] | None = None) -> None:
     help="the outfeed line's layout (default: cell_params.yaml's)",
   )
   parser.add_argument("--outfeed_count", type=int, default=None)
+  parser.add_argument(
+    "--skip_checks",
+    action="store_true",
+    help="do not run the offline checks (about 20 s each time), because the "
+    "caller has run them for these values (fill_outfeed does, once)",
+  )
   parser.add_argument(
     "--keep_parked",
     action="store_true",
@@ -279,31 +329,20 @@ def main(argv: list[str] | None = None) -> None:
   if name not in library:
     raise SystemExit(f"{name} not in targets.yaml: {sorted(library)}")
   target = library[name]
-  sx, sy, sz = target["size_m"]
   lying = target.get("lying", False)
-  half_height = (sx if lying else sz) / 2
+  half_height = half_height_of(target)
 
-  outfeed_settings = dict(params["outfeed"])
-  if args.outfeed_layout:
-    outfeed_settings["layout"] = args.outfeed_layout
-  if args.outfeed_count:
-    outfeed_settings["count"] = args.outfeed_count
+  outfeed_settings = outfeed_settings_for(
+    params, args.outfeed_layout, args.outfeed_count
+  )
   spots = _outfeed_spots(outfeed_settings)
 
-  committed_camera = cell_checks.committed_view_camera()
-  view = cell_checks.view_for(committed_camera, distance, offset)
-  c = cell.Cell(samples=800)
-  rng = np.random.default_rng(7)
+  view = cell_checks.view_for(
+    cell_checks.committed_view_camera(), distance, offset
+  )
   tilt = cell.app_setting("approach_tilt_degrees")
-  approach = cell.app_setting("approach_offset_z")
   problems = (
-    cell_checks.check_mount(c)
-    + cell_checks.check_view(c, view, half_height, rng)
-    + cell_checks.check_grasps(c, half_height, tilt, approach, rng)
-    + cell_checks.check_a(
-      c, half_height, tilt, part_trial.A_RADIUS, part_trial.A_BEARING, rng
-    )
-    + cell_checks.check_outfeed(c, half_height, tilt, spots, rng)
+    [] if args.skip_checks else check_cell(distance, offset, half_height, spots)
   )
   print(
     f"printer {distance} m, camera {offset}, target {name}, outfeed "
@@ -313,7 +352,9 @@ def main(argv: list[str] | None = None) -> None:
     print(f"  FAILS {p}")
   if problems and not args.force:
     raise SystemExit("not written: see research/HANDOFF.md for the limits")
-  if not problems:
+  if args.skip_checks:
+    print("  checks skipped")
+  elif not problems:
     print("  checks pass")
 
   rest = np.eye(3)

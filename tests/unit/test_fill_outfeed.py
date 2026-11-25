@@ -36,6 +36,11 @@ class FillOutfeedTest(absltest.TestCase):
     self.enter_context(
       mock.patch.object(fill_outfeed, "load_app_config", return_value=_config())
     )
+    self.checks = self.enter_context(
+      mock.patch.object(
+        fill_outfeed.configure_cell, "check_cell", return_value=[]
+      )
+    )
     self.out = self.create_tempdir().full_path
 
   def _main(self, *argv):
@@ -76,6 +81,42 @@ class FillOutfeedTest(absltest.TestCase):
     self.assertIn(
       "--first_spot 1 --parts test_cuboid_40x40x40 test_benchy", message
     )
+
+  def test_the_checks_run_once_per_part_height_and_not_before_every_part(self):
+    # Heights: the default part and the lying cylinder share 15 mm, the cube 20.
+    self._main(
+      "--parts",
+      "rebot_printed_part",
+      "test_cylinder_30x60",
+      "test_cuboid_40x40x40",
+    )
+    self.assertEqual(self.checks.call_count, 2)
+    half_heights = sorted(c.args[2] for c in self.checks.call_args_list)
+    self.assertEqual(half_heights, [0.015, 0.02])
+    for call in self.configure.call_args_list:
+      self.assertIn("--skip_checks", call.args[0])
+    # The checks come before the first part is put on the bed.
+    self.assertEqual(self.configure.call_count, 3)
+
+  def test_a_failed_check_stops_before_anything_is_applied(self):
+    self.checks.return_value = ["view: line of sight blocked"]
+    self.assertEqual(self._main("--parts", "rebot_printed_part"), 2)
+    self.configure.assert_not_called()
+    self.run_cycle.assert_not_called()
+
+  def test_force_goes_on_after_a_failed_check(self):
+    self.checks.return_value = ["view: line of sight blocked"]
+    self.assertEqual(self._main("--parts", "rebot_printed_part", "--force"), 0)
+    self.run_cycle.assert_called_once()
+
+  def test_skip_checks_runs_none(self):
+    self._main("--parts", "rebot_printed_part", "--skip_checks")
+    self.checks.assert_not_called()
+
+  def test_a_reset_also_checks_the_default_targets_height(self):
+    self._main("--parts", "test_benchy", "--reset")
+    half_heights = sorted(c.args[2] for c in self.checks.call_args_list)
+    self.assertEqual(half_heights, [0.015, 0.024])
 
   def test_a_failed_configure_stops_before_the_cycle(self):
     self.configure.side_effect = SystemExit("not written: checks failed")
