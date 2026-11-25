@@ -58,11 +58,18 @@ def build_release_to_outfeed_subtree(
     preplace_vise_frame=spot.preplace_frame,
     place_vise_frame=spot.place_frame,
   )
+  # The load subtree excludes the printer from collision checking when the cell
+  # has an enclosure, so the arm can reach into a machine. The outfeed is outside
+  # the printer, next to it: the planner must check the printer against the
+  # gripper and the held part, or it plans through the printer's corner.
+  outside = dataclasses.replace(config.robot, enclosure_object_name=None)
   release = build_load_machine_subtree(
     robot=robot,
     gripper=gripper,
     machine=None,
-    config=dataclasses.replace(config, frames=spot_frames, machine=None),
+    config=dataclasses.replace(
+      config, frames=spot_frames, machine=None, robot=outside
+    ),
   )
   to_view = create_move_to_frame_task(
     robot=robot,

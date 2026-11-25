@@ -1546,6 +1546,25 @@ of the line, so a deploy without `configure_cell` still has one spot.
      and resume worked as designed; the readiness error is the cluster's (the
      container's memory limit is not ours to change), and a retry for it is not
      built.
+   * **The held part hit the printer on the way to the nearest spot** (2026-11-25,
+     reported on the line's spot 0 at x = 0.30). Cause: the release step is the
+     machine load subtree, which, when the cell has an enclosure
+     (`robot.enclosure_object_name: "printer"`), excludes printer↔part and
+     gripper↔printer from the planner's collision checks on every move, so the
+     arm can reach into a machine. The planner was told to ignore the printer.
+     The release now builds that subtree without the enclosure (the outfeed is
+     outside the printer, next to it). Measured: the held part's pose logged in
+     Gazebo through the transit to spot 0, against the printer's collision boxes:
+     -1.0 cm (1 cm inside the front-left bezel) without the fix, +0.6 cm (clear of
+     the left wall) with it; both runs finished "Execution successful". The
+     grasped part is attached to the arm's flange before the move, so the planner
+     does check it (the code excludes part↔ground on purpose, which only makes
+     sense if it does), except against the printer where it was excluded.
+     The margin is thin: an offline joint-space sweep of the view-to-spot move put
+     the nearest spots within 1 cm of that bezel and the farther ones at 2.7 to
+     4.4 cm. A transit waypoint out to the robot's right (offline search: about
+     (0.05, -0.35, 0.20), tool at the spots' orientation, 3.1 cm worst over both
+     layouts) would add margin; not built.
    * **Checks once per fill** (2026-11-24). `configure_cell`'s offline checks take
      about 22 s (measured: 21.7 and 21.6 s, file mode, no cluster) and ran before
      every part, while the arm waited. `fill_outfeed` now runs them once before the

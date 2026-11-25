@@ -635,6 +635,18 @@ class BehaviorsTest(absltest.TestCase):
     self.assertFalse([n for n in names if "Unload Vise" in n])
     self.assertFalse([n for n in names if "Return Infeed" in n])
     self.assertFalse([n for n in names if "root/place_vise" in n])
+    # The printer is checked against the gripper and the held part on the way to
+    # the spot: no exclusion for it, unlike the moves that reach into the printer.
+    release_moves = [
+      call.kwargs
+      for call in self.robot.build_move_cartesian_task.call_args_list
+      if spot.place_frame in call.kwargs["name"]
+      or "Outfeed" in call.kwargs["name"]
+    ]
+    self.assertTrue(release_moves)
+    for move in release_moves:
+      for pair in move["excluded_collision_pairs"] or []:
+        self.assertNotIn("printer", pair, move["name"])
     # The arm ends at view, ready for the next pick.
     last = self.robot.build_move_cartesian_task.call_args_list[-1].kwargs
     self.assertEqual(last["name"], "Return to view")
