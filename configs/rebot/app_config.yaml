@@ -99,3 +99,52 @@ cycle:
     bounds_x: 0.04
     bounds_y: 0.02
     bounds_rz_degrees: 10.0
+
+# Opening the printer's door by its D handle (src/behaviors/open_door.py, run
+# with //tools/printer:open_door_bt): one behavior tree of installed skills.
+# The values are the door test's (tools/printer/demo_open_door.sh, deployed
+# with --//models/printer:layout=door_test --//models/printer:door=closed
+# --//models/printer:hinge=passive); omts_app does not use this section.
+door:
+  printer_object_name: "printer"
+  # Frames of the printer object (models/printer/3d_printer.sdf): the hinge
+  # axis (+z along it) and the D handle's turning bar centre, which moves with
+  # the door, so it is read with the door closed.
+  hinge_frame_name: "door_hinge_axis"
+  grip_frame_name: "handle_grip"
+  # The tool points from the root origin (the robot's base) at the grip point.
+  radial_origin_object_name: "root"
+  # The SDF door joint: q = 3.14159 closed (its upper limit), 0 fully open.
+  # The tree writes it after the swing, so later planning sees the open door;
+  # crank_pivot (the bar's turn) is left as it is.
+  hinge_joint_name: "door_hinge"
+  hinge_closed_q: 3.14159
+  # The wrist camera sees the marker from here (rad).
+  look_joints: [-0.8678, -0.5884, -0.8892, 0.3008, -0.8676, -1.5708]
+  # Measure the printer's pose from its marker before opening; false keeps
+  # the configured pose. When true and no marker is found, the tree fails
+  # before the arm approaches the door.
+  detect: true
+  camera_name: "orbbec_camera"
+  rgb_sensor: "rgb"
+  # src/core/door.py MARKER_SIZE_M and MARKERS (door closed), checked by
+  # tests/unit/test_open_door_behavior.
+  marker_size_m: 0.080
+  markers:
+    - id: 1
+      position: [0.084, 0.2125, 0.459]
+      quaternion: [0.0, 0.7071067811865476, -0.7071067811865476, 0.0]
+  # The arm's reach ends near 145 deg. Waypoints every 3 deg; when the full
+  # swing cannot be planned, the shorter ones are tried in order (115 snaps to
+  # 114, the nearest waypoint).
+  target_deg: 135.0
+  fallback_deg: [115.0, 90.0, 60.0]
+  num_waypoints: 45
+  # src/core/door.py GRIP_DEPTH_M: the bar sits on the fingers' flat pads.
+  grip_depth_m: 0.015
+  approach_offset_m: 0.06
+  handle_entity_name: "crank_handle"
+  orientation_mode: "RADIAL"
+  pitch_deg: 0.0
+  joint_tightness_rad: 0.05
+  frame_prefix: "door_arc"

@@ -82,6 +82,25 @@ py_library(
 )
 
 py_library(
+    name = "open_door",
+    srcs = ["open_door.py"],
+    deps = [
+        ":motions",
+        "//src/core:config",
+        "//src/hardware:gripper",
+        "//src/hardware:robot",
+        "//src/utils:math_utils",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
+        "@intrinsic_apis//intrinsic/icon/proto:joint_space_py_pb2",
+        "@intrinsic_apis//intrinsic/math/proto:point_py_pb2",
+        "@intrinsic_apis//intrinsic/math/proto:pose_py_pb2",
+        "@intrinsic_apis//intrinsic/math/proto:quaternion_py_pb2",
+        "@intrinsic_apis//intrinsic/world/proto:object_world_refs_py_pb2",
+    ],
+)
+
+py_library(
     name = "machine_tending_bt",
     srcs = ["machine_tending_bt.py"],
     deps = [

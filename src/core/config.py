@@ -339,6 +339,175 @@ class GraspConfig:
 
 
 @dataclasses.dataclass(frozen=True)
+class DoorMarkerConfig:
+  """One ArUco marker on the printer, for `ai.omts.detect_aruco_markers`.
+
+  Attributes:
+      id: ArUco marker id.
+      position: (x, y, z) of the marker frame in the printer object's base
+        frame, meters, with the door closed.
+      quaternion: (x, y, z, w) rotation of the marker frame (OpenCV axes: x
+        right, y down, z into the marker) in the printer object's base frame.
+  """
+
+  id: int
+  position: tuple[float, float, float]
+  quaternion: tuple[float, float, float, float]
+
+  def __post_init__(self) -> None:
+    if len(self.position) != 3:
+      raise ValueError(
+        f"Marker {self.id}: position needs 3 values, got {self.position}."
+      )
+    if len(self.quaternion) != 4:
+      raise ValueError(
+        f"Marker {self.id}: quaternion needs 4 values (x, y, z, w), got "
+        f"{self.quaternion}."
+      )
+    norm = sum(v * v for v in self.quaternion) ** 0.5
+    if abs(norm - 1.0) > 1e-3:
+      raise ValueError(
+        f"Marker {self.id}: quaternion must be unit length, got norm {norm}."
+      )
+
+
+_DOOR_ORIENTATION_MODES = ("RADIAL", "FIXED_AZIMUTH")
+_FRAME_PREFIX_CHARS = frozenset(
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class DoorConfig:
+  """Opening a printer's door by its handle (`src/behaviors/open_door.py`).
+
+  Every geometric quantity is a world frame or a parameter of
+  `ai.omts.generate_arc_frames`; the tree computes no poses itself.
+
+  Attributes:
+      printer_object_name: World object of the printer.
+      hinge_frame_name: Frame of `printer_object_name` on the hinge axis, +z
+        along the axis (the arc's pivot).
+      grip_frame_name: Frame of `printer_object_name` at the handle's grip
+        point; read at the start of the arc, so with the door closed.
+      radial_origin_object_name: World object the tool points away from in
+        `RADIAL` orientation mode (the robot's base, or `'root'`).
+      hinge_joint_name: The printer's door joint.
+      hinge_closed_q: The door joint's position with the door closed, rad.
+        Opening by theta degrees sets it to `hinge_closed_q - radians(theta)`
+        (clamped at 0, fully open).
+      look_joints: Arm joint positions from which the wrist camera sees the
+        door's marker(s), rad.
+      camera_name: Camera resource for the marker detection.
+      rgb_sensor: The camera's RGB sensor name.
+      marker_size_m: Side of the markers' black square, meters.
+      markers: The markers on the printer and their poses in it.
+      target_deg: How far to open the door, degrees.
+      fallback_deg: Shorter swings to try, in order, when the full one cannot
+        be planned, degrees. Each snaps to the nearest waypoint of the full
+        arc; angles at or beyond `target_deg` are skipped.
+      num_waypoints: Waypoints of the full arc (1..100); waypoint i is at
+        `target_deg * (i + 1) / num_waypoints`.
+      grip_depth_m: How far past the grip point the tool goes along its
+        approach axis, meters.
+      approach_offset_m: Pre-grasp and retreat back-off along the approach
+        axis, meters.
+      detect: Whether to measure the printer's pose from its marker(s) before
+        opening. False keeps the configured pose.
+      handle_entity_name: The printer's entity the gripper holds; its contact
+        with the gripper is excluded from collision checking.
+      orientation_mode: `'RADIAL'` (point away from the radial origin) or
+        `'FIXED_AZIMUTH'` (`azimuth_deg` for the whole arc).
+      azimuth_deg: `FIXED_AZIMUTH` only: the approach azimuth, degrees.
+      pitch_deg: Degrees below the horizontal the tool points, in (-90, 90).
+      joint_tightness_rad: Joint blending tightness of the swing.
+      frame_prefix: Prefix of the arc frames' names.
+  """
+
+  printer_object_name: str
+  hinge_frame_name: str
+  grip_frame_name: str
+  radial_origin_object_name: str
+  hinge_joint_name: str
+  hinge_closed_q: float
+  look_joints: tuple[float, ...]
+  camera_name: str
+  rgb_sensor: str
+  marker_size_m: float
+  markers: tuple[DoorMarkerConfig, ...]
+  target_deg: float
+  fallback_deg: tuple[float, ...]
+  num_waypoints: int
+  grip_depth_m: float
+  approach_offset_m: float
+  detect: bool = True
+  handle_entity_name: str = "crank_handle"
+  orientation_mode: str = "RADIAL"
+  azimuth_deg: float = 0.0
+  pitch_deg: float = 0.0
+  joint_tightness_rad: float = 0.05
+  frame_prefix: str = "arc"
+
+  def __post_init__(self) -> None:
+    if not self.look_joints:
+      raise ValueError("door.look_joints must not be empty.")
+    if not 0.0 < self.target_deg <= 180.0:
+      raise ValueError(
+        f"door.target_deg must be in (0, 180], got {self.target_deg}."
+      )
+    if any(not 0.0 < angle <= 180.0 for angle in self.fallback_deg):
+      raise ValueError(
+        f"door.fallback_deg entries must be in (0, 180], got "
+        f"{list(self.fallback_deg)}."
+      )
+    if not 1 <= self.num_waypoints <= 100:
+      raise ValueError(
+        f"door.num_waypoints must be in 1..100, got {self.num_waypoints}."
+      )
+    if self.grip_depth_m < 0.0:
+      raise ValueError(
+        f"door.grip_depth_m must not be negative, got {self.grip_depth_m}."
+      )
+    if self.approach_offset_m <= 0.0:
+      raise ValueError(
+        f"door.approach_offset_m must be positive, got "
+        f"{self.approach_offset_m}."
+      )
+    if self.marker_size_m <= 0.0:
+      raise ValueError(
+        f"door.marker_size_m must be positive, got {self.marker_size_m}."
+      )
+    if self.detect and not self.markers:
+      raise ValueError("door.markers must not be empty when door.detect.")
+    ids = [marker.id for marker in self.markers]
+    if len(set(ids)) != len(ids):
+      raise ValueError(f"door.markers ids must be unique, got {ids}.")
+    if self.orientation_mode not in _DOOR_ORIENTATION_MODES:
+      raise ValueError(
+        f"door.orientation_mode must be one of {list(_DOOR_ORIENTATION_MODES)}"
+        f", got '{self.orientation_mode}'."
+      )
+    if not -90.0 < self.pitch_deg < 90.0:
+      raise ValueError(
+        f"door.pitch_deg must be in (-90, 90), got {self.pitch_deg}."
+      )
+    if self.joint_tightness_rad <= 0.0:
+      raise ValueError(
+        f"door.joint_tightness_rad must be positive, got "
+        f"{self.joint_tightness_rad}."
+      )
+    if (
+      not self.frame_prefix
+      or not self.frame_prefix[0].isalpha()
+      or not set(self.frame_prefix) <= _FRAME_PREFIX_CHARS
+    ):
+      raise ValueError(
+        "door.frame_prefix must be letters, digits and '_', starting with a "
+        f"letter, got '{self.frame_prefix}'."
+      )
+
+
+@dataclasses.dataclass(frozen=True)
 class AppConfig:
   """Top-level configuration for a machine tending cell deployment.
 
@@ -352,6 +521,8 @@ class AppConfig:
       machine: Optional CNC enclosure, vise, and handshake configuration.
       grasp: Grasp planner selection. Defaults to the built-in cuboid-center
         planner when the section is omitted.
+      door: Optional printer door opening configuration (`None` when the
+        section is omitted).
   """
 
   cell_name: str
@@ -362,6 +533,7 @@ class AppConfig:
   cycle: CycleConfig
   machine: MachineConfig | None = None
   grasp: GraspConfig = dataclasses.field(default_factory=GraspConfig)
+  door: DoorConfig | None = None
 
   @property
   def pick_touchdown(self) -> Touchdown:
@@ -490,8 +662,48 @@ def _construct_section(
     section_dict["moveit_surfaces"] = tuple(
       int(x) for x in section_dict["moveit_surfaces"]
     )
+  elif section_name == "door":
+    for key in ("look_joints", "fallback_deg"):
+      if isinstance(section_dict.get(key), list):
+        section_dict[key] = tuple(float(x) for x in section_dict[key])
+    section_dict["markers"] = _construct_door_markers(
+      section_dict["markers"], file_path
+    )
 
   return cls(**section_dict)
+
+
+def _construct_door_markers(
+  raw_markers: Any, file_path: pathlib.Path
+) -> tuple[DoorMarkerConfig, ...]:
+  """Builds `door.markers`, failing loudly on a missing marker field."""
+  if raw_markers is None:
+    return ()
+  if not isinstance(raw_markers, list):
+    raise ValueError(
+      f"Section 'door' field 'markers' of {file_path} must be a list."
+    )
+  required = {f.name for f in dataclasses.fields(DoorMarkerConfig)}
+  markers = []
+  for index, raw in enumerate(raw_markers):
+    if not isinstance(raw, dict):
+      raise ValueError(
+        f"Entry {index} of 'door.markers' in {file_path} must be a mapping."
+      )
+    missing = required - set(raw)
+    if missing:
+      raise KeyError(
+        f"Missing required configuration field(s) {sorted(missing)} in "
+        f"section 'door.markers[{index}]' of {file_path}"
+      )
+    markers.append(
+      DoorMarkerConfig(
+        id=int(raw["id"]),
+        position=tuple(float(v) for v in raw["position"]),
+        quaternion=tuple(float(v) for v in raw["quaternion"]),
+      )
+    )
+  return tuple(markers)
 
 
 def load_app_config(path: str | pathlib.Path) -> AppConfig:
@@ -526,6 +738,11 @@ def load_app_config(path: str | pathlib.Path) -> AppConfig:
     if "grasp" in raw_data and raw_data["grasp"] is not None
     else GraspConfig()
   )
+  door_config = (
+    _construct_section(DoorConfig, raw_data, "door", file_path)
+    if "door" in raw_data and raw_data["door"] is not None
+    else None
+  )
 
   return AppConfig(
     cell_name=str(raw_data["cell_name"]),
@@ -536,4 +753,5 @@ def load_app_config(path: str | pathlib.Path) -> AppConfig:
     frames=_construct_section(FramesConfig, raw_data, "frames", file_path),
     cycle=_construct_section(CycleConfig, raw_data, "cycle", file_path),
     grasp=grasp_config,
+    door=door_config,
   )

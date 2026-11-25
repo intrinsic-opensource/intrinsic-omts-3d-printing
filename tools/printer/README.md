@@ -39,6 +39,34 @@ angle and the bar's `crank_pivot` angle into the belief world; `--rate_hz`,
 open|close|set|status`, `--theta_deg`, `--reset_sim`). Design and results:
 `research/HANDOFF.md` 5e.
 
+### Skills only: the same behavior as one behavior tree
+
+`open_door_bt` replaces the scripted steps with one Behavior Tree built only from
+installed skills, so the behavior can be rebuilt in a real Intrinsic solution
+(Flowstate) without our scripts. All geometry is computed by one generic skill,
+`ai.omts.generate_arc_frames` (`skills/motion/`), which writes the tool frames
+for swinging a grip point about a pivot into the world. The tree
+(`src/behaviors/open_door.py`, parameters in the `door:` section of
+`configs/rebot/app_config.yaml`):
+
+| Step | Skill |
+| :--- | :--- |
+| Look pose | `ai.intrinsic.move_robot` (joint target) |
+| Find the printer | `ai.omts.detect_aruco_markers`, then `ai.intrinsic.update_world` (printer pose from the blackboard) |
+| Arc frames | `ai.omts.generate_arc_frames` (pivot `door_hinge_axis`, grip `handle_grip`, radial from the robot, -135 deg, 45 waypoints) |
+| Open, pre-grasp, grasp, close | `ai.intrinsic.control_pinch_gripper`, `ai.intrinsic.move_robot` (gripper and `printer:crank_handle` excluded) |
+| Swing | `move_robot`, blended JOINT through the arc frames, as a Fallback over shorter arcs (135, 114, 90, 60 deg); each ends with `update_world` setting the belief door joint |
+| Release, retreat | `control_pinch_gripper`, `move_robot` (6 cm back along the tool) |
+
+After the deploy and reset of steps 1-5 below:
+
+```bash
+bazel run //tools/printer:open_door_bt -- --address=localhost:17080
+#   --target_deg N      override the target angle
+#   --dump=/tmp/door.textproto   write the tree without running it
+#   --no_run            build it and print its outline only
+```
+
 ### Step by step
 
 The hinge is passive, so right after a deploy Gazebo shows the door **open**

@@ -1737,3 +1737,23 @@ Check these before building on them.
   collide or leave the grasp unreachable (wrist limits), so 0.10 m is the
   minimum. `open_door --retry_step_deg` (default 5) lowers a failing chunk's end
   angle until it plans.
+
+### 5e.13: the door behavior as skills only (written, not yet run in the simulator)
+
+* The scripted logic of `tools/printer/open_door.py` (arc waypoints, tool
+  orientation, grasp frames) moves into one generic skill,
+  `ai.omts.generate_arc_frames` (`skills/motion/`, proto `omts.motion`): it
+  reads a pivot frame, a grip frame and a radial origin from the world, and
+  writes `<prefix>_pregrasp`, `_grasp`, `_wp_00..`, `_retreat` tool frames as
+  root-frame world frames. Its math matches the old `knob_matrix` to 1e-12 for
+  0-135 deg (unit test). It needs no equipment and locks the universe.
+* `src/behaviors/open_door.py` assembles the whole door behavior from skill
+  nodes only (move_robot, detect_aruco_markers, update_world,
+  generate_arc_frames, control_pinch_gripper), with a Fallback over shorter arcs
+  and a belief-door update after each; `tools/printer/open_door_bt.py` builds,
+  dumps (`--dump`) or runs it. Parameters: the optional `door:` section of
+  `configs/rebot/app_config.yaml` (`AppConfig.door`, `None` for the other
+  cells). The printer model gained a `handle_grip` frame (the bar's centre).
+* Status: unit tests, lint and analysis pass; the simulator run (GUI) is the
+  next step, see the result below once run. `sync_door` stays as a
+  simulation-only aid.

@@ -1,0 +1,95 @@
+// Copyright 2026 Intrinsic Innovation LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package omts.motion;
+
+import "intrinsic/world/proto/object_world_refs.proto";
+
+// The tool's orientation at every generated frame. The tool's z axis is the
+// approach direction, its y axis is always horizontal (z x up, normalised) and
+// x = y x z. The approach is level unless pitch_deg is set; in the root frame
+//   z = (cos(pitch) cos(az), cos(pitch) sin(az), -sin(pitch)).
+message ToolOrientation {
+  enum Mode {
+    // The approach points away from radial_origin_frame: az is the azimuth of
+    // the grip point seen from the radial origin, recomputed at every frame
+    // (atan2(G.y - O.y, G.x - O.x), root frame).
+    RADIAL = 0;
+    // The approach has azimuth azimuth_deg at every frame.
+    FIXED_AZIMUTH = 1;
+  }
+  Mode mode = 1;
+  // FIXED_AZIMUTH only: the approach azimuth in the root frame, degrees,
+  // counterclockwise from root +x about root +z.
+  double azimuth_deg = 2;
+  // Both modes: degrees below the horizontal; positive points the tool down.
+  // Must lie in (-90, 90).
+  double pitch_deg = 3;
+}
+
+// Generates the tool frames that swing a grip point along a circular arc about
+// a pivot axis (for example a door handle about its hinge) and writes them into
+// the world, so move_robot can target them. Every frame is a child of the root
+// object, posed in root coordinates, and is the pose of the TOOL frame:
+//   <prefix>_pregrasp  start angle, backed off by approach_offset_m
+//   <prefix>_grasp     start angle
+//   <prefix>_wp_00 .. <prefix>_wp_(N-1)  waypoint i at
+//                      total_angle_deg * (i + 1) / num_waypoints
+//   <prefix>_retreat   final angle, backed off by approach_offset_m
+// The grip point at angle phi is G = P + Rot(axis, phi) (G0 - P), and the tool
+// sits at G + (grip_depth_m - back_off) * z. Existing frames of the same names
+// are moved, not duplicated, so the skill can rerun (waypoint frames left by an
+// earlier run with more waypoints are not removed). All frames are written in
+// one world update.
+message GenerateArcFramesParams {
+  // Required. The rotation axis: this node's origin lies on it and its +z is
+  // the axis direction. Any world frame or object.
+  intrinsic_proto.world.TransformNodeReference pivot_frame = 1;
+  // Required. The grip point at the start of the arc is this node's origin
+  // (its orientation is not used). Must not lie on the pivot axis.
+  intrinsic_proto.world.TransformNodeReference grip_frame = 2;
+  // Optional. RADIAL mode: the tool points away from this node's origin,
+  // typically the robot's base (e.g. the robot object). Default: the root
+  // origin. Ignored in FIXED_AZIMUTH mode.
+  intrinsic_proto.world.TransformNodeReference radial_origin_frame = 3;
+  // The signed sweep, degrees: a right-hand rotation about the pivot's +z. The
+  // arc runs from 0 to total_angle_deg. Its magnitude must be at most 360.
+  double total_angle_deg = 4;
+  // Required, 1..100. Waypoint i (0-based) is at
+  // total_angle_deg * (i + 1) / num_waypoints, so the last one is at
+  // total_angle_deg.
+  int32 num_waypoints = 5;
+  // Default: RADIAL from the root origin, level.
+  ToolOrientation orientation = 6;
+  // The tool goes this far past the grip point along its approach axis,
+  // meters (so the grip sits on the fingers' pads, not their tips).
+  double grip_depth_m = 7;
+  // The pre-grasp and retreat back-off along the approach axis, meters;
+  // positive moves the tool away from the grip point (back along -z).
+  double approach_offset_m = 8;
+  // Prefix of the frame names. Default "arc". Letters, digits and '_',
+  // starting with a letter (so SBL's world.root.<name> works).
+  string frame_prefix = 9;
+}
+
+message GenerateArcFramesResult {
+  // The frames written, in order: <prefix>_pregrasp, <prefix>_grasp,
+  // <prefix>_wp_00 .. <prefix>_wp_(N-1), <prefix>_retreat. Each is a child of
+  // the root object (reference it as object "root", frame <name>).
+  repeated string frame_names = 1;
+  // The angle of the last waypoint and the retreat (= total_angle_deg).
+  double final_angle_deg = 2;
+}

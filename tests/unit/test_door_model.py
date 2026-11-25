@@ -185,6 +185,18 @@ class SdfFramesTest(absltest.TestCase):
       for a, b in zip(v[3:], door.mat_to_rpy(rot), strict=True):
         self.assertAlmostEqual(a, b, places=5)
 
+  def test_handle_grip_frame_is_the_bar_centre(self):
+    text = pathlib.Path("models/printer/3d_printer.sdf").read_text()
+    m = re.search(
+      r'<frame name="handle_grip" attached_to="door_link"[^>]*>\s*'
+      r'<pose relative_to="door_link">([^<]*)</pose>',
+      text,
+    )
+    self.assertIsNotNone(m)
+    v = [float(x) for x in m.group(1).split()]
+    for a, b in zip(v[:3], door.KNOB_POS, strict=True):
+      self.assertAlmostEqual(a, b, places=6)
+
   def test_hinge_axis_frame_matches_the_model(self):
     text = pathlib.Path("models/printer/3d_printer.sdf").read_text()
     m = re.search(

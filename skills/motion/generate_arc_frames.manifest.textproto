@@ -1,0 +1,37 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# proto-file: intrinsic/skills/proto/skill_manifest.proto
+# proto-message: intrinsic_proto.skills.SkillManifest
+
+id { package: "ai.omts" name: "generate_arc_frames" }
+display_name: "Generate arc frames"
+vendor { display_name: "OMTS" }
+documentation { description: "Writes tool frames that swing a grip point along a circular arc about a pivot axis (for example a door handle about its hinge): <prefix>_pregrasp, <prefix>_grasp, <prefix>_wp_00.. and <prefix>_retreat, children of the root object, for move_robot to target. Existing frames of the same names are moved. Never moves a robot." }
+options {
+  supports_cancellation: false
+  python_config {
+    skill_module: "skills.motion.arc_frames_skill"
+    proto_module: "skills.motion.generate_arc_frames_pb2"
+    create_skill: "skills.motion.arc_frames_skill.GenerateArcFrames"
+  }
+}
+parameter { message_full_name: "omts.motion.GenerateArcFramesParams" }
+return_type { message_full_name: "omts.motion.GenerateArcFramesResult" }
+status_info { code: 2101 title: "Invalid generate_arc_frames parameters" }
+status_info { code: 2102 title: "pivot_frame or grip_frame is not set" }
+status_info { code: 2103 title: "A referenced frame or object is missing" }
+status_info { code: 2104 title: "The grip point lies on the pivot axis" }
+status_info { code: 2105 title: "RADIAL: the tool azimuth is undefined" }
+status_info { code: 2106 title: "Reading or writing the world failed" }

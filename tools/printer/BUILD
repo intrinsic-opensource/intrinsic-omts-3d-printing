@@ -84,6 +84,32 @@ py_binary(
 )
 
 py_library(
+    name = "open_door_bt_lib",
+    srcs = ["open_door_bt.py"],
+    deps = [
+        "//src/behaviors:open_door",
+        "//src/core:config",
+        "//src/hardware:gripper",
+        "//src/hardware:robot",
+        "@com_google_protobuf//:protobuf_python",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:execution",
+        "@intrinsic_apis//intrinsic/executive/proto:behavior_tree_py_pb2",
+    ],
+)
+
+py_binary(
+    name = "open_door_bt",
+    srcs = ["open_door_bt.py"],
+    data = ["//configs:all_configs"],
+    main = "open_door_bt.py",
+    deps = [
+        ":open_door_bt_lib",
+    ],
+)
+
+py_library(
     name = "sync_door_lib",
     srcs = ["sync_door.py"],
     deps = [

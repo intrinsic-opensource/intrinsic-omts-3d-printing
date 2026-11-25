@@ -1,5 +1,6 @@
 load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("@intrinsic-core//bazel:python.bzl", "py_test")
+load("//bazel:solution_manifest.bzl", "solution_manifest_only")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -101,6 +102,54 @@ py_test(
     ],
 )
 
+# The real parameter schemas of the skills the door tree calls, so the test
+# builds it with SBL-generated skill classes (no bundles are built).
+solution_manifest_only(
+    name = "open_door_skill_asset_infos",
+    skills = [
+        "//skills/motion:generate_arc_frames",
+        "//skills/perception:detect_aruco_markers",
+        "@intrinsic-core//incode/motion_planning/skills:move_robot_skill",
+        "@intrinsic-core//intrinsic/skills/apps:update_world_skill",
+    ],
+)
+
+py_test(
+    name = "test_open_door_behavior",
+    srcs = ["test_open_door_behavior.py"],
+    data = [
+        ":open_door_skill_asset_infos",
+        "//configs:all_configs",
+    ],
+    deps = [
+        "//src/behaviors:open_door",
+        "//src/core:config",
+        "//src/core:door",
+        "//src/hardware:gripper",
+        "//src/hardware:robot",
+        "//src/utils:math_utils",
+        "//tools/printer:open_door_bt_lib",
+        "@ai_intrinsic_sdks_pip_deps//pyyaml",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_protobuf//:protobuf_python",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/assets/build_defs:asset_py_pb2",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:execution",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:provided",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_service_py_pb2",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/python:object_world_resources",
+        "@intrinsic_apis//intrinsic/assets/proto:id_py_pb2",
+        "@intrinsic_apis//intrinsic/executive/proto:behavior_call_py_pb2",
+        "@intrinsic_apis//intrinsic/executive/proto:behavior_tree_py_pb2",
+        "@intrinsic_apis//intrinsic/icon/proto:joint_space_py_pb2",
+        "@intrinsic_apis//intrinsic/math/proto:pose_py_pb2",
+        "@intrinsic_apis//intrinsic/resources/proto:resource_handle_py_pb2",
+        "@intrinsic_apis//intrinsic/skills/proto:equipment_py_pb2",
+    ],
+)
+
 py_test(
     name = "test_aruco_pose",
     srcs = ["test_aruco_pose.py"],
@@ -124,6 +173,40 @@ py_test(
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
         "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:proto_conversion",
         "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
+    ],
+)
+
+# generate_arc_frames' maths against the door demo's knob_matrix
+# (tools/printer/open_door.py, a py_binary, imported for its function only).
+py_test(
+    name = "test_arc_frames_math",
+    srcs = ["test_arc_frames_math.py"],
+    deps = [
+        "//skills/motion:arc_math",
+        "//src/core:door",
+        "//tools/printer:open_door",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
+    name = "test_arc_frames_skill",
+    srcs = ["test_arc_frames_skill.py"],
+    deps = [
+        "//skills/motion:arc_frames_skill",
+        "//skills/motion:arc_math",
+        "//skills/motion:generate_arc_frames_py_pb2",
+        "@ai_intrinsic_sdks_pip_deps//numpy",
+        "@com_github_grpc_grpc//src/python/grpcio/grpc:grpcio",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:proto_conversion",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/python:skill_interface",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/skills/testing:skill_test_utils",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_service_py_pb2",
+        "@intrinsic-core//intrinsic_sdk/intrinsic/world/python:object_world_client",
+        "@intrinsic_apis//intrinsic/world/proto:object_world_refs_py_pb2",
     ],
 )
 
