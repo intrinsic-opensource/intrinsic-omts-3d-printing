@@ -13,41 +13,30 @@ receives. Plan and status: `research/PRINTER_SERVICE_HANDOFF.md`.
 
 ## Door (simulation only)
 
-Real-printer behavior is unverified. To run everything below directly:
+Real-printer behavior is unverified. To run everything directly:
 
 ```bash
 tools/printer/demo_open_door.sh [target_deg]     # default 135
 ```
 
-Environment: `CHUNK` (deg per planner call, default 135; `CHUNK=12` swings
-stepwise), `NO_GUI=1` (do not restart the Gazebo GUI), `NO_WRITE=1` (detect
-only, keep the configured printer pose). It needs the `gz` CLI and `kubectl`.
-The arm grips the light-blue bar of a purple D handle that stands 0.10 m beyond
-the door's free edge, and the door opens in one blended JOINT motion (about 13 s
-to 135 deg). The pull retries with a lower end angle when a swing cannot be
-planned and stops at the arm's reach, about 145 deg; `--motion=LINEAR` stops
-near 60 deg, where the gripper passes over the arm's base axis
+Environment: `NO_GUI=1` (do not restart the Gazebo GUI). It needs the `gz` CLI
+and `kubectl`. The arm grips the light-blue bar of a purple D handle that stands
+0.10 m beyond the door's free edge, and the door opens in one blended JOINT
+motion (about 12 s of swing to 135 deg, about 30 s for the whole behavior). The
+tree falls back to shorter arcs (115, 90, 60 deg) when the target cannot be
+planned; the arm's reach ends near 145 deg. A straight Cartesian (`LINEAR`)
+swing would stop near 60 deg, where the gripper passes over the arm's base axis
 (`research/HANDOFF.md` 5e.12). The printer is anchored to `rebot_ground` and
 stands in line with the arm at d 0.80.
 
-Tools: `open_door` (`--mode look|detect|discover|approach|pull|entities|joints`;
-`--path blended|stepwise`; `--motion JOINT|LINEAR|ANY` (default JOINT);
-`--chunk_deg`, `--wp_deg`, `--retry_step_deg`; `--az_mode radial|fixed`;
-`--belief_door_at end|start`; `--no_belief_door`), `sync_door` (Gazebo's door
-angle and the bar's `crank_pivot` angle into the belief world; `--rate_hz`,
-`--min_change_deg`, `--duration`) and `control_door` (`--action
-open|close|set|status`, `--theta_deg`, `--reset_sim`). Design and results:
-`research/HANDOFF.md` 5e.
+### The behavior is skills only
 
-### Skills only: the same behavior as one behavior tree
-
-`open_door_bt` replaces the scripted steps with one Behavior Tree built only from
-installed skills, so the behavior can be rebuilt in a real Intrinsic solution
-(Flowstate) without our scripts. All geometry is computed by one generic skill,
-`ai.omts.generate_arc_frames` (`skills/motion/`), which writes the tool frames
-for swinging a grip point about a pivot into the world. The tree
-(`src/behaviors/open_door.py`, parameters in the `door:` section of
-`configs/rebot/app_config.yaml`):
+`tools/printer/open_door_bt` runs one Behavior Tree built only from installed
+skills (`src/behaviors/open_door.py`; parameters in the `door:` section of
+`configs/rebot/app_config.yaml`), so the behavior can be rebuilt in a real
+Intrinsic solution (Flowstate) without scripts. All geometry comes from one
+generic skill, `ai.omts.generate_arc_frames` (`skills/motion/`), which writes
+the tool frames for swinging a grip point about a pivot into the world.
 
 | Step | Skill |
 | :--- | :--- |
@@ -58,21 +47,19 @@ for swinging a grip point about a pivot into the world. The tree
 | Swing | `move_robot`, blended JOINT through the arc frames, as a Fallback over shorter arcs (135, 114, 90, 60 deg); each ends with `update_world` setting the belief door joint |
 | Release, retreat | `control_pinch_gripper`, `move_robot` (6 cm back along the tool) |
 
-After the deploy and reset of steps 1-5 below:
-
-```bash
-bazel run //tools/printer:open_door_bt -- --address=localhost:17080
-#   --target_deg N      override the target angle
-#   --dump=/tmp/door.textproto   write the tree without running it
-#   --no_run            build it and print its outline only
-```
+Tools: `open_door_bt` (`--target_deg N`; `--dump=PATH` writes the tree without
+running it; `--no_run` prints its outline), `sync_door` (Gazebo's door angle
+and the bar's `crank_pivot` angle into the belief world, for a live RViz;
+`--rate_hz`, `--min_change_deg`, `--duration`) and `control_door` (`--action
+open|close|set|status`, `--theta_deg`, `--reset_sim`). Design and results:
+`research/HANDOFF.md` 5e.
 
 ### Step by step
 
 The hinge is passive, so right after a deploy Gazebo shows the door **open**
 (the SDF's joint position 0); step 3 resets Gazebo to the belief world and
 closes it. Run everything from the repository root in one shell, except the GUI
-(step 4), which needs its own terminal. Steps 7 and 8 run in the background of
+(step 4), which needs its own terminal. Steps 6 and 7 run in the background of
 that shell.
 
 ```bash
@@ -86,7 +73,7 @@ bazel run //:rebot_solution -c opt --//models/printer:door=closed \
   --//models/printer:hinge=passive --//models/printer:layout=door_test -- $A
 
 # 2. Build the tools
-bazel build //tools/printer:open_door //tools/printer:sync_door \
+bazel build //tools/printer:open_door_bt //tools/printer:sync_door \
   //tools/printer:control_door //research/tools:door_angle \
   //tools/world:apply_scene_updates
 
@@ -99,38 +86,32 @@ bazel-bin/tools/world/apply_scene_updates $A --reset_sim \
 #    the reset: a GUI open during the reset mis-draws the scene
 pkill -f 'gz-sim-main -g'; pkill -f gz-sim-gui-client; sleep 1; gz sim -g
 
-# 5. Look pose
-bazel-bin/tools/printer/open_door $A --mode=look \
-  --joints -0.8678 -0.5884 -0.8892 0.3008 -0.8676 -1.5708
+# 5. (Optional) look at the tree without running it
+bazel-bin/tools/printer/open_door_bt $A --no_run
 
-# 6. Find the printer from the marker: PRINTER DETECTED, or a NOT DETECTED
-#    banner and exit code 3 (--no_write_pose: detect only, keep the configured
-#    printer pose)
-bazel-bin/tools/printer/open_door $A --mode=discover
-
-# 7. Record Gazebo's poses (background; stop it in step 10)
+# 6. Record Gazebo's poses (background; stop it in step 8)
 gz topic -e -t /world/default/pose/info --json-output > /tmp/poses.jsonl &
 REC=$!
 
-# 8. Keep the belief door in step with Gazebo (background; stop it in step 10)
+# 7. Keep the belief door in step with Gazebo for a live RViz (background)
 bazel-bin/tools/printer/sync_door $A > /tmp/sync.log 2>&1 &
 SYNC=$!
 
-# 9. Grab the D handle's bar, open the door, release and retreat (--hold keeps
-#    the grip; --chunk_deg=12 swings stepwise instead of in one call)
-bazel-bin/tools/printer/open_door $A --mode=pull --target_deg=135 \
-  --no_belief_door --path=blended --chunk_deg=135 --wp_deg=3 --retry_step_deg=5
+# 8. Run the behavior: look, find the printer, grab the bar, open the door,
+#    release and retreat (--dump=/tmp/door.textproto saves the tree instead)
+bazel-bin/tools/printer/open_door_bt $A --target_deg=135
 
-# 10. Stop the background jobs and read the result
+# 9. Stop the background jobs and read the result
 sleep 3; kill $SYNC $REC
 bazel-bin/research/tools/door_angle /tmp/poses.jsonl --every 100000
 bazel-bin/tools/printer/control_door $A --action=status   # belief door_hinge
 ```
 
 If a run stops with "Conductor failed to prepare for process start", the
-executive was busy or restarting: run it again. If a pull fails, it prints the
-planner's reason. `--mode=entities` and
-`--mode=joints` dump the world and the joint positions.
+executive was busy or restarting: run it again. If it stops with "Cannot delete
+process behavior tree ... RUNNING", an earlier run is still executing; wait for
+it. If the marker is not found the tree fails at the detection step with the
+skill's error.
 
 ## The flow
 

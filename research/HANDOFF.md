@@ -1738,7 +1738,7 @@ Check these before building on them.
   minimum. `open_door --retry_step_deg` (default 5) lowers a failing chunk's end
   angle until it plans.
 
-### 5e.13: the door behavior as skills only (written, not yet run in the simulator)
+### 5e.13: the door behavior as skills only (done, simulation)
 
 * The scripted logic of `tools/printer/open_door.py` (arc waypoints, tool
   orientation, grasp frames) moves into one generic skill,
@@ -1754,6 +1754,15 @@ Check these before building on them.
   dumps (`--dump`) or runs it. Parameters: the optional `door:` section of
   `configs/rebot/app_config.yaml` (`AppConfig.door`, `None` for the other
   cells). The printer model gained a `handle_grip` frame (the bar's centre).
-* Status: unit tests, lint and analysis pass; the simulator run (GUI) is the
-  next step, see the result below once run. `sync_door` stays as a
-  simulation-only aid.
+* The scripted tool `tools/printer/open_door.py` (look/discover/approach/pull) is
+  retired; its maths survives as the reference in
+  `tests/unit/test_arc_frames_math.py`. `demo_open_door.sh` now deploys, resets
+  and runs `open_door_bt`; `sync_door` stays as a simulation-only aid for a live
+  RViz, and `control_door` as a joint utility.
+* **Result (simulation, GUI, `demo_open_door.sh`):** the tree ran start to
+  finish (look, marker detection, `update_world`, arc frames, grasp, blended
+  JOINT swing, belief update, release, retreat) in about 30 s; Gazebo door
+  134.4 deg, belief door 135 deg, printer drift 0.0 mm, exit code 0. Same swing
+  result as the scripted tool (135 deg in about 12 s of motion). Not exercised:
+  the Fallback to a shorter arc (the full swing planned) and a mid-motion
+  failure.

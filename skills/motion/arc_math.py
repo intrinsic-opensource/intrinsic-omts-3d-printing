@@ -21,7 +21,8 @@ The grip point at angle phi (degrees, right-hand about the pivot's +z) is
 G(phi) = P + Rot(axis, phi) (G0 - P). The tool's z axis is the approach
 direction; the tool sits at G + (grip_depth_m - back_off) * z. The rotation is
 that of src/core/door.py knob_tool_rotation_world, and RADIAL mode is the
-azimuth rule of tools/printer/open_door.py knob_matrix.
+azimuth rule of the retired scripted tool (knob_matrix, kept as the reference
+in tests/unit/test_arc_frames_math.py).
 """
 
 import dataclasses

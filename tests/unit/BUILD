@@ -176,15 +176,14 @@ py_test(
     ],
 )
 
-# generate_arc_frames' maths against the door demo's knob_matrix
-# (tools/printer/open_door.py, a py_binary, imported for its function only).
+# generate_arc_frames' maths against the retired scripted tool's knob_matrix,
+# kept in the test as the reference.
 py_test(
     name = "test_arc_frames_math",
     srcs = ["test_arc_frames_math.py"],
     deps = [
         "//skills/motion:arc_math",
         "//src/core:door",
-        "//tools/printer:open_door",
         "@ai_intrinsic_sdks_pip_deps//numpy",
         "@com_google_absl_py//absl/testing:absltest",
     ],

@@ -66,9 +66,9 @@ CRANK_PIVOT_POS: Vec = (
 # bar sits on the fingers' flat pads, not on their tips.
 KNOB_POS: Vec = CRANK_PIVOT_POS
 GRIP_DEPTH_M = 0.015
-# Tool orientation for open_door's --az_mode=fixed: level, azimuth in the world
-# frame, the fingers closing horizontally across the bar. The default radial
-# mode points the tool from the robot's base at the grip point instead (the
+# Fixed tool orientation: level, azimuth in the world frame, the fingers
+# closing horizontally across the bar. The behavior tree's generate_arc_frames
+# skill points the tool from the robot's base at the grip point instead (the
 # bar turns, so the wrist need not).
 KNOB_APPROACH_AZ_DEG = -28.2
 KNOB_APPROACH_PITCH_DEG = 0.0

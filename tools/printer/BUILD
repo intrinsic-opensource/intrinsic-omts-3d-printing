@@ -63,26 +63,6 @@ py_binary(
     ],
 )
 
-py_binary(
-    name = "open_door",
-    srcs = ["open_door.py"],
-    main = "open_door.py",
-    deps = [
-        "//src/core:config",
-        "//src/core:door",
-        "//src/hardware:gripper",
-        "//src/hardware:robot",
-        "@ai_intrinsic_sdks_pip_deps//numpy",
-        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
-        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:proto_conversion",
-        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:behavior_tree",
-        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
-        "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:execution",
-        "@intrinsic-core//intrinsic_sdk/intrinsic/world/proto:object_world_updates_py_pb2",
-        "@intrinsic_apis//intrinsic/util/status:extended_status_py_pb2",
-    ],
-)
-
 py_library(
     name = "open_door_bt_lib",
     srcs = ["open_door_bt.py"],

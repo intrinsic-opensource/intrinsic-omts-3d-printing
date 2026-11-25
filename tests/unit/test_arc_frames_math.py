@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""generate_arc_frames' maths against the door demo's own (door.py, knob_matrix).
+"""generate_arc_frames' maths against the retired scripted tool's maths (door.py, knob_matrix).
 
 The door-test layout: the printer at world (0.80, -0.0064, 0), yaw +90 deg; the
 hinge frame at door.HINGE_IN_PRINTER in the printer frame (axes of the printer);
@@ -28,10 +28,28 @@ from absl.testing import absltest
 
 from skills.motion import arc_math
 from src.core import door
-from tools.printer import open_door
 
 ATOL = 1e-12
 PREGRASP_M = 0.06
+
+
+def knob_matrix(
+  root_t_printer: np.ndarray,
+  theta_deg: float,
+  back_m: float = 0.0,
+  az_mode: str = "radial",
+) -> np.ndarray:
+  """The retired scripted tool's pose, kept here as the reference maths."""
+  centre = (root_t_printer @ np.append(door.knob_in_printer(theta_deg), 1.0))[
+    :3
+  ]
+  az = None
+  if az_mode == "radial":
+    az = math.degrees(math.atan2(centre[1], centre[0]))
+  m = np.eye(4)
+  m[:3, :3] = np.array(door.knob_tool_rotation_world(az))
+  m[:3, 3] = centre + (door.GRIP_DEPTH_M - back_m) * m[:3, 2]
+  return m
 
 
 def printer_at(x: float, y: float, yaw_deg: float) -> np.ndarray:
@@ -75,7 +93,7 @@ class DoorEquivalenceTest(absltest.TestCase):
     by_name = {f.name: f for f in frames}
 
     def want(theta, back=0.0):
-      return open_door.knob_matrix(ROOT_T_PRINTER, theta, back, az_mode)
+      return knob_matrix(ROOT_T_PRINTER, theta, back, az_mode)
 
     np.testing.assert_allclose(
       by_name["arc_grasp"].root_t_tool, want(0), atol=ATOL
@@ -116,7 +134,7 @@ class DoorEquivalenceTest(absltest.TestCase):
       )
       np.testing.assert_allclose(
         got,
-        open_door.knob_matrix(ROOT_T_PRINTER, theta),
+        knob_matrix(ROOT_T_PRINTER, theta),
         atol=ATOL,
         err_msg=f"theta {theta}",
       )
@@ -128,7 +146,7 @@ class DoorEquivalenceTest(absltest.TestCase):
         self.assert_same_as_knob_matrix(frames, "fixed")
 
   def test_pitch_matches_knob_matrix(self):
-    # open_door's --pitch sets door.KNOB_APPROACH_PITCH_DEG for both modes.
+    # the retired tool's --pitch set door.KNOB_APPROACH_PITCH_DEG for both modes.
     for pitch in (20.0, -15.0, 60.0):
       with mock.patch.object(door, "KNOB_APPROACH_PITCH_DEG", pitch):
         self.assert_same_as_knob_matrix(door_arc(pitch_deg=pitch), "radial")
