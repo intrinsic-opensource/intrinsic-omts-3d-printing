@@ -304,6 +304,7 @@ class JobWatcher:
   # -- reading ---------------------------------------------------------------
 
   def find(self, job_id: int | None = None) -> JobRecord | None:
+    """The newest record with that job id; the newest record when None."""
     with self._lock:
       records = [
         r for r in self._records if job_id is None or r.job_id == job_id
@@ -311,6 +312,10 @@ class JobWatcher:
       return records[-1] if records else None
 
   def status(self, job_id: int | None = None) -> pb.ModelStatus:
+    """The model's state for a job (the newest when None).
+
+    An unknown id is a 404; with no job seen at all the state is NO_JOB.
+    """
     record = self.find(job_id)
     if record is None:
       if job_id is not None:
@@ -327,6 +332,14 @@ class JobWatcher:
       )
 
   def model_file(self, job_id: int, relative: str) -> Path:
+    """The path of one STL built from a job's G-code, for the HTTP download.
+
+    The STLs are built by this service from the G-code it downloaded from the
+    printer (see `_process`); the printer holds no STL. `relative` must be one
+    of the names in _MODEL_FILE (model.stl, part.stl, supports.stl or
+    by_type/<type>.stl), so a caller cannot name any other file, and the job's
+    model must be READY.
+    """
     if not _MODEL_FILE.fullmatch(relative):
       raise client.ServiceError(404, "not_found", "Unknown model file")
     record = self.find(job_id)

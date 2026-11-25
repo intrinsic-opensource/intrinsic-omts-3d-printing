@@ -94,6 +94,9 @@ def state(value: object) -> int:
   return pb.PrinterState.Value(value)
 
 
+DEFAULT_UNLOAD_BED_MAX_C = 30.0
+
+
 class PrusaLinkClient:
   def __init__(
     self,
@@ -102,6 +105,7 @@ class PrusaLinkClient:
     password: str,
     timeout: float = 5.0,
     locator=None,
+    unload_bed_max_c: float = DEFAULT_UNLOAD_BED_MAX_C,
   ):
     """`locator` (an object with `current()` and `forget()`) finds the URL.
 
@@ -129,6 +133,9 @@ class PrusaLinkClient:
       raise ValueError("PrusaLink Digest username and password are required")
     if not math.isfinite(timeout) or not 0 < timeout <= 60:
       raise ValueError("timeout_seconds must be in (0, 60]")
+    if not math.isfinite(unload_bed_max_c) or not 0 < unload_bed_max_c <= 100:
+      raise ValueError("unload_bed_max_c must be in (0, 100]")
+    self.unload_bed_max_c = unload_bed_max_c
     self.url = url.rstrip("/")
     self.username = username
     self.password = password
@@ -333,8 +340,9 @@ class PrusaLinkClient:
     result.ready_for_unload = (
       result.print_finished
       and result.HasField("bed_temperature_c")
-      and result.bed_temperature_c < 30.0
+      and result.bed_temperature_c < self.unload_bed_max_c
     )
+    result.unload_bed_max_c = self.unload_bed_max_c
     result.observed_at.GetCurrentTime()
     return result
 

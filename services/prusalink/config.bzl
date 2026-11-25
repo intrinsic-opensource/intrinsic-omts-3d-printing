@@ -10,8 +10,13 @@ def _impl(ctx):
         "",
         "[type.googleapis.com/omts.prusalink.PrusaLinkConfig] {",
         "  timeout_seconds: 5.0",
-        "  enable_job_commands: true",
+        "  enable_job_commands: %s" % (
+            "true" if ctx.attr.job_commands[BuildSettingInfo].value else "false"
+        ),
     ]
+    unload = ctx.attr.unload_bed_max_c[BuildSettingInfo].value
+    if unload:
+        lines.append("  unload_bed_max_c: %s" % float(unload))
     for field, setting in (
         ("printer_url", ctx.attr.printer_url),
         ("username", ctx.attr.username),
@@ -27,8 +32,10 @@ def _impl(ctx):
 prusalink_config = rule(
     implementation = _impl,
     attrs = {
+        "job_commands": attr.label(providers = [BuildSettingInfo]),
         "password": attr.label(providers = [BuildSettingInfo]),
         "printer_url": attr.label(providers = [BuildSettingInfo]),
+        "unload_bed_max_c": attr.label(providers = [BuildSettingInfo]),
         "username": attr.label(providers = [BuildSettingInfo]),
     },
 )

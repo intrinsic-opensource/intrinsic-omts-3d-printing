@@ -86,6 +86,21 @@ string_flag(
     build_setting_default = "",
 )
 
+# Job commands (pause, resume, stop, continue) on the printer through the
+# service's HTTP and gRPC API are off unless --//:printer_job_commands is set.
+# No skill or behavior tree uses them.
+bool_flag(
+    name = "printer_job_commands",
+    build_setting_default = False,
+)
+
+# The bed temperature (degrees Celsius) below which a finished print is ready to
+# unload. Empty keeps the service's default (30, a placeholder).
+string_flag(
+    name = "printer_unload_bed_max_c",
+    build_setting_default = "",
+)
+
 string_flag(
     name = "printer_username",
     build_setting_default = "",

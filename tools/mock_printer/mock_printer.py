@@ -51,6 +51,8 @@ MAX_UPLOAD_BYTES = 256 * 1024 * 1024
 MOCK_USERNAME = "maker"
 MOCK_PASSWORD = "mock-only"
 REALM = "PrusaLink mock"
+# Display hint only: the service decides when a print is ready to unload.
+UNLOAD_HINT_C = 30.0
 AMBIENT_C = 24.0
 PRINT_BED_C = 60.0
 STATES = (
@@ -681,8 +683,8 @@ def render(printer: MockPrinter, port: int) -> str:
       f" bed         {_bar((bed - AMBIENT_C) / (PRINT_BED_C - AMBIENT_C))}"
       f" {bed:5.1f} °C"
       + (
-        "   <- ready to unload (<30)"
-        if state == "FINISHED" and bed < 30
+        "   <- cool enough to unload"
+        if state == "FINISHED" and bed < UNLOAD_HINT_C
         else ""
       )
     )

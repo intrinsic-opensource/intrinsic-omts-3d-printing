@@ -206,6 +206,39 @@ class PrinterSkillsTest(parameterized.TestCase):
     with self.assertRaises(skill_interface.SkillError):
       skills.readiness(status, 42)
 
+  def test_cooling_uses_the_threshold_in_the_status(self):
+    status = service_pb.PrinterStatus(
+      state=service_pb.FINISHED,
+      job_id=42,
+      bed_temperature_c=35,
+      unload_bed_max_c=40,
+      ready_for_unload=True,
+      print_finished=True,
+    )
+    status.observed_at.GetCurrentTime()
+    self.assertEqual(
+      skills.readiness(status, 42).decision,
+      pb.PrinterReadiness.READY_TO_UNLOAD,
+    )
+    status.unload_bed_max_c = 30
+    status.ready_for_unload = False
+    self.assertEqual(
+      skills.readiness(status, 42).decision,
+      pb.PrinterReadiness.WAITING_FOR_COOLING,
+    )
+
+  def test_status_without_a_threshold_is_rejected(self):
+    status = service_pb.PrinterStatus(
+      state=service_pb.FINISHED,
+      job_id=42,
+      bed_temperature_c=25,
+      ready_for_unload=True,
+      print_finished=True,
+    )
+    status.observed_at.GetCurrentTime()
+    with self.assertRaises(skill_interface.SkillError):
+      skills.readiness(status, 42)
+
   @parameterized.parameters(
     {"state": service_pb.PRINTER_STATE_UNSPECIFIED},
     {"state": 999},
@@ -219,6 +252,7 @@ class PrinterSkillsTest(parameterized.TestCase):
       state=service_pb.FINISHED,
       job_id=42,
       bed_temperature_c=29,
+      unload_bed_max_c=30,
       ready_for_unload=True,
       print_finished=True,
     )

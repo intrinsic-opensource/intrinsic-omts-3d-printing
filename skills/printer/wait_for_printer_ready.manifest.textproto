@@ -18,7 +18,7 @@
 id { package: "ai.omts" name: "wait_for_printer_ready" }
 display_name: "Wait for printer ready"
 vendor { display_name: "OMTS" }
-documentation { description: "Waits for the specified finished job to cool below 30 degrees. Returns READY or TIMED_OUT, fails on printer faults or changed jobs. Never moves a robot." }
+documentation { description: "Waits for the specified finished job to cool below the service's unload temperature (30 degrees Celsius unless configured). Returns READY or TIMED_OUT, fails on printer faults or changed jobs. Never moves a robot." }
 options {
   supports_cancellation: true
   execution_timeout { seconds: 3620 }

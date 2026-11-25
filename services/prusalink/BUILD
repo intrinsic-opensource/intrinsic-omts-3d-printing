@@ -107,11 +107,14 @@ intrinsic_service(
 )
 
 # The instance config comes from --//:printer_url, --//:printer_username and
-# --//:printer_password. With none set the service looks for the mock printer.
+# --//:printer_password; --//:printer_job_commands and
+# --//:printer_unload_bed_max_c are optional. With no printer set the service looks for the mock printer.
 prusalink_config(
     name = "prusalink_instance_config",
+    job_commands = "//:printer_job_commands",
     password = "//:printer_password",
     printer_url = "//:printer_url",
+    unload_bed_max_c = "//:printer_unload_bed_max_c",
     username = "//:printer_username",
 )
 

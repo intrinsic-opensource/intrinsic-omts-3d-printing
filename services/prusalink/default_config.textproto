@@ -17,5 +17,4 @@
 
 [type.googleapis.com/omts.prusalink.PrusaLinkConfig] {
   timeout_seconds: 5.0
-  password_env: "PRUSALINK_PASSWORD"
 }

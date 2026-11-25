@@ -8,7 +8,10 @@ printer's PrusaLink API:
    `ai.omts.read_printer_status` / `wait_for_printer_ready`. It computes
    `print_finished` and `ready_for_unload` itself (PrusaLink has neither):
    `ready_for_unload` is true only for `state == FINISHED` with a bed
-   temperature below 30 °C. The 30 °C is a placeholder, not a Prusa value.
+   temperature below `unload_bed_max_c` (default 30 °C, a placeholder and not a
+   Prusa value; set it with `--//:printer_unload_bed_max_c=<°C>` or
+   `--unload-bed-max-c`). The status carries the threshold it used
+   (`unload_bed_max_c`), so the skills never keep a copy of it.
 2. **Job model**: every new job the printer reports is downloaded (G-code or
    bgcode), checked, and converted to an STL, for the skills
    `ai.omts.read_job_model` / `wait_for_job_model`.
@@ -64,8 +67,15 @@ apply when running the binary directly.
 With none of these the service looks for the mock. `--no//:printer_service`
 leaves the service and its skills out of the solution. The password flag
 writes the password into the solution's config (the asset bundle); use it for
-test credentials only. A secret-managed delivery (`password_env`) exists but
-has no delivery path into the cluster yet.
+test credentials only. In the cluster this flag is the only way to give the
+service its login: `password_env` (an environment variable) only works when you
+run the binary directly, because a service manifest can set an environment
+variable only to a plain value and nothing in this solution sets one.
+
+**Job commands** (pause, resume, stop, continue a print on the printer) are off
+unless you build with `--//:printer_job_commands`; the service then answers
+HTTP 403 / `PERMISSION_DENIED`. No skill and no behavior tree uses them: the
+skills only read. Running the binary directly: `--enable-job-commands`.
 
 **Running the binary directly** (no cluster), same choices as arguments:
 
@@ -123,7 +133,7 @@ skills and gRPC clients get its path and state (`ModelStatus`).
 | `GET /v1/jobs` | `ListModels(Empty)` | Every job read since the service started |
 | `GET /v1/jobs/{id}/model` | `GetModelStatus(job_id)` | That job's model (404 if never seen) |
 | `GET /v1/jobs/{id}/model.stl`, `.../part.stl`, `.../supports.stl`, `.../by_type/{type}.stl` | — | The STL (`model/stl`) |
-| `POST /v1/jobs/{id}/pause\|resume\|stop\|continue` | `CommandJob(JobCommand)` | Job commands; off unless enabled, HTTP 403 otherwise |
+| `POST /v1/jobs/{id}/pause\|resume\|stop\|continue` | `CommandJob(JobCommand)` | Job commands; off unless `--//:printer_job_commands` (or `--enable-job-commands`), HTTP 403 otherwise |
 
 HTTP results are protobuf JSON with snake_case names; `int64` ids and times are
 strings; absent optionals are omitted, not zero. Upstream 404/409 are kept;

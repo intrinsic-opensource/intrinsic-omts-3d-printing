@@ -59,6 +59,7 @@ def connect(
   """The client for the configured printer, or for the mock; and its route."""
   password = config.password or os.environ.get(config.password_env, "")
   timeout = config.timeout_seconds or 5.0
+  unload_bed_max_c = config.unload_bed_max_c or client.DEFAULT_UNLOAD_BED_MAX_C
   if config.printer_url:
     if not config.username or not password:
       raise ValueError(
@@ -72,7 +73,11 @@ def connect(
     )
     return (
       client.PrusaLinkClient(
-        config.printer_url, config.username, password, timeout
+        config.printer_url,
+        config.username,
+        password,
+        timeout,
+        unload_bed_max_c=unload_bed_max_c,
       ),
       {"route": "configured", "printer_url": config.printer_url},
     )
@@ -87,6 +92,7 @@ def connect(
     password or MOCK_PASSWORD,
     timeout,
     locator=locator,
+    unload_bed_max_c=unload_bed_max_c,
   )
   return printer, {"route": "mock", "printer_url": None}
 
@@ -111,6 +117,7 @@ def run(args: argparse.Namespace) -> None:
       storage_dir=args.storage_dir,
       poll_interval_seconds=args.poll_interval,
       max_download_bytes=int(args.max_download_mb * 1024 * 1024),
+      unload_bed_max_c=args.unload_bed_max_c,
     )
     grpc_port, http_port, prefix, host = (
       args.grpc_port,
@@ -220,6 +227,13 @@ def main() -> None:
     "--no-job-pull",
     action="store_true",
     help="telemetry only: do not download jobs or build models",
+  )
+  parser.add_argument(
+    "--unload-bed-max-c",
+    type=float,
+    default=client.DEFAULT_UNLOAD_BED_MAX_C,
+    help="a finished print is ready to unload when the bed is below this "
+    "temperature (degrees Celsius)",
   )
   parser.add_argument("--enable-job-commands", action="store_true")
   parser.add_argument(

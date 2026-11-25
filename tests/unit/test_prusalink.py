@@ -168,6 +168,39 @@ class PrusaLinkTest(parameterized.TestCase):
     )
     self.assertGreater(result.observed_at.seconds, 0)
 
+  @parameterized.parameters(
+    (40.0, 39.9, True),
+    (40.0, 40.0, False),
+    (20.0, 25.0, False),
+    (20.0, 19.9, True),
+  )
+  def test_unload_threshold_is_configurable(
+    self, threshold, temperature, ready
+  ):
+    printer = client.PrusaLinkClient(
+      f"http://127.0.0.1:{self.mock_server.server_port}",
+      mock.MOCK_USERNAME,
+      mock.MOCK_PASSWORD,
+      0.2,
+      unload_bed_max_c=threshold,
+    )
+    self.simulator.update({"state": "FINISHED", "temp_bed": temperature})
+    status = printer.get_status()
+    self.assertEqual(status.ready_for_unload, ready)
+    self.assertEqual(status.unload_bed_max_c, threshold)
+
+  def test_status_carries_the_default_threshold(self):
+    self.simulator.update({"state": "FINISHED", "temp_bed": 25})
+    result = self.stub.GetStatus(empty_pb2.Empty(), timeout=2)
+    self.assertEqual(result.unload_bed_max_c, client.DEFAULT_UNLOAD_BED_MAX_C)
+
+  @parameterized.parameters(0.0, -5.0, 101.0, float("nan"), float("inf"))
+  def test_invalid_unload_threshold(self, threshold):
+    with self.assertRaises(ValueError):
+      client.PrusaLinkClient(
+        "http://printer", "u", "p", unload_bed_max_c=threshold
+      )
+
   def test_digest_authentication_is_required(self):
     with self.assertRaises(urllib.error.HTTPError) as cm:
       urllib.request.urlopen(self.printer.url + "/api/v1/status", timeout=2)

@@ -37,6 +37,10 @@ message PrusaLinkConfig {
   double poll_interval_seconds = 9;
   // Download limit for one job file. Default: 256 MiB.
   int64 max_download_bytes = 10;
+  // A finished print counts as cool enough to unload when the bed is below
+  // this temperature, in degrees Celsius. Default: 30 (a placeholder, not a
+  // Prusa value).
+  double unload_bed_max_c = 11;
 }
 
 enum PrinterState {
@@ -62,6 +66,9 @@ message PrinterStatus {
   // Advisory telemetry, not authorization to move a robot.
   bool ready_for_unload = 7;
   google.protobuf.Timestamp observed_at = 8;
+  // The bed temperature below which ready_for_unload is true, as configured
+  // (unload_bed_max_c). Skills compare against this, never a copy of it.
+  optional double unload_bed_max_c = 9;
 }
 
 message Job {

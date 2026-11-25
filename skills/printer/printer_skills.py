@@ -82,7 +82,11 @@ def readiness(
     decision = pb.PrinterReadiness.WAITING_FOR_PRINT
   elif not status.HasField("bed_temperature_c"):
     decision = pb.PrinterReadiness.TEMPERATURE_UNAVAILABLE
-  elif status.bed_temperature_c >= 30:
+  elif not status.HasField("unload_bed_max_c"):
+    raise skill_interface.SkillError(
+      INVALID_OBSERVATION, "PrusaLink status has no unload temperature"
+    )
+  elif status.bed_temperature_c >= status.unload_bed_max_c:
     decision = pb.PrinterReadiness.WAITING_FOR_COOLING
   elif not status.print_finished or not status.ready_for_unload:
     raise skill_interface.SkillError(

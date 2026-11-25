@@ -88,8 +88,9 @@ Expect `HTTP 201`. What you see, within a few seconds:
 2. Terminal 3, `read_job_model`: `DOWNLOADING`, `CONVERTING` (about 5 s), then
    `MODEL_READY` with the STL path (`MODEL_READY` is the signal for the next
    process to start). `read_printer_status`: `WAITING_FOR_PRINT` while it
-   prints, `WAITING_FOR_COOLING` after `FINISHED` above 30 °C, and
-   `READY_TO_UNLOAD` once it is below 30 °C (the signal to unload).
+   prints, `WAITING_FOR_COOLING` after `FINISHED` above the unload temperature (30 °C
+   unless the service is configured otherwise), and `READY_TO_UNLOAD` once it
+   is below it (the signal to unload).
 
 **Where the model is.** In the service's container,
 `/tmp/prusalink/jobs/1_warrior.bgcode/compound.stl`, and served to you:
