@@ -1,0 +1,143 @@
+// Copyright 2026 Intrinsic Innovation LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package omts.prusalink;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+message PrusaLinkConfig {
+  string printer_url = 1;
+  string username = 2;
+  // Credentials are read at startup, never stored in the asset bundle.
+  string password_env = 3;
+  double timeout_seconds = 4;
+  bool enable_job_commands = 5;
+  // A literal password. It ends up in the solution's config, unlike
+  // password_env; for tests and local clusters only.
+  string password = 6;
+  // The service pulls each new job's G-code and builds its STL unless set.
+  bool disable_job_pull = 7;
+  // Where pulled jobs and their models are kept. Default: /tmp/prusalink.
+  string storage_dir = 8;
+  // How often the printer's job is polled. Default: 2 seconds.
+  double poll_interval_seconds = 9;
+  // Download limit for one job file. Default: 256 MiB.
+  int64 max_download_bytes = 10;
+  // A finished print counts as cool enough to unload when the bed is below
+  // this temperature, in degrees Celsius. Default: 30 (a placeholder, not a
+  // Prusa value).
+  double unload_bed_max_c = 11;
+}
+
+enum PrinterState {
+  PRINTER_STATE_UNSPECIFIED = 0;
+  IDLE = 1;
+  BUSY = 2;
+  PRINTING = 3;
+  PAUSED = 4;
+  FINISHED = 5;
+  STOPPED = 6;
+  ERROR = 7;
+  ATTENTION = 8;
+  READY = 9;
+}
+
+message PrinterStatus {
+  PrinterState state = 1;
+  optional double bed_temperature_c = 2;
+  optional double nozzle_temperature_c = 3;
+  optional int64 job_id = 4;
+  optional double progress_percent = 5;
+  bool print_finished = 6;
+  // Advisory telemetry, not authorization to move a robot.
+  bool ready_for_unload = 7;
+  google.protobuf.Timestamp observed_at = 8;
+  // The bed temperature below which ready_for_unload is true, as configured
+  // (unload_bed_max_c). Skills compare against this, never a copy of it.
+  optional double unload_bed_max_c = 9;
+}
+
+message Job {
+  bool has_job = 1;
+  optional int64 id = 2;
+  PrinterState state = 3;
+  optional double progress_percent = 4;
+  optional int64 time_printing_seconds = 5;
+  optional int64 time_remaining_seconds = 6;
+}
+
+message JobCommand {
+  enum Action {
+    ACTION_UNSPECIFIED = 0;
+    PAUSE = 1;
+    RESUME = 2;
+    STOP = 3;
+    CONTINUE = 4;
+  }
+  int64 job_id = 1;
+  Action action = 2;
+}
+
+enum ModelState {
+  MODEL_STATE_UNSPECIFIED = 0;
+  // The printer has not reported a job with a file yet.
+  NO_JOB = 1;
+  DOWNLOADING = 2;
+  CONVERTING = 3;
+  // The G-code was read and `compound.stl` exists.
+  MODEL_READY = 4;
+  // Not G-code, too large, unreadable, or the printer went away mid-way.
+  MODEL_FAILED = 5;
+}
+
+// What the service did with the G-code of one print job.
+message ModelStatus {
+  ModelState state = 1;
+  optional int64 job_id = 2;
+  string file_name = 3;
+  int64 file_bytes = 4;
+  string sha256 = 5;
+  // Where the STL is inside the service, and where it is served.
+  string stl_path = 6;
+  string http_path = 7;
+  int32 layers = 8;
+  repeated string warnings = 9;
+  string error = 10;
+  // The same file content was already converted for an earlier job.
+  bool reused = 11;
+  // The last poll of the printer failed (empty when it worked).
+  string poll_error = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  google.protobuf.Timestamp observed_at = 14;
+}
+
+message ModelRequest {
+  // Absent: the most recent job.
+  optional int64 job_id = 1;
+}
+
+message ModelList {
+  repeated ModelStatus models = 1;
+}
+
+service PrusaLinkService {
+  rpc GetModelStatus(ModelRequest) returns (ModelStatus);
+  rpc ListModels(google.protobuf.Empty) returns (ModelList);
+  rpc GetStatus(google.protobuf.Empty) returns (PrinterStatus);
+  rpc GetJob(google.protobuf.Empty) returns (Job);
+  rpc CommandJob(JobCommand) returns (google.protobuf.Empty);
+}

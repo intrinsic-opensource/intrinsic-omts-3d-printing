@@ -11,6 +11,14 @@ module(name = "omts")
 #
 # When bumping INTRINSIC_CORE_COMMIT, update INTRINSIC_CORE_SHA256 with:
 #   curl -fsSL "https://github.com/intrinsic-ai/intrinsic-core/archive/<commit>.tar.gz" | sha256sum
+#
+# Also re-check the patches applied to @intrinsic-core (bazel/patches/): a bump
+# that moves the lines they touch makes module resolution fail. In particular
+# printer_skill_dependencies.patch edits the `skill_manifest_deps` list in
+# intrinsic/assets/build_defs/allowlists.bzl, which Core plans to remove (the
+# "dependencies in the skill's parameter" model). If a pin has that model,
+# move skills/printer/*.manifest.textproto to it and delete the patch, its
+# exports_files entry in bazel/patches/BUILD and its line below.
 INTRINSIC_CORE_COMMIT = "50927e35c5c85992b2a4d0b91dabb9cf4172b2d5"
 
 INTRINSIC_CORE_URL = "https://github.com/intrinsic-ai/intrinsic-core/archive/{commit}.tar.gz".format(
@@ -26,6 +34,7 @@ git_override(
     patch_strip = 1,
     patches = [
         "//bazel/patches:gazebo_hwm_stub_visibility.patch",
+        "//bazel/patches:printer_skill_dependencies.patch",
         "//bazel/patches:robotiq_hande_finger_offset.patch",
     ],
     remote = "https://github.com/intrinsic-ai/intrinsic-core.git",
@@ -67,6 +76,12 @@ bazel_dep(name = "pybind11_bazel", version = "3.0.3")
 bazel_dep(name = "rules_cc", version = "0.2.25")
 bazel_dep(name = "rules_cuda", version = "0.3.0")
 bazel_dep(name = "rules_python", version = "2.3.3")
+bazel_dep(name = "rules_oci", version = "2.3.0")
+
+# Reuse Core's pinned base directly; its python3-image-oci wrapper is private.
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+use_repo(oci, "distroless_python3")
+
 # Bzlmod ignores `single_version_override` directives in non-root modules
 # (@intrinsic-core), so the overrides below are mirrored from
 # @intrinsic-core//MODULE.bazel until the upstream fixes land in the Bazel
