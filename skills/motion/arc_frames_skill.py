@@ -92,6 +92,8 @@ def validate(params: pb.GenerateArcFramesParams) -> str:
   for name, value in values.items():
     if not np.isfinite(value):
       raise _error(INVALID_PARAMS, f"{name} is {value}; it must be finite")
+  if params.total_angle_deg == 0.0:
+    raise _error(INVALID_PARAMS, "total_angle_deg is 0; the arc is empty")
   if abs(params.total_angle_deg) > 360.0:
     raise _error(
       INVALID_PARAMS,

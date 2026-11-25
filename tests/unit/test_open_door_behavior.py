@@ -107,7 +107,9 @@ def _fake_solution() -> mock.MagicMock:
   solution = mock.MagicMock()
   solution.world.list_object_names.return_value = ["gripper", "printer"]
   skills = {
-    "ai.omts.detect_aruco_markers": solution.skills.ai.omts.detect_aruco_markers,
+    "ai.omts.detect_aruco_markers": (
+      solution.skills.ai.omts.detect_aruco_markers
+    ),
     "ai.omts.generate_arc_frames": solution.skills.ai.omts.generate_arc_frames,
     "ai.intrinsic.update_world": solution.skills.ai.intrinsic.update_world,
     "ai.intrinsic.move_robot": solution.skills.ai.intrinsic.move_robot,
@@ -332,7 +334,13 @@ class OpenDoorTreeTest(absltest.TestCase):
 
     for node in tries[:4]:
       self.assertLen(node.children, 2)
-      self.assertIsInstance(node.children[1], bt.Task)
+      # the belief write is best effort: a Fallback ending in a no-op success,
+      # so its failure cannot trigger the next alternative's swing
+      record = node.children[1]
+      self.assertIsInstance(record, bt.Fallback)
+      self.assertIsInstance(record.tries[0].node, bt.Task)
+      self.assertIsInstance(record.tries[1].node, bt.Sequence)
+      self.assertEmpty(record.tries[1].node.children)
     updates = [
       c.kwargs["update"]
       for c in self.solution.skills.ai.intrinsic.update_world.call_args_list

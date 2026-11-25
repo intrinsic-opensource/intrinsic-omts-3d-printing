@@ -20,6 +20,7 @@ display_name: "Generate arc frames"
 vendor { display_name: "OMTS" }
 documentation { description: "Writes tool frames that swing a grip point along a circular arc about a pivot axis (for example a door handle about its hinge): <prefix>_pregrasp, <prefix>_grasp, <prefix>_wp_00.. and <prefix>_retreat, children of the root object, for move_robot to target. Existing frames of the same names are moved. Never moves a robot." }
 options {
+  # One instantaneous world update: nothing to cancel.
   supports_cancellation: false
   python_config {
     skill_module: "skills.motion.arc_frames_skill"

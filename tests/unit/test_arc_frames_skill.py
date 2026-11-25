@@ -347,6 +347,7 @@ class ArcFramesSkillErrorTest(_SkillTestBase):
       {"num_waypoints": arc_math.MAX_WAYPOINTS + 1},
       {"total_angle_deg": math.nan},
       {"total_angle_deg": 361.0},
+      {"total_angle_deg": 0.0},
       {"grip_depth_m": math.inf},
       {"orientation": pb.ToolOrientation(pitch_deg=90.0)},
       {"orientation": pb.ToolOrientation(pitch_deg=-95.0)},

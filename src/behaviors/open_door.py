@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Opens the printer's door: one behavior tree made of installed skills only.
+"""Opens the printer's door: one behavior tree made of installed skills.
 
 The tree, in order (skill ids in brackets):
 
@@ -36,6 +36,11 @@ The tree, in order (skill ids in brackets):
      planned, the last alternative releases the handle, backs off and fails.
   6. Release the handle and back off by `door.approach_offset_m` along the
      tool's -Z [ai.intrinsic.move_robot, relative].
+
+Besides the skill calls, the pinch gripper adapter adds a short dwell (a
+PythonScript sleep) after each gripper command; the belief-door write after a
+swing is best effort. The Fallback also fires when a swing fails during motion,
+not only when it cannot be planned.
 
 Retreat: the arm ends at the last waypoint of whichever swing ran, and every
 waypoint's retreat is that waypoint backed off along the tool's approach axis
@@ -270,7 +275,17 @@ def build_swing_fallback(
             ),
             joint_tightness_rad=door_cfg.joint_tightness_rad,
           ),
-          build_set_belief_door_task(solution, door_cfg, alternative.angle_deg),
+          # Best effort: a failed belief write must not count as a failed
+          # swing, or the Fallback would swing the arm again.
+          bt.Fallback(
+            name=f"Door: record the door at {label} (best effort)",
+            children=[
+              build_set_belief_door_task(
+                solution, door_cfg, alternative.angle_deg
+              ),
+              bt.Sequence(name="Door: belief door not updated", children=[]),
+            ],
+          ),
         ],
       )
     )

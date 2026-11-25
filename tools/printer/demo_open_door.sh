@@ -16,14 +16,14 @@
 # Simulation demo (real-printer behavior is unverified): deploy the reBot cell
 # with a passive door hinge and the printer 21 cm further from the robot
 # (d 0.80, in line with the arm), then run the door-opening behavior tree
-# (tools/printer/open_door_bt: installed skills only, parameters in the door
+# (tools/printer/open_door_bt: installed skills, parameters in the door
 # section of configs/rebot/app_config.yaml): look at the marker, find the
 # printer, grab the bar of the purple D handle and swing the door open along its
 # arc. sync_door streams Gazebo's door angle into the belief world meanwhile.
 #
 #   tools/printer/demo_open_door.sh [target_deg]     (default 135)
 #
-# The arm's reach ends near 145 deg; the tree falls back to shorter arcs (115,
+# The arm's reach ends near 145 deg; the tree falls back to shorter arcs (114,
 # 90, 60 deg) when the target cannot be planned. Env: NO_GUI=1 (do not restart
 # the Gazebo GUI). Needs the gz CLI and kubectl.
 #
@@ -84,8 +84,8 @@ kill "$REC" 2>/dev/null || true
 echo "open_door_bt exit code: $rc"
 echo "Belief door (synced from Gazebo), last lines:"
 tail -2 "$TMP/sync.log"
-bazel-bin/tools/printer/control_door $A --action=status | tail -1
+bazel-bin/tools/printer/control_door $A --action=status | tail -1 || true
 echo "Gazebo, from the start of the pull to its end:"
 bazel-bin/research/tools/door_angle "$TMP/poses.jsonl" --every 100000 \
-  | tail -2
+  | tail -2 || true
 exit "$rc"

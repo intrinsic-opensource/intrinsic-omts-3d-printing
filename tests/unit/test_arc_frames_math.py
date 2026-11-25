@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""generate_arc_frames' maths against the retired scripted tool's maths (door.py, knob_matrix).
+"""generate_arc_frames' maths against the retired scripted tool (knob_matrix).
 
 The door-test layout: the printer at world (0.80, -0.0064, 0), yaw +90 deg; the
 hinge frame at door.HINGE_IN_PRINTER in the printer frame (axes of the printer);
@@ -146,7 +146,8 @@ class DoorEquivalenceTest(absltest.TestCase):
         self.assert_same_as_knob_matrix(frames, "fixed")
 
   def test_pitch_matches_knob_matrix(self):
-    # the retired tool's --pitch set door.KNOB_APPROACH_PITCH_DEG for both modes.
+    # the retired tool's --pitch set door.KNOB_APPROACH_PITCH_DEG for both
+    # modes.
     for pitch in (20.0, -15.0, 60.0):
       with mock.patch.object(door, "KNOB_APPROACH_PITCH_DEG", pitch):
         self.assert_same_as_knob_matrix(door_arc(pitch_deg=pitch), "radial")

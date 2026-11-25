@@ -14,6 +14,9 @@
 
 """Opens the printer door with one behavior tree of installed skills.
 
+Only the pinch gripper adapter's short dwell after each gripper command is not a
+skill (a PythonScript sleep).
+
 The tree is src/behaviors/open_door.py's (look at the marker, locate the
 printer, generate the arc frames with ai.omts.generate_arc_frames, grasp the D
 handle, swing the door, longest plannable swing first, release and back off),

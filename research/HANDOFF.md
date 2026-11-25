@@ -1738,7 +1738,7 @@ Check these before building on them.
   minimum. `open_door --retry_step_deg` (default 5) lowers a failing chunk's end
   angle until it plans.
 
-### 5e.13: the door behavior as skills only (done, simulation)
+### 5e.13: the door behavior from skills (done, simulation)
 
 * The scripted logic of `tools/printer/open_door.py` (arc waypoints, tool
   orientation, grasp frames) moves into one generic skill,
@@ -1766,3 +1766,10 @@ Check these before building on them.
   result as the scripted tool (135 deg in about 12 s of motion). Not exercised:
   the Fallback to a shorter arc (the full swing planned) and a mid-motion
   failure.
+* Known gaps: the belief `crank_pivot` is not updated after the swing (the bar
+  has really turned about as far as the door; harmless inside the tree because
+  gripper-bar contact is excluded, but planning after the tree sees it stale);
+  the Fallback also fires on a mid-motion failure, not only on a planning
+  failure (the belief write after a swing is best effort so its failure cannot
+  re-swing the arm); each gripper command is followed by the adapter's 1.5 s
+  PythonScript dwell.

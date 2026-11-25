@@ -23,18 +23,20 @@ Environment: `NO_GUI=1` (do not restart the Gazebo GUI). It needs the `gz` CLI
 and `kubectl`. The arm grips the light-blue bar of a purple D handle that stands
 0.10 m beyond the door's free edge, and the door opens in one blended JOINT
 motion (about 12 s of swing to 135 deg, about 30 s for the whole behavior). The
-tree falls back to shorter arcs (115, 90, 60 deg) when the target cannot be
+tree falls back to shorter arcs (114, from 115, then 90 and 60 deg) when the target cannot be
 planned; the arm's reach ends near 145 deg. A straight Cartesian (`LINEAR`)
 swing would stop near 60 deg, where the gripper passes over the arm's base axis
 (`research/HANDOFF.md` 5e.12). The printer is anchored to `rebot_ground` and
 stands in line with the arm at d 0.80.
 
-### The behavior is skills only
+### The behavior is built from skills
 
 `tools/printer/open_door_bt` runs one Behavior Tree built only from installed
 skills (`src/behaviors/open_door.py`; parameters in the `door:` section of
 `configs/rebot/app_config.yaml`), so the behavior can be rebuilt in a real
-Intrinsic solution (Flowstate) without scripts. All geometry comes from one
+Intrinsic solution (Flowstate) without custom scripts. Every step is a skill
+call; the only other node is a short sleep (a PythonScript) the pinch gripper
+adapter adds after each gripper command. All geometry comes from one
 generic skill, `ai.omts.generate_arc_frames` (`skills/motion/`), which writes
 the tool frames for swinging a grip point about a pivot into the world.
 
@@ -48,7 +50,7 @@ the tool frames for swinging a grip point about a pivot into the world.
 | Release, retreat | `control_pinch_gripper`, `move_robot` (6 cm back along the tool) |
 
 Tools: `open_door_bt` (`--target_deg N`; `--dump=PATH` writes the tree without
-running it; `--no_run` prints its outline), `sync_door` (Gazebo's door angle
+running it, but still needs a deployment to read the installed skills; `--no_run` prints its outline), `sync_door` (Gazebo's door angle
 and the bar's `crank_pivot` angle into the belief world, for a live RViz;
 `--rate_hz`, `--min_change_deg`, `--duration`) and `control_door` (`--action
 open|close|set|status`, `--theta_deg`, `--reset_sim`). Design and results:
