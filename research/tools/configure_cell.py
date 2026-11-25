@@ -99,8 +99,9 @@ def _outfeed_spots(settings: dict) -> list[outfeed.Spot]:
   raise SystemExit(f"outfeed layout must be line or arc, not {layout!r}")
 
 
-def _outfeed_config(count: int) -> str:
-  """app_config.yaml's `outfeed` section, with `count` spots."""
+def _outfeed_config(count: int, transit: bool) -> str:
+  """app_config.yaml's `outfeed` section, with `count` spots and, if the cell
+  has one, the transit frame."""
   spots = "".join(
     f'    - place_frame: "{place}"\n'
     f'      preplace_frame: "{pre}"\n'
@@ -109,16 +110,21 @@ def _outfeed_config(count: int) -> str:
       outfeed.frame_names(OUTFEED_PREFIX, k) for k in range(count)
     )
   )
-  return "outfeed:\n  spots:\n" + spots
+  frame = f'  transit_frame: "{OUTFEED_PREFIX}_transit"\n' if transit else ""
+  return "outfeed:\n  spots:\n" + spots + frame
 
 
 def _app_config(
-  name: str, target: dict, return_x: float, spot_count: int
+  name: str,
+  target: dict,
+  return_x: float,
+  spot_count: int,
+  transit: bool = False,
 ) -> str:
   config = (cell.CONFIGS / "app_config.yaml").read_text()
   config, n = re.subn(
-    r"^outfeed:\n  spots:\n(?:    .*\n|      .*\n)+",
-    lambda _: _outfeed_config(spot_count),
+    r"^outfeed:\n  spots:\n(?:    .*\n|      .*\n)+(?:  transit_frame: .*\n)?",
+    lambda _: _outfeed_config(spot_count, transit),
     config,
     flags=re.M,
   )
@@ -148,6 +154,10 @@ def _outfeed_proto(settings: dict, tilt: float, half_height: float):
     part_half_height_m=half_height,
     frame_prefix=OUTFEED_PREFIX,
   )
+  if settings.get("transit_rotation_degrees") is not None:
+    common["transit_rotation_degrees"] = float(
+      settings["transit_rotation_degrees"]
+    )
   if settings["layout"] == "line":
     line = settings["line"]
     return configure_cell_pb2.Outfeed(
@@ -228,6 +238,13 @@ def _apply(
     print("The simulation now matches")
 
 
+def _turned(pose: np.ndarray, degrees: float) -> np.ndarray:
+  """`pose` turned about the world z axis (the robot's base)."""
+  turn = np.eye(4)
+  turn[:3, :3] = cell.rot_z(math.radians(degrees))
+  return turn @ pose
+
+
 def half_height_of(target: dict) -> float:
   """Half the part's height as it rests on the bed: half its width if it lies."""
   sx, _, sz = target["size_m"]
@@ -251,9 +268,11 @@ def check_cell(
   offset,
   half_height: float,
   spots: list[outfeed.Spot],
+  transit_rotation_degrees: float | None = None,
 ) -> list[str]:
   """The offline checks (research/tools/cell_checks.py) for a part of
-  `half_height` and the outfeed `spots`. Slow: about 20 s."""
+  `half_height` and the outfeed `spots`, with the transit frame if there is a
+  rotation for it. Slow: about 20 s."""
   view = cell_checks.view_for(
     cell_checks.committed_view_camera(), distance, offset
   )
@@ -261,7 +280,7 @@ def check_cell(
   rng = np.random.default_rng(7)
   tilt = cell.app_setting("approach_tilt_degrees")
   approach = cell.app_setting("approach_offset_z")
-  return (
+  problems = (
     cell_checks.check_mount(c)
     + cell_checks.check_view(c, view, half_height, rng)
     + cell_checks.check_grasps(c, half_height, tilt, approach, rng)
@@ -270,6 +289,17 @@ def check_cell(
     )
     + cell_checks.check_outfeed(c, half_height, tilt, spots, rng)
   )
+  if transit_rotation_degrees is not None:
+    problems += cell_checks.check_outfeed_transit(
+      c,
+      view,
+      _turned(view, transit_rotation_degrees),
+      half_height,
+      tilt,
+      spots,
+      rng,
+    )
+  return problems
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -341,8 +371,11 @@ def main(argv: list[str] | None = None) -> None:
     cell_checks.committed_view_camera(), distance, offset
   )
   tilt = cell.app_setting("approach_tilt_degrees")
+  transit_degrees = outfeed_settings.get("transit_rotation_degrees")
   problems = (
-    [] if args.skip_checks else check_cell(distance, offset, half_height, spots)
+    []
+    if args.skip_checks
+    else check_cell(distance, offset, half_height, spots, transit_degrees)
   )
   print(
     f"printer {distance} m, camera {offset}, target {name}, outfeed "
@@ -391,6 +424,8 @@ def main(argv: list[str] | None = None) -> None:
       strict=True,
     ):
       frames[frame_name] = spot_frames[key]
+  if transit_degrees is not None:
+    frames[f"{OUTFEED_PREFIX}_transit"] = _turned(view, transit_degrees)
   others = [n for n in library if n != name]
   if args.no_test_parts:
     others = [n for n in others if n == "rebot_printed_part"]
@@ -398,7 +433,7 @@ def main(argv: list[str] | None = None) -> None:
     others = []
   args.out.mkdir(parents=True, exist_ok=True)
   (args.out / "app_config.yaml").write_text(
-    _app_config(name, target, bed[0], len(spots))
+    _app_config(name, target, bed[0], len(spots), transit_degrees is not None)
   )
   out = args.out.resolve()
 

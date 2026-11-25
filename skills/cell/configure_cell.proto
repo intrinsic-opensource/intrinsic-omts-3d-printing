@@ -85,6 +85,13 @@ message Outfeed {
   optional double grasp_depth_m = 6;
   // The frames' name prefix; default "outfeed".
   optional string frame_prefix = 7;
+  // If set, also creates or moves the frame `<prefix>_transit`: the `view` frame
+  // turned by this many degrees about the z axis of `parent_object` (the robot's
+  // base), so the tool faces the outfeed, e.g. -90 for a line to the robot's
+  // right. The cycle passes through it between `view` and a spot, both ways, to
+  // keep the arm and the held part away from the printer's corner. It follows
+  // `view`: a `view` moved in the same call is the one it is turned from.
+  optional double transit_rotation_degrees = 8;
 }
 
 // The part that is put on the printer's bed, at its resting pose: upright, or on
@@ -169,4 +176,6 @@ message ConfigureCellResult {
   // The outfeed spots' place frames after the change, in `parent_object`, in
   // order; empty if there is no `outfeed`.
   repeated intrinsic_proto.Pose parent_t_outfeed_place = 8;
+  // The outfeed's transit frame, in `parent_object`; unset if there is none.
+  intrinsic_proto.Pose parent_t_outfeed_transit = 9;
 }

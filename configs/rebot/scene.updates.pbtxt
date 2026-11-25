@@ -234,3 +234,34 @@ updates {
     }
   }
 }
+
+# The outfeed's transit frame: `view` turned -90 deg about the robot's base, so
+# the tool faces the outfeed, to the robot's right. The cycle passes through it
+# between `view` and a spot, both ways, which keeps the arm and the held part
+# away from the printer's front-left corner (research/HANDOFF.md, section 5e).
+# `configure_cell` moves it with `view`.
+updates {
+  create_frame {
+    new_frame_name: "outfeed_transit"
+    parent_t_new_frame {
+      position {
+        x: -0.0240
+        y: -0.2912
+        z: 0.2328
+      }
+      orientation {
+        x: 0.612372
+        y: -0.612372
+        z: 0.353554
+        w: 0.353554
+      }
+    }
+    parent_object_with_filter {
+      reference {
+        by_name {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}

@@ -1409,6 +1409,8 @@ parked part. Each spot has A's three frames (place, pre-place, approach), from t
   along each spot's bearing, so every part has the same distance from the robot
   and the same orientation relative to it.
 
+The `outfeed` section also has `transit_rotation_degrees` (see the waypoint below).
+
 **Order** (2026-11-24): spot 0 is the nearest to the printer and each next spot is
 further from it, in both layouts (a negative `spacing` or `step`). The first runs
 below (steps 1 and 2 and the arc fills) used the reverse, with spot 0 at x = -0.10
@@ -1564,7 +1566,27 @@ of the line, so a deploy without `configure_cell` still has one spot.
      the nearest spots within 1 cm of that bezel and the farther ones at 2.7 to
      4.4 cm. A transit waypoint out to the robot's right (offline search: about
      (0.05, -0.35, 0.20), tool at the spots' orientation, 3.1 cm worst over both
-     layouts) would add margin; not built.
+     layouts) would add margin.
+   * **A transit waypoint** (2026-11-25), as asked: the `view` pose turned -90°
+     about the robot's base, so the tool faces the outfeed (a pure swing of joint
+     1 from the `view` configuration). `outfeed_transit` is a frame that
+     `configure_cell`'s outfeed group creates and keeps as `view` turned by
+     `transit_rotation_degrees` (cell_params.yaml, -90; the skill's
+     `Outfeed.transit_rotation_degrees`), following `view` when the printer or camera
+     moves; the committed scene has a copy. The cycle goes `view -> transit ->
+     spot approach -> pre-place` and returns `transit -> view` (`OutfeedConfig.
+     transit_frame`; without it the moves are as before). Offline, a path check
+     (joint-space interpolation, so approximate) over both layouts' five spots
+     gives at least 3.1 cm from the printer (line spot 0, link4 to the left
+     wall), 9.5 cm for the swing from `view`, and 8.7 cm or more for every other spot;
+     `check_cell` runs it, so the checks take about 36 s instead of 22 s (once per
+     fill). Measured in Gazebo through the transit to spot 0, the held part's
+     closest approach to the printer: -1.0 cm originally, +0.6 cm with only the
+     planner fix, 6.3 cm with the waypoint (the closest point is now as it lifts out
+     of the printer, not at the corner). Both layouts then filled all five spots
+     with the checks on, 46 to 68 s per cycle (about 6 s more than before: the
+     detour). The arc's parts ended 5.6 to 5.9 mm from their spots; the line's
+     poses were not read after this run.
    * **Checks once per fill** (2026-11-24). `configure_cell`'s offline checks take
      about 22 s (measured: 21.7 and 21.6 s, file mode, no cluster) and ran before
      every part, while the arm waited. `fill_outfeed` now runs them once before the

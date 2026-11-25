@@ -25,9 +25,15 @@ target: rebot_printed_part
 #    `start_bearing`, `step` apart (degrees, negative steps away from the
 #    printer), each leaning along its bearing: the same distance from the robot
 #    and the same orientation relative to it.
+#
+# `transit_rotation_degrees` makes the cycle pass through a frame between `view`
+# and a spot, both ways: `view` turned by this much about the robot's base, so
+# the tool faces the outfeed (-90 for spots to the robot's right). It keeps the
+# arm and the held part away from the printer's corner. Leave it out for none.
 outfeed:
   layout: line
   count: 5
+  transit_rotation_degrees: -90.0
   line:
     y: -0.50
     start_x: 0.30

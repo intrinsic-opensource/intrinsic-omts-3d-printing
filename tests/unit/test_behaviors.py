@@ -647,7 +647,44 @@ class BehaviorsTest(absltest.TestCase):
     for move in release_moves:
       for pair in move["excluded_collision_pairs"] or []:
         self.assertNotIn("printer", pair, move["name"])
+    # Between view and the spot, both ways, the arm passes through the transit
+    # frame, which keeps it out of the printer's corner.
+    self.assertEqual(rebot_config.outfeed.transit_frame, "outfeed_transit")
+    blended = [
+      [frame for _, frame in call.kwargs["target_frames"]]
+      for call in self.robot.build_move_blended_cartesian_task.call_args_list
+    ]
+    going = next(frames for frames in blended if spot.approach_frame in frames)
+    self.assertEqual(
+      going[:3], ["view", "outfeed_transit", spot.approach_frame], going
+    )
     # The arm ends at view, ready for the next pick.
+    self.assertEqual(blended[-1], ["outfeed_transit", "view"])
+    last = self.robot.build_move_blended_cartesian_task.call_args_list[-1]
+    self.assertEqual(last.kwargs["name"], "Return to view via outfeed_transit")
+
+  def test_without_a_transit_frame_the_arm_returns_to_view_directly(self):
+    config = load_app_config("configs/rebot/app_config.yaml")
+    assert config.outfeed is not None
+    config = dataclasses.replace(
+      config, outfeed=dataclasses.replace(config.outfeed, transit_frame=None)
+    )
+    build_machine_tending_behavior_tree(
+      robot=self.robot,
+      gripper=self.gripper,
+      machine=None,
+      vision=self.vision,
+      infeed_strategy=self.infeed_strategy,
+      config=config,
+      num_cycles_override=1,
+    )
+    spot = config.outfeed.spots[0]
+    blended = [
+      [frame for _, frame in call.kwargs["target_frames"]]
+      for call in self.robot.build_move_blended_cartesian_task.call_args_list
+    ]
+    going = next(frames for frames in blended if spot.approach_frame in frames)
+    self.assertNotIn("outfeed_transit", going)
     last = self.robot.build_move_cartesian_task.call_args_list[-1].kwargs
     self.assertEqual(last["name"], "Return to view")
 

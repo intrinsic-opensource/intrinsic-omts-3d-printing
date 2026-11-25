@@ -397,6 +397,58 @@ class ConfigureCellTest(absltest.TestCase):
       list(world.root_t["outfeed_0_place"].translation), [0.0, -0.6, 0.015]
     )
 
+  def test_the_transit_frame_is_the_view_turned_about_the_base(self):
+    world = _World()
+    view_before = world.root_t["view"]
+    result = _run(
+      world, outfeed=self._outfeed(count=1, transit_rotation_degrees=-90.0)
+    )
+    self.assertIn("outfeed_transit", world.created)
+    turn = _pose((0, 0, 0), _yaw(-90))
+    expected = turn * view_before
+    got = world.root_t["outfeed_transit"]
+    self.assertSequenceAlmostEqual(
+      list(got.translation), list(expected.translation)
+    )
+    self.assertSequenceAlmostEqual(
+      list(got.rotation.quaternion.xyzw),
+      list(expected.rotation.quaternion.xyzw),
+    )
+    self.assertTrue(result.HasField("parent_t_outfeed_transit"))
+
+  def test_the_transit_frame_follows_a_view_moved_in_the_same_call(self):
+    world = _World()
+    _run(
+      world,
+      printer_distance_m=0.62,
+      outfeed=self._outfeed(count=1, transit_rotation_degrees=-90.0),
+    )
+    moved_view = world.root_t["view"]
+    turn = _pose((0, 0, 0), _yaw(-90))
+    self.assertSequenceAlmostEqual(
+      list(world.root_t["outfeed_transit"].translation),
+      list((turn * moved_view).translation),
+    )
+
+  def test_no_transit_rotation_means_no_transit_frame(self):
+    world = _World()
+    result = _run(world, outfeed=self._outfeed(count=1))
+    self.assertNotIn("outfeed_transit", world.created)
+    self.assertFalse(result.HasField("parent_t_outfeed_transit"))
+
+  def test_a_transit_rotation_out_of_range_is_refused(self):
+    world = _World()
+    for turn in (181.0, -200.0, float("nan")):
+      self.assertEqual(
+        _code(
+          world,
+          outfeed=self._outfeed(count=1, transit_rotation_degrees=turn),
+        ),
+        skill.INVALID_INPUT,
+        turn,
+      )
+    self.assertEmpty(world.batches)
+
   def test_the_outfeed_and_the_printer_go_in_one_update(self):
     world = _World()
     _run(world, printer_distance_m=0.60, outfeed=self._outfeed(count=2))

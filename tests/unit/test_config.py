@@ -109,6 +109,7 @@ class ConfigTest(absltest.TestCase):
     outfeed = load_app_config("configs/rebot/app_config.yaml").outfeed
     assert outfeed is not None
     self.assertEqual(outfeed.spots[0].place_frame, "outfeed_0_place")
+    self.assertEqual(outfeed.transit_frame, "outfeed_transit")
     self.assertIsNone(load_app_config("configs/omts/app_config.yaml").outfeed)
     self.assertIsNone(
       load_app_config("configs/lab_bb_01/app_config.yaml").outfeed

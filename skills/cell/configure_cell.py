@@ -282,6 +282,7 @@ class ConfigureCell(skill_interface.Skill):
     )
 
     updates = []
+    view_pose = None
     if new_distance is not None:
       updates.append(
         _update(
@@ -322,6 +323,7 @@ class ConfigureCell(skill_interface.Skill):
       new_parent_t_view = _shifted(parent_t_camera_at_view, dx=dx) * (
         new_tool_t_camera.inverse()
       )
+      view_pose = new_parent_t_view
       updates.append(
         _update(
           _object_ref(parent_name),
@@ -336,7 +338,18 @@ class ConfigureCell(skill_interface.Skill):
     if drop is not None:
       self._drop_off_updates(parent, parent_name, drop, updates, result)
     if line is not None:
-      self._outfeed_updates(parent, parent_name, line, updates, result)
+      transit_from = None
+      if line.HasField("transit_rotation_degrees"):
+        transit_from = (
+          view_pose
+          if view_pose is not None
+          else world.get_transform(
+            parent, _frame_of(parent, view_name, "View frame")
+          )
+        )
+      self._outfeed_updates(
+        parent, parent_name, line, updates, result, transit_from
+      )
     if target is not None or params.parked:
       for name in [target.object_name] if target is not None else []:
         _node(world, name, "Part object")
@@ -530,11 +543,20 @@ class ConfigureCell(skill_interface.Skill):
       raise skill_interface.SkillError(
         INVALID_INPUT, "outfeed.frame_prefix is empty"
       )
+    turn = _optional(line, "transit_rotation_degrees", 0.0)
+    if not math.isfinite(turn) or abs(turn) > 180.0:
+      raise skill_interface.SkillError(
+        INVALID_INPUT,
+        f"outfeed.transit_rotation_degrees {turn} is outside [-180, 180]",
+      )
 
   @staticmethod
-  def _outfeed_updates(parent, parent_name, line, updates, result) -> None:
+  def _outfeed_updates(
+    parent, parent_name, line, updates, result, view_pose=None
+  ) -> None:
     """Moves the outfeed spots' frames, or creates those that are missing, in the
-    same batch as the rest."""
+    same batch as the rest. With `view_pose` (the `view` frame's pose), also sets
+    the transit frame: that pose turned about the parent's z axis."""
     prefix = _optional(line, "frame_prefix", "outfeed")
     depth = _optional(line, "grasp_depth_m", 0.0)
     for index, spot in enumerate(_outfeed_spots(line)):
@@ -556,6 +578,24 @@ class ConfigureCell(skill_interface.Skill):
           result.parent_t_outfeed_place.append(
             math_proto_conversion.pose_to_proto(pose)
           )
+    if view_pose is not None:
+      turn = data_types.Pose3(
+        data_types.Rotation3.from_euler_angles(
+          rpy_radians=[0.0, 0.0, math.radians(line.transit_rotation_degrees)]
+        ),
+        [0.0, 0.0, 0.0],
+      )
+      pose = turn * view_pose
+      name = f"{prefix}_transit"
+      if name in parent.frame_names:
+        updates.append(
+          _update(_object_ref(parent_name), _frame_ref(parent_name, name), pose)
+        )
+      else:
+        updates.append(_create_frame(parent_name, name, pose))
+      result.parent_t_outfeed_transit.CopyFrom(
+        math_proto_conversion.pose_to_proto(pose)
+      )
 
   @staticmethod
   def _drop_off_updates(parent, parent_name, drop, updates, result) -> None:

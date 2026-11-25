@@ -407,9 +407,14 @@ class OutfeedConfig:
   Attributes:
       spots: The line's spots, in the order they are filled. Only the first is
         used for now.
+      transit_frame: Optional frame the arm passes through between `view` and a
+        spot, both ways: `view` turned about the robot's base so the tool faces
+        the outfeed. Without it the move from `view` to a spot is planned in one
+        go, which can sweep the held part past the printer's corner.
   """
 
   spots: tuple[OutfeedSpot, ...]
+  transit_frame: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -595,7 +600,10 @@ def _load_outfeed(
         f"outfeed spot {index} of {file_path}"
       )
   return OutfeedConfig(
-    spots=tuple(OutfeedSpot(**{k: spot[k] for k in required}) for spot in spots)
+    spots=tuple(
+      OutfeedSpot(**{k: spot[k] for k in required}) for spot in spots
+    ),
+    transit_frame=section.get("transit_frame"),
   )
 
 

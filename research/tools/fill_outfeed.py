@@ -100,7 +100,13 @@ def _offline_checks(parts, library, layout: str, count: int, reset: bool):
   failed = []
   for half_height in heights:
     print(f"=== offline checks, part half height {half_height * 1000:.0f} mm")
-    problems = configure_cell.check_cell(distance, offset, half_height, spots)
+    problems = configure_cell.check_cell(
+      distance,
+      offset,
+      half_height,
+      spots,
+      params["outfeed"].get("transit_rotation_degrees"),
+    )
     for problem in problems:
       print(f"  FAILS {problem}")
     failed += problems

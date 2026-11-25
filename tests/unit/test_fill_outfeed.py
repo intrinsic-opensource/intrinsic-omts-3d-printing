@@ -93,6 +93,9 @@ class FillOutfeedTest(absltest.TestCase):
     self.assertEqual(self.checks.call_count, 2)
     half_heights = sorted(c.args[2] for c in self.checks.call_args_list)
     self.assertEqual(half_heights, [0.015, 0.02])
+    # The checks include the outfeed's transit frame.
+    for call in self.checks.call_args_list:
+      self.assertEqual(call.args[4], -90.0)
     for call in self.configure.call_args_list:
       self.assertIn("--skip_checks", call.args[0])
     # The checks come before the first part is put on the bed.
